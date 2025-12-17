@@ -20,7 +20,7 @@ export const pdfScript = `
 
             const monthStr = document.getElementById('queryMonth').value;
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
-            page.drawText(' OT/當更 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
+            page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
             yPos -= 40;
 
             const col = { d: 40, item: 130, detail: 350, val: 480 };
@@ -49,20 +49,24 @@ export const pdfScript = `
                     const mins = getMinutesDiff(r.start, r.end);
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                     valStr = formatHours(mins) + ' hr';
+                } else if (r.type === 'transport') {
+                    // === 交通費 PDF 邏輯 ===
+                    itemStr = '交通費';
+                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    detailFont = chineseFont; 
+                    valStr = '$' + amount;
+                    // 交通費我們用 黑色 或 深橙色，這裡用黑色即可，與 Income 區分
                 } else if (r.type === 'oncall') {
                     itemStr = '當更 On-Call';
                     const startD = r.date.split('-')[2];
                     const endD = r.endDate ? r.endDate.split('-')[2] : '';
                     detailStr = \`\${startD}日 - \${endD}日\`;
-                    detailFont = chineseFont; // 日期包含中文
+                    detailFont = chineseFont;
                     valStr = '$' + amount;
                     isMoney = true;
                 } else { 
-                    // === Call 邏輯修改 ===
                     itemStr = 'Call';
-                    // 詳情顯示備註，若無則顯示 -
                     detailStr = r.location ? \`(\${r.location})\` : '-';
-                    // 備註可能含中文，強制使用中文字型
                     detailFont = chineseFont;
                     valStr = '$' + amount;
                     isMoney = true;
@@ -74,6 +78,8 @@ export const pdfScript = `
                 drawTxt(safeItem, col.item, chineseFont);
                 
                 drawTxt(detailStr, col.detail, detailFont);
+                
+                // 收入顯示綠色，交通費顯示黑色(或可自訂顏色)
                 drawTxt(valStr, col.val, helveticaBold, isMoney ? rgb(0,0.5,0) : rgb(0,0,0));
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
@@ -86,13 +92,22 @@ export const pdfScript = `
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
+            // 總時數
             drawTxt("總時數: ", 350, chineseFont);
             drawTxt(formatHours(grandTotalMinutes) + " hr", 410, helveticaBold);
-            
             yPos -= 20;
-            drawTxt("總金額: ", 350, chineseFont);
-            drawTxt("$" + grandTotalMoney, 410, helveticaBold, rgb(0,0.5,0));
 
+            // 總收入
+            drawTxt("總收入: ", 350, chineseFont);
+            drawTxt("$" + grandTotalMoney, 410, helveticaBold, rgb(0,0.5,0));
+            yPos -= 20;
+
+            // === 總交通費 ===
+            drawTxt("總交通: ", 350, chineseFont);
+            // 交通費金額用一般黑色或橙色
+            drawTxt("$" + grandTotalTransport, 410, helveticaBold); // 黑色
+            // 若想用橙色: rgb(0.8, 0.4, 0)
+            
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
