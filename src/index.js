@@ -1,12 +1,12 @@
 // src/index.js
+
 import { handleAdd, handleGet, handleListMonths } from './api.js';
-import { getHtml } from './ui.js';
+import { getHtml } from './ui/index.js'; // <--- 改這裡，指向新的 ui 資料夾
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // API 路由分配
     if (url.pathname === '/api/add' && request.method === 'POST') {
       return handleAdd(request, env);
     }
@@ -19,7 +19,6 @@ export default {
       return handleListMonths(request, env);
     }
 
-    // 預設：回傳 UI 網頁
     return new Response(getHtml(), {
       headers: { 'content-type': 'text/html;charset=UTF-8' },
     });
