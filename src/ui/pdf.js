@@ -37,12 +37,16 @@ export const pdfScript = `
             yPos -= 25;
 
             for (const r of currentRecords) {
+                const amount = Number(r.amount) || 0; 
+                
+                // === 過濾：金額為 0 則不列印 ===
+                if (r.type !== 'hourly' && amount === 0) continue;
+                // ============================
+
                 let itemStr = '', detailStr = '', valStr = '';
                 let isMoney = false;
-                
-                // === 修復：強制處理金額為數字 ===
-                const amount = Number(r.amount) || 0; 
-                // ============================
+                // 預設詳情用 Helvetica (適合數字/時間)
+                let detailFont = helvetica; 
 
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
@@ -51,7 +55,15 @@ export const pdfScript = `
                     valStr = formatHours(mins) + ' hr';
                 } else if (r.type === 'oncall') {
                     itemStr = '當更 On-Call';
-                    detailStr = r.endDate ? \`~ \${r.endDate}\` : '';
+                    // === 格式化：XX日 - XX日 ===
+                    const startD = r.date.split('-')[2];
+                    const endD = r.endDate ? r.endDate.split('-')[2] : '';
+                    detailStr = \`\${startD}日 - \${endD}日\`;
+                    // ========================
+                    
+                    // 因為包含中文 "日"，必須切換字型
+                    detailFont = chineseFont; 
+
                     valStr = '$' + amount;
                     isMoney = true;
                 } else { 
@@ -65,7 +77,9 @@ export const pdfScript = `
                 const safeItem = itemStr.length > 15 ? itemStr.substring(0,14)+'...' : itemStr;
                 drawTxt(safeItem, col.item, chineseFont);
                 
-                drawTxt(detailStr, col.detail, helvetica);
+                // 使用動態決定的 detailFont
+                drawTxt(detailStr, col.detail, detailFont);
+                
                 drawTxt(valStr, col.val, helveticaBold, isMoney ? rgb(0,0.5,0) : rgb(0,0,0));
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
