@@ -9,18 +9,16 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
 
-    // === 新增：初始化 PIN 碼 ===
+    // === 初始化與 PIN 管理 ===
     (function initPin() {
         const savedPin = localStorage.getItem('ot_pin');
         if (savedPin) {
             document.getElementById('pin').value = savedPin;
             document.getElementById('rememberPin').checked = true;
-            // 如果有 PIN，自動載入歷史月份，讓介面看起來已準備好
             fetchHistoryMonths();
         }
     })();
 
-    // === 新增：管理 PIN 碼儲存 ===
     function managePinStorage() {
         const pin = document.getElementById('pin').value;
         const remember = document.getElementById('rememberPin').checked;
@@ -107,30 +105,53 @@ export const logicScript = `
         } catch(err) { alert(err.message); }
     }
 
-    async function deleteMonth(month) {
+    // === 修改重點：優化刪除月份功能 ===
+    async function deleteMonth(month, btnElement) {
         if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        
         const pin = document.getElementById('pin').value;
+        
+        // 1. 立即禁用按鈕，防止重複點擊
+        btnElement.disabled = true;
+        btnElement.innerText = '...';
+
         try {
             const res = await fetch('/api/delete_month', {
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
+                // 2. 刪除成功，直接從畫面上移除該按鈕 (不依賴 fetchHistoryMonths)
+                // 按鈕結構是 button -> div (group) -> div (container)
+                // 我們移除包含該按鈕的父層 div (inline-flex group)
+                btnElement.parentNode.remove();
+
+                // 3. 清空當前顯示的報表 (如果剛好是顯示被刪除的月份)
+                const currentViewMonth = document.getElementById('queryMonth').value;
+                if (currentViewMonth === month) {
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
+                    document.getElementById('calendarView').classList.add('hidden');
+                    document.getElementById('totalSummary').classList.add('hidden');
+                    document.getElementById('pdfBtn').classList.add('hidden');
+                }
+                
                 alert('已刪除 ' + month + ' 的資料');
-                document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
-                document.getElementById('calendarView').classList.add('hidden');
-                document.getElementById('totalSummary').classList.add('hidden');
-                document.getElementById('pdfBtn').classList.add('hidden');
-                fetchHistoryMonths();
-            } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { 
+            alert(err.message); 
+            // 失敗時恢復按鈕
+            btnElement.disabled = false;
+            btnElement.innerText = '✕';
+        }
     }
+    // =================================
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
         if(!pin) return;
         
-        // 執行任何操作時，更新儲存狀態
         managePinStorage();
 
         try {
@@ -142,13 +163,14 @@ export const logicScript = `
             
             if(months.length > 0) {
                 area.classList.remove('hidden');
+                // === 修改：傳入 'this' 以便刪除時操作 DOM ===
                 badges.innerHTML = months.map(m => \`
-                    <div class="inline-flex rounded-md shadow-sm" role="group">
+                    <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
                                 class="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 border border-indigo-200 rounded-l-lg hover:bg-indigo-200 focus:z-10 focus:ring-2 focus:ring-indigo-400">
                             \${m}
                         </button>
-                        <button type="button" onclick="deleteMonth('\${m}')" 
+                        <button type="button" onclick="deleteMonth('\${m}', this)" 
                                 class="px-2 py-1 text-xs font-medium text-red-600 bg-indigo-100 border-t border-b border-r border-indigo-200 rounded-r-lg hover:bg-red-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-red-400" title="刪除整月">
                             ✕
                         </button>
@@ -199,7 +221,6 @@ export const logicScript = `
         const btn = e.target.querySelector('button');
         btn.disabled = true; btn.innerText = '儲存中...';
 
-        // 儲存記錄時，也更新 PIN 碼儲存狀態
         managePinStorage();
 
         try {
@@ -294,7 +315,6 @@ export const logicScript = `
         const monthStr = document.getElementById('queryMonth').value; 
         if(!pin) return alert('請先輸入 PIN 密碼');
         
-        // 查詢時也更新 PIN 儲存狀態
         managePinStorage();
 
         const listEl = document.getElementById('recordsList');
