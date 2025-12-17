@@ -7,7 +7,7 @@ export const logicScript = `
     let currentRecords = [];
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
-    let grandTotalTransport = 0; // 新增：交通費總計
+    let grandTotalTransport = 0;
 
     function setType(type) {
         document.getElementById('amount').value = '';
@@ -55,7 +55,6 @@ export const logicScript = `
                 fieldRemarks.classList.remove('hidden'); 
                 document.getElementById('endDate').required = false;
 
-                // 根據類型修改備註的標題提示
                 if (type === 'transport') {
                     labelRemarks.innerText = '行程/詳情 (選填)';
                     document.getElementById('moneyRemarks').placeholder = '例如：公司 -> 客戶 (的士)';
@@ -204,7 +203,7 @@ export const logicScript = `
         
         const otDays = new Set();
         const moneyDays = new Set();
-        const transportDays = new Set(); // 新增：交通費日子
+        const transportDays = new Set();
 
         records.forEach(r => {
             const d = parseInt(r.date.split('-')[2]);
@@ -231,13 +230,12 @@ export const logicScript = `
             const div = document.createElement('div');
             div.innerText = d;
             
-            // 簡易的顏色優先級： OT+Money > Money > Transport > OT
             if (otDays.has(d) && moneyDays.has(d)) {
                 div.className = 'calendar-day has-both';
             } else if (moneyDays.has(d)) {
                 div.className = 'calendar-day has-money';
             } else if (transportDays.has(d)) {
-                div.className = 'calendar-day has-transport'; // 橙色
+                div.className = 'calendar-day has-transport';
             } else if (otDays.has(d)) {
                 div.className = 'calendar-day has-ot';
             } else {
@@ -265,7 +263,7 @@ export const logicScript = `
             currentRecords = data;
             grandTotalMinutes = 0;
             grandTotalMoney = 0;
-            grandTotalTransport = 0; // 重置
+            grandTotalTransport = 0;
             
             const [y, m] = monthStr.split('-').map(Number);
             renderCalendar(y, m, data);
@@ -290,7 +288,6 @@ export const logicScript = `
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'transport') {
-                        // === 交通費邏輯 ===
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-yellow-600 font-bold">交通費</span>\`;
                         detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
@@ -302,7 +299,7 @@ export const logicScript = `
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
                         value = \`$\${amount}\`;
-                    } else { // percall
+                    } else { 
                         grandTotalMoney += amount;
                         typeLabel = \`<span class="text-green-600 font-bold">Call</span>\`;
                         detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
@@ -324,9 +321,15 @@ export const logicScript = `
                 html += '</tbody></table>';
                 listEl.innerHTML = html;
 
+                // === 計算總計 ===
+                const totalAll = grandTotalMoney + grandTotalTransport;
+                // ==============
+
                 document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
                 document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
-                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport; // 顯示總交通費
+                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
+                document.getElementById('sumAll').innerText = '$' + totalAll; // 更新總計
+                
                 summaryEl.classList.remove('hidden');
                 document.getElementById('pdfBtn').classList.remove('hidden');
             }
