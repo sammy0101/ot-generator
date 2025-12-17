@@ -10,8 +10,10 @@ export const logicScript = `
     let grandTotalTransport = 0;
 
     function setType(type) {
+        // 重置欄位
         document.getElementById('amount').value = '';
         document.getElementById('moneyRemarks').value = ''; 
+        document.getElementById('transportSelect').selectedIndex = 0; // 重置下拉選單
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
@@ -29,6 +31,10 @@ export const logicScript = `
         const fieldRemarks = document.getElementById('field-remarks');
         const labelDate = document.getElementById('label-date');
         const labelRemarks = document.getElementById('label-remarks');
+        
+        // 取得輸入元件
+        const inputRemarks = document.getElementById('moneyRemarks');
+        const selectTransport = document.getElementById('transportSelect');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -47,20 +53,25 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
+                fieldRemarks.classList.add('hidden'); // 當更不需要備註
                 document.getElementById('endDate').required = true;
             } else { 
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); 
+                fieldRemarks.classList.remove('hidden');
                 document.getElementById('endDate').required = false;
 
                 if (type === 'transport') {
-                    labelRemarks.innerText = '行程/詳情 (選填)';
-                    document.getElementById('moneyRemarks').placeholder = '例如：公司 -> 客戶 (的士)';
+                    // === 交通：顯示下拉選單，隱藏文字框 ===
+                    labelRemarks.innerText = '行程/詳情';
+                    inputRemarks.classList.add('hidden');
+                    selectTransport.classList.remove('hidden');
                 } else {
+                    // === Call：顯示文字框，隱藏下拉選單 ===
                     labelRemarks.innerText = '備註 (選填)';
-                    document.getElementById('moneyRemarks').placeholder = '例如：重啟 Server';
+                    inputRemarks.classList.remove('hidden');
+                    selectTransport.classList.add('hidden');
+                    inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
         }
@@ -176,7 +187,15 @@ export const logicScript = `
                 payload.end = document.getElementById('end').value;
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
-                payload.location = document.getElementById('moneyRemarks').value || '';
+                
+                // === 修改：根據類型從不同地方取值 ===
+                if (type === 'transport') {
+                    payload.location = document.getElementById('transportSelect').value;
+                } else {
+                    payload.location = document.getElementById('moneyRemarks').value || '';
+                }
+                // =================================
+
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
@@ -190,6 +209,8 @@ export const logicScript = `
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
+                // 儲存後重置下拉選單
+                document.getElementById('transportSelect').selectedIndex = 0; 
 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
@@ -290,6 +311,7 @@ export const logicScript = `
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-yellow-600 font-bold">交通費</span>\`;
+                        // 交通費的 location 現在是選單的值 (例如: "隧道")
                         detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     } else if (r.type === 'oncall') {
@@ -321,14 +343,11 @@ export const logicScript = `
                 html += '</tbody></table>';
                 listEl.innerHTML = html;
 
-                // === 計算總計 ===
                 const totalAll = grandTotalMoney + grandTotalTransport;
-                // ==============
-
                 document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
                 document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
                 document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
-                document.getElementById('sumAll').innerText = '$' + totalAll; // 更新總計
+                document.getElementById('sumAll').innerText = '$' + totalAll; 
                 
                 summaryEl.classList.remove('hidden');
                 document.getElementById('pdfBtn').classList.remove('hidden');
