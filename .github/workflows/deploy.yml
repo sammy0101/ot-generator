@@ -1,0 +1,22 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main  # 當推送到 main 分支時觸發，如果你的分支叫 master 請改為 master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 如果你的 package.json 裡面沒有安裝 wrangler，可以在這裡強制指定版本，例如：
+          # wranglerVersion: '3'
