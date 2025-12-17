@@ -10,7 +10,7 @@ export const logicScript = `
 
     function setType(type) {
         document.getElementById('amount').value = '';
-        document.getElementById('moneyRemarks').value = ''; // 切換時清空備註
+        document.getElementById('moneyRemarks').value = ''; 
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall'].forEach(t => {
@@ -25,6 +25,7 @@ export const logicScript = `
         const groupHourly = document.getElementById('group-hourly');
         const groupMoney = document.getElementById('group-money');
         const fieldEndDate = document.getElementById('field-endDate');
+        const fieldRemarks = document.getElementById('field-remarks'); // 取得備註區塊
         const labelDate = document.getElementById('label-date');
 
         if (type === 'hourly') {
@@ -44,10 +45,12 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
+                fieldRemarks.classList.add('hidden'); // === 當更：隱藏備註 ===
                 document.getElementById('endDate').required = true;
             } else { 
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
+                fieldRemarks.classList.remove('hidden'); // === Call：顯示備註 ===
                 document.getElementById('endDate').required = false;
             }
         }
@@ -163,9 +166,7 @@ export const logicScript = `
                 payload.end = document.getElementById('end').value;
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
-                // === 修改：儲存備註到 location 欄位 ===
                 payload.location = document.getElementById('moneyRemarks').value || '';
-                // ===================================
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
@@ -176,7 +177,6 @@ export const logicScript = `
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
                 
-                // 清空
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
@@ -266,9 +266,7 @@ export const logicScript = `
 
                     let detail = '', value = '', typeLabel = '';
                     
-                    // === 修改：在列表顯示備註 (r.location) ===
                     const remark = r.location ? \` <span class="text-gray-400 font-normal">(\${r.location})</span>\` : '';
-                    // =====================================
 
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
@@ -278,7 +276,8 @@ export const logicScript = `
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-green-600 font-bold">當更</span>\${remark}\`;
+                        // 當更這裡不需要顯示 remark (因為輸入時已經隱藏了，location 應該是空的，不過顯示邏輯保留無妨)
+                        typeLabel = \`<span class="text-green-600 font-bold">當更</span>\`; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
