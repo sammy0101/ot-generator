@@ -11,18 +11,9 @@ export const htmlContent = `
     <style>
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
-        
-        /* 樣式定義 */
-        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; } /* 藍色 */
-        .has-money { background-color: #059669; color: white; font-weight: bold; } /* 綠色 */
-        
-        /* 雙色樣式：左上藍，右下綠 */
-        .has-both { 
-            background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); 
-            color: white; 
-            font-weight: bold; 
-        }
-        
+        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
+        .has-money { background-color: #059669; color: white; font-weight: bold; }
+        .has-both { background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); color: white; font-weight: bold; }
         .no-ot { background-color: #F3F4F6; color: #9CA3AF; }
         .empty-day { background-color: transparent; }
     </style>
@@ -40,7 +31,6 @@ export const htmlContent = `
             <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">月結報表</button>
         </div>
 
-        <!-- 分頁 1: 新增記錄 -->
         <div id="view-record">
             <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
                 <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 transition">🕒 時數 OT</button>
@@ -56,7 +46,6 @@ export const htmlContent = `
                     <input type="date" id="date" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required>
                 </div>
 
-                <!-- 欄位組 A: 時數 OT -->
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">地點</label>
@@ -75,7 +64,6 @@ export const htmlContent = `
                     <div class="text-right text-sm text-gray-500 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
 
-                <!-- 欄位組 B: 金額 (當更/Call) -->
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-700">結束日期 (至)</label>
@@ -91,7 +79,6 @@ export const htmlContent = `
             </form>
         </div>
 
-        <!-- 分頁 2: 月結報表 -->
         <div id="view-export" class="hidden">
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
@@ -107,7 +94,7 @@ export const htmlContent = `
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-600">
                     <span class="flex items-center"><span class="w-3 h-3 bg-indigo-600 rounded mr-1"></span>OT</span>
                     <span class="flex items-center"><span class="w-3 h-3 bg-green-600 rounded mr-1"></span>當更/Call</span>
-                    <span class="flex items-center"><span class="w-3 h-3 mr-1" style="background: linear-gradient(135deg, #4F46E5 50%, #059669 50%)"></span>重疊</span>
+                    <!-- 移除了重疊的圖示說明 -->
                 </div>
             </div>
 
