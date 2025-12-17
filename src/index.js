@@ -100,10 +100,22 @@ function htmlUI() {
         <div id="view-export" class="hidden">
             <h2 class="text-xl font-bold mb-4 text-gray-800">生成 PDF 報表</h2>
             
-            <div class="flex gap-2 mb-4">
-                <input type="month" id="queryMonth" class="flex-1 border border-gray-300 rounded-md p-2">
-                <button onclick="loadRecords()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">查詢</button>
+            <!-- 修改區開始：自定義年份與月份選擇器 -->
+            <div class="flex gap-2 mb-4 items-end">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-500 mb-1">年份</label>
+                    <select id="selYear" class="w-full border border-gray-300 rounded-md p-2 bg-white"></select>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-500 mb-1">月份</label>
+                    <select id="selMonth" class="w-full border border-gray-300 rounded-md p-2 bg-white"></select>
+                </div>
+                <!-- 隱藏的 input，用來相容原本的程式邏輯 -->
+                <input type="hidden" id="queryMonth">
+                
+                <button onclick="loadRecords()" class="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 h-[42px]">查詢</button>
             </div>
+            <!-- 修改區結束 -->
 
             <!-- 列表顯示區 -->
             <div id="recordsList" class="bg-gray-50 rounded-md border border-gray-200 p-4 mb-4 max-h-60 overflow-y-auto text-sm space-y-2">
@@ -123,8 +135,47 @@ function htmlUI() {
     </div>
 
     <script>
-        document.getElementById('date').valueAsDate = new Date();
-        document.getElementById('queryMonth').value = new Date().toISOString().slice(0, 7);
+        // === 初始化邏輯修改 ===
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
+        const selYear = document.getElementById('selYear');
+        const selMonth = document.getElementById('selMonth');
+        const hiddenInput = document.getElementById('queryMonth');
+        
+        // 1. 生成年份選項 (前後各推1年，可自行調整)
+        for(let y = currentYear - 1; y <= currentYear + 1; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.innerText = y + " 年";
+            if(y === currentYear) opt.selected = true;
+            selYear.appendChild(opt);
+        }
+
+        // 2. 生成月份選項 (01-12，強制阿拉伯數字)
+        for(let m = 1; m <= 12; m++) {
+            const opt = document.createElement('option');
+            const val = m.toString().padStart(2, '0'); // 補零: "01", "02"
+            opt.value = val;
+            opt.innerText = val + " 月"; // 這裡可以完全控制顯示格式！
+            if(m === currentMonth) opt.selected = true;
+            selMonth.appendChild(opt);
+        }
+
+        // 3. 連動更新隱藏的 queryMonth 數值，保持格式為 "YYYY-MM"
+        function updateQueryValue() {
+            hiddenInput.value = \`\${selYear.value}-\${selMonth.value}\`;
+        }
+        
+        selYear.addEventListener('change', updateQueryValue);
+        selMonth.addEventListener('change', updateQueryValue);
+        
+        // 初始化一次
+        updateQueryValue();
+        document.getElementById('date').valueAsDate = now;
+
+        // === 以下為原有邏輯 (PDF 生成與 API) ===
         let currentRecords = [];
         let grandTotalMinutes = 0;
 
@@ -194,7 +245,7 @@ function htmlUI() {
 
         async function loadRecords() {
             const pin = document.getElementById('pin').value;
-            const month = document.getElementById('queryMonth').value;
+            const month = document.getElementById('queryMonth').value; // 這裡會讀取我們組裝好的 YYYY-MM
             if(!pin) return alert('請先輸入 PIN 密碼');
 
             const listEl = document.getElementById('recordsList');
@@ -252,28 +303,23 @@ function htmlUI() {
                 const pdfDoc = await PDFDocument.create();
                 pdfDoc.registerFontkit(fontkit);
 
-                // 1. 載入標準字型 (數字/英文)
                 const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
                 const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-                // 2. 載入中文字型 (中文)
                 const fontBytes = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@4.5.12/files/noto-sans-tc-all-400-normal.woff').then(res => res.arrayBuffer());
                 const chineseFont = await pdfDoc.embedFont(fontBytes);
 
-                const page = pdfDoc.addPage([595.28, 841.89]); // A4
+                const page = pdfDoc.addPage([595.28, 841.89]);
                 const { width, height } = page.getSize();
                 
                 let yPos = height - 60;
                 const marginX = 40;
 
-                // --- 標題區 ---
                 const monthStr = document.getElementById('queryMonth').value;
                 page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
                 page.drawText(' OT 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
                 
                 yPos -= 40;
 
-                // --- 表格標題列 ---
                 const colX = { date: 40, loc: 130, time: 350, hours: 480 };
                 const fontSize = 11;
 
@@ -285,23 +331,17 @@ function htmlUI() {
                 page.drawLine({ start: { x: marginX, y: yPos - 5 }, end: { x: width - marginX, y: yPos - 5 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
                 yPos -= 25;
 
-                // --- 內容迴圈 ---
                 for (const rec of currentRecords) {
                     const mins = getMinutesDiff(rec.start, rec.end);
                     const timeStr = \`\${rec.start.replace(':','')} - \${rec.end.replace(':','')}\`;
                     const hoursStr = formatHours(mins);
 
-                    // 日期 (英數)
                     page.drawText(rec.date, { x: colX.date, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
-
-                    // 地點 (中文)
+                    
                     const safeLoc = rec.location.length > 15 ? rec.location.substring(0,14)+'...' : rec.location;
                     page.drawText(safeLoc, { x: colX.loc, y: yPos, size: fontSize, font: chineseFont, color: rgb(0,0,0) });
 
-                    // 時間 (英數)
                     page.drawText(timeStr, { x: colX.time, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
-
-                    // 時數 (英數)
                     page.drawText(hoursStr, { x: colX.hours, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
 
                     page.drawLine({ start: { x: marginX, y: yPos - 8 }, end: { x: width - marginX, y: yPos - 8 }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) });
@@ -313,25 +353,19 @@ function htmlUI() {
                     }
                 }
 
-                // --- 底部總計 (修正點) ---
                 yPos -= 10;
                 page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width - marginX, y: yPos }, thickness: 1, color: rgb(0, 0, 0) });
                 yPos -= 25;
 
-                // 1. 先畫中文 "本月總計: "
                 page.drawText("本月總計: ", { x: 380, y: yPos, size: 14, font: chineseFont, color: rgb(0, 0, 0) });
-
-                // 2. 再畫數字 (用 Helvetica Bold)
+                
                 const totalValStr = formatHours(grandTotalMinutes);
-                // 380(起點) + 70(文字寬度預估) = 450
                 const numX = 455; 
                 page.drawText(totalValStr, { x: numX, y: yPos, size: 14, font: helveticaBold, color: rgb(0, 0, 0) });
 
-                // 3. 計算數字寬度，接著畫 " 小時" (用中文)
                 const numWidth = helveticaBold.widthOfTextAtSize(totalValStr, 14);
                 page.drawText(" 小時", { x: numX + numWidth, y: yPos, size: 14, font: chineseFont, color: rgb(0, 0, 0) });
 
-                // 下載
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const link = document.createElement('a');
