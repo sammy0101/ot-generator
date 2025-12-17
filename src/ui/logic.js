@@ -105,13 +105,11 @@ export const logicScript = `
         } catch(err) { alert(err.message); }
     }
 
-    // === 修改重點：優化刪除月份功能 ===
     async function deleteMonth(month, btnElement) {
         if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         
         const pin = document.getElementById('pin').value;
         
-        // 1. 立即禁用按鈕，防止重複點擊
         btnElement.disabled = true;
         btnElement.innerText = '...';
 
@@ -121,12 +119,8 @@ export const logicScript = `
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
-                // 2. 刪除成功，直接從畫面上移除該按鈕 (不依賴 fetchHistoryMonths)
-                // 按鈕結構是 button -> div (group) -> div (container)
-                // 我們移除包含該按鈕的父層 div (inline-flex group)
                 btnElement.parentNode.remove();
 
-                // 3. 清空當前顯示的報表 (如果剛好是顯示被刪除的月份)
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
                     document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
@@ -141,12 +135,10 @@ export const logicScript = `
             }
         } catch(err) { 
             alert(err.message); 
-            // 失敗時恢復按鈕
             btnElement.disabled = false;
             btnElement.innerText = '✕';
         }
     }
-    // =================================
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
@@ -163,7 +155,6 @@ export const logicScript = `
             
             if(months.length > 0) {
                 area.classList.remove('hidden');
-                // === 修改：傳入 'this' 以便刪除時操作 DOM ===
                 badges.innerHTML = months.map(m => \`
                     <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
@@ -254,6 +245,10 @@ export const logicScript = `
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
+
+                // === 修改重點：儲存成功後，立即重新載入月份按鈕 ===
+                fetchHistoryMonths(); 
+                // ============================================
 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
