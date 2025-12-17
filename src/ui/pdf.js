@@ -38,15 +38,15 @@ export const pdfScript = `
 
             for (const r of currentRecords) {
                 const amount = Number(r.amount) || 0; 
-                
-                // === 過濾：金額為 0 則不列印 ===
                 if (r.type !== 'hourly' && amount === 0) continue;
-                // ============================
 
                 let itemStr = '', detailStr = '', valStr = '';
                 let isMoney = false;
-                // 預設詳情用 Helvetica (適合數字/時間)
                 let detailFont = helvetica; 
+
+                // === 準備備註字串 ===
+                const remark = r.location ? \` (\${r.location})\` : '';
+                // ================
 
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
@@ -54,32 +54,29 @@ export const pdfScript = `
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                     valStr = formatHours(mins) + ' hr';
                 } else if (r.type === 'oncall') {
-                    itemStr = '當更 On-Call';
-                    // === 格式化：XX日 - XX日 ===
+                    // 當更 + 備註
+                    itemStr = '當更' + remark;
+                    
                     const startD = r.date.split('-')[2];
                     const endD = r.endDate ? r.endDate.split('-')[2] : '';
                     detailStr = \`\${startD}日 - \${endD}日\`;
-                    // ========================
-                    
-                    // 因為包含中文 "日"，必須切換字型
                     detailFont = chineseFont; 
 
                     valStr = '$' + amount;
                     isMoney = true;
                 } else { 
-                    itemStr = 'Call';
+                    // Call + 備註
+                    itemStr = 'Call' + remark;
                     valStr = '$' + amount;
                     isMoney = true;
                 }
 
                 drawTxt(r.date, col.d, helvetica);
                 
-                const safeItem = itemStr.length > 15 ? itemStr.substring(0,14)+'...' : itemStr;
+                const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
                 drawTxt(safeItem, col.item, chineseFont);
                 
-                // 使用動態決定的 detailFont
                 drawTxt(detailStr, col.detail, detailFont);
-                
                 drawTxt(valStr, col.val, helveticaBold, isMoney ? rgb(0,0.5,0) : rgb(0,0,0));
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
