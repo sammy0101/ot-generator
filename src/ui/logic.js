@@ -10,6 +10,7 @@ export const logicScript = `
 
     function setType(type) {
         document.getElementById('amount').value = '';
+        document.getElementById('moneyRemarks').value = ''; // 切換時清空備註
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall'].forEach(t => {
@@ -64,10 +65,8 @@ export const logicScript = `
         } catch(err) { alert(err.message); }
     }
 
-    // === 新增：刪除整個月 ===
     async function deleteMonth(month) {
         if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        
         const pin = document.getElementById('pin').value;
         try {
             const res = await fetch('/api/delete_month', {
@@ -76,19 +75,14 @@ export const logicScript = `
             });
             if(res.ok) { 
                 alert('已刪除 ' + month + ' 的資料');
-                // 清空當前畫面
                 document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
                 document.getElementById('calendarView').classList.add('hidden');
                 document.getElementById('totalSummary').classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
-                // 重新載入列表
                 fetchHistoryMonths();
-            } else { 
-                throw new Error('刪除失敗'); 
-            }
+            } else { throw new Error('刪除失敗'); }
         } catch(err) { alert(err.message); }
     }
-    // ======================
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
@@ -102,7 +96,6 @@ export const logicScript = `
             
             if(months.length > 0) {
                 area.classList.remove('hidden');
-                // === 修改重點：將按鈕改為 [載入 | 刪除] 的組合 ===
                 badges.innerHTML = months.map(m => \`
                     <div class="inline-flex rounded-md shadow-sm" role="group">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
@@ -170,6 +163,9 @@ export const logicScript = `
                 payload.end = document.getElementById('end').value;
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
+                // === 修改：儲存備註到 location 欄位 ===
+                payload.location = document.getElementById('moneyRemarks').value || '';
+                // ===================================
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
@@ -179,8 +175,12 @@ export const logicScript = `
             if(res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
+                
+                // 清空
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
+                document.getElementById('moneyRemarks').value = '';
+
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -265,6 +265,10 @@ export const logicScript = `
                     if (r.type !== 'hourly' && amount === 0) return;
 
                     let detail = '', value = '', typeLabel = '';
+                    
+                    // === 修改：在列表顯示備註 (r.location) ===
+                    const remark = r.location ? \` <span class="text-gray-400 font-normal">(\${r.location})</span>\` : '';
+                    // =====================================
 
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
@@ -274,14 +278,14 @@ export const logicScript = `
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
-                        typeLabel = '<span class="text-green-600 font-bold">當更</span>';
+                        typeLabel = \`<span class="text-green-600 font-bold">當更</span>\${remark}\`;
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
                         value = \`$\${amount}\`;
                     } else {
                         grandTotalMoney += amount;
-                        typeLabel = '<span class="text-green-600 font-bold">Call</span>';
+                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\${remark}\`;
                         detail = '-';
                         value = \`$\${amount}\`;
                     }
