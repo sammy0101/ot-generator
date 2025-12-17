@@ -25,7 +25,7 @@ export const logicScript = `
         const groupHourly = document.getElementById('group-hourly');
         const groupMoney = document.getElementById('group-money');
         const fieldEndDate = document.getElementById('field-endDate');
-        const fieldRemarks = document.getElementById('field-remarks'); // 取得備註區塊
+        const fieldRemarks = document.getElementById('field-remarks');
         const labelDate = document.getElementById('label-date');
 
         if (type === 'hourly') {
@@ -45,12 +45,12 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); // === 當更：隱藏備註 ===
+                fieldRemarks.classList.add('hidden'); 
                 document.getElementById('endDate').required = true;
             } else { 
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); // === Call：顯示備註 ===
+                fieldRemarks.classList.remove('hidden'); 
                 document.getElementById('endDate').required = false;
             }
         }
@@ -266,8 +266,6 @@ export const logicScript = `
 
                     let detail = '', value = '', typeLabel = '';
                     
-                    const remark = r.location ? \` <span class="text-gray-400 font-normal">(\${r.location})</span>\` : '';
-
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
                         grandTotalMinutes += mins;
@@ -276,16 +274,17 @@ export const logicScript = `
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
-                        // 當更這裡不需要顯示 remark (因為輸入時已經隱藏了，location 應該是空的，不過顯示邏輯保留無妨)
                         typeLabel = \`<span class="text-green-600 font-bold">當更</span>\`; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
                         value = \`$\${amount}\`;
                     } else {
+                        // === Call 的邏輯修改 ===
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\${remark}\`;
-                        detail = '-';
+                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\`; // 項目欄只顯示 Call
+                        // 詳情欄顯示備註，如果沒有則顯示 -
+                        detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     }
 
