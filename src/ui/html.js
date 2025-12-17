@@ -10,9 +10,19 @@ export const htmlContent = `
     <script src="https://unpkg.com/@pdf-lib/fontkit@0.0.4/dist/fontkit.umd.min.js"></script>
     <style>
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; }
-        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
-        .has-money { background-color: #059669; color: white; font-weight: bold; }
+        .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
+        
+        /* 樣式定義 */
+        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; } /* 藍色 */
+        .has-money { background-color: #059669; color: white; font-weight: bold; } /* 綠色 */
+        
+        /* 雙色樣式：左上藍，右下綠 */
+        .has-both { 
+            background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); 
+            color: white; 
+            font-weight: bold; 
+        }
+        
         .no-ot { background-color: #F3F4F6; color: #9CA3AF; }
         .empty-day { background-color: transparent; }
     </style>
@@ -73,7 +83,6 @@ export const htmlContent = `
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">金額 (HKD)</label>
-                        <!-- 這裡移除了 value 預設值 -->
                         <input type="number" id="amount" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="輸入金額">
                     </div>
                 </div>
@@ -95,9 +104,10 @@ export const htmlContent = `
 
             <div id="calendarView" class="mb-6 hidden">
                 <div class="calendar-grid"></div>
-                <div class="flex justify-center gap-4 mt-2 text-xs">
+                <div class="flex justify-center gap-4 mt-2 text-xs text-gray-600">
                     <span class="flex items-center"><span class="w-3 h-3 bg-indigo-600 rounded mr-1"></span>OT</span>
                     <span class="flex items-center"><span class="w-3 h-3 bg-green-600 rounded mr-1"></span>當更/Call</span>
+                    <span class="flex items-center"><span class="w-3 h-3 mr-1" style="background: linear-gradient(135deg, #4F46E5 50%, #059669 50%)"></span>重疊</span>
                 </div>
             </div>
 
