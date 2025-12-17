@@ -9,12 +9,8 @@ export const logicScript = `
     let grandTotalMoney = 0;
 
     function setType(type) {
-        // === 修改重點開始：切換模式時，清空金額與結束日期，避免資料殘留 ===
-        document.getElementById('amount').value = ''; 
-        // 選擇性：如果你也希望切換時重置結束日期，可加下面這行，不加也行
-        // document.getElementById('endDate').valueAsDate = new Date(document.getElementById('date').value);
-        // === 修改重點結束 ===
-
+        // 切換類型時，清空金額，防止資料殘留
+        document.getElementById('amount').value = '';
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall'].forEach(t => {
@@ -130,7 +126,8 @@ export const logicScript = `
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
             } else {
-                payload.amount = document.getElementById('amount').value;
+                // 強制轉換為數字，避免傳送空字串
+                payload.amount = Number(document.getElementById('amount').value) || 0;
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
@@ -140,6 +137,12 @@ export const logicScript = `
             if(res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
+                
+                // === 修復重點：儲存成功後，清空輸入欄位 ===
+                document.getElementById('amount').value = '';
+                document.getElementById('location').value = '';
+                // =====================================
+
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -176,7 +179,19 @@ export const logicScript = `
         for (let d = 1; d <= daysInMonth; d++) {
             const div = document.createElement('div');
             div.innerText = d;
-            div.className = 'calendar-day ' + (moneyDays.has(d) ? 'has-money' : (otDays.has(d) ? 'has-ot' : 'no-ot'));
+            
+            // === 修復重點：雙色判斷 ===
+            if (otDays.has(d) && moneyDays.has(d)) {
+                div.className = 'calendar-day has-both'; // 既有OT又有錢 -> 雙色
+            } else if (moneyDays.has(d)) {
+                div.className = 'calendar-day has-money';
+            } else if (otDays.has(d)) {
+                div.className = 'calendar-day has-ot';
+            } else {
+                div.className = 'calendar-day no-ot';
+            }
+            // ========================
+
             grid.appendChild(div);
         }
         document.getElementById('calendarView').classList.remove('hidden');
@@ -213,6 +228,10 @@ export const logicScript = `
                 data.forEach(r => {
                     let detail = '', value = '', typeLabel = '';
                     
+                    // === 修復重點：確保金額是數字，避免 undefined ===
+                    const amount = Number(r.amount) || 0; 
+                    // =======================================
+
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
                         grandTotalMinutes += mins;
@@ -220,16 +239,16 @@ export const logicScript = `
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'oncall') {
-                        grandTotalMoney += r.amount;
+                        grandTotalMoney += amount;
                         typeLabel = '<span class="text-green-600 font-bold">當更</span>';
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`~ \${endD}日\`; 
-                        value = \`$\${r.amount}\`;
+                        value = \`$\${amount}\`;
                     } else {
-                        grandTotalMoney += r.amount;
+                        grandTotalMoney += amount;
                         typeLabel = '<span class="text-green-600 font-bold">Call</span>';
                         detail = '-';
-                        value = \`$\${r.amount}\`;
+                        value = \`$\${amount}\`;
                     }
 
                     html += \`
