@@ -9,6 +9,12 @@ export const logicScript = `
     let grandTotalMoney = 0;
 
     function setType(type) {
+        // === 修改重點開始：切換模式時，清空金額與結束日期，避免資料殘留 ===
+        document.getElementById('amount').value = ''; 
+        // 選擇性：如果你也希望切換時重置結束日期，可加下面這行，不加也行
+        // document.getElementById('endDate').valueAsDate = new Date(document.getElementById('date').value);
+        // === 修改重點結束 ===
+
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall'].forEach(t => {
@@ -64,7 +70,7 @@ export const logicScript = `
                 area.classList.remove('hidden');
                 badges.innerHTML = months.map(m => \`
                     <button onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded hover:bg-indigo-200">
+                            class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded hover:bg-indigo-200 transition">
                         \${m}
                     </button>
                 \`).join('');
