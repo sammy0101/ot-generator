@@ -30,20 +30,16 @@ export async function handleAdd(request, env) {
     }
 }
 
-// === 新增：刪除功能 ===
 export async function handleDelete(request, env) {
     try {
         const data = await request.json();
         if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
 
-        // 需要日期來決定 Key (哪個月的資料庫)
         const monthKey = `OT_${data.date.substring(0, 7)}`;
         let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
         if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
 
-        // 過濾掉要刪除的 ID
         const newRecords = records.filter(r => r.id !== data.id);
-        
         await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
 
         return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
@@ -51,7 +47,25 @@ export async function handleDelete(request, env) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500 });
     }
 }
-// ===================
+
+// === 新增：刪除整個月的資料 ===
+export async function handleDeleteMonth(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        // data.month 格式應為 "2025-12"
+        const monthKey = `OT_${data.month}`;
+        
+        // 直接從 KV 刪除該 Key
+        await env.OT_RECORDS.delete(monthKey);
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+// ===========================
 
 export async function handleGet(request, env) {
     const url = new URL(request.url);
