@@ -44,29 +44,26 @@ export const pdfScript = `
                 let isMoney = false;
                 let detailFont = helvetica; 
 
-                // === 準備備註字串 ===
-                const remark = r.location ? \` (\${r.location})\` : '';
-                // ================
-
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
                     const mins = getMinutesDiff(r.start, r.end);
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                     valStr = formatHours(mins) + ' hr';
                 } else if (r.type === 'oncall') {
-                    // 當更 + 備註
-                    itemStr = '當更' + remark;
-                    
+                    itemStr = '當更 On-Call';
                     const startD = r.date.split('-')[2];
                     const endD = r.endDate ? r.endDate.split('-')[2] : '';
                     detailStr = \`\${startD}日 - \${endD}日\`;
-                    detailFont = chineseFont; 
-
+                    detailFont = chineseFont; // 日期包含中文
                     valStr = '$' + amount;
                     isMoney = true;
                 } else { 
-                    // Call + 備註
-                    itemStr = 'Call' + remark;
+                    // === Call 邏輯修改 ===
+                    itemStr = 'Call';
+                    // 詳情顯示備註，若無則顯示 -
+                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    // 備註可能含中文，強制使用中文字型
+                    detailFont = chineseFont;
                     valStr = '$' + amount;
                     isMoney = true;
                 }
