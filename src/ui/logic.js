@@ -52,29 +52,17 @@ export const logicScript = `
         }
     }
 
-    // === 新增：刪除記錄函式 ===
     async function deleteRecord(id, date) {
         if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        
         const pin = document.getElementById('pin').value;
-        const btn = document.getElementById('pdfBtn'); // 借用按鈕狀態避免重複點擊
-        
         try {
             const res = await fetch('/api/delete', {
                 method: 'POST',
                 body: JSON.stringify({ pin, id, date })
             });
-            if(res.ok) {
-                // 刪除成功後重新載入
-                loadRecords();
-            } else {
-                throw new Error('刪除失敗');
-            }
-        } catch(err) {
-            alert(err.message);
-        }
+            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); }
     }
-    // =======================
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
@@ -138,11 +126,7 @@ export const logicScript = `
 
         try {
             const type = document.getElementById('recordType').value;
-            const payload = {
-                pin,
-                type,
-                date: document.getElementById('date').value,
-            };
+            const payload = { pin, type, date: document.getElementById('date').value };
 
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
@@ -175,6 +159,10 @@ export const logicScript = `
         const moneyDays = new Set();
 
         records.forEach(r => {
+            // 月曆顯示時，不需要過濾 $0，因為可能還是想知道那天有記錄
+            // 但如果完全不想顯示 $0 的格子，可以把下面這行解開：
+            // if (r.type !== 'hourly' && (Number(r.amount)||0) === 0) return;
+
             const d = parseInt(r.date.split('-')[2]);
             if (r.type === 'hourly') otDays.add(d);
             else {
@@ -238,12 +226,16 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                // 新增 "操作" 欄位
                 let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
                 
                 data.forEach(r => {
-                    let detail = '', value = '', typeLabel = '';
                     const amount = Number(r.amount) || 0; 
+                    
+                    // === 過濾：如果是金額相關類型，且金額為 0，則跳過不顯示 ===
+                    if (r.type !== 'hourly' && amount === 0) return;
+                    // ===============================================
+
+                    let detail = '', value = '', typeLabel = '';
 
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
@@ -254,8 +246,13 @@ export const logicScript = `
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
                         typeLabel = '<span class="text-green-600 font-bold">當更</span>';
+                        
+                        // === 格式化：改為 XX日 - XX日 ===
+                        const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                        detail = \`~ \${endD}日\`; 
+                        detail = \`\${startD}日 - \${endD}日\`; 
+                        // ============================
+                        
                         value = \`$\${amount}\`;
                     } else {
                         grandTotalMoney += amount;
