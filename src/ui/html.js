@@ -73,8 +73,8 @@ export const htmlContent = `
                         <label class="block text-sm font-medium text-gray-700">金額 (HKD)</label>
                         <input type="number" id="amount" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="輸入金額">
                     </div>
-                    <!-- 新增：備註欄位 -->
-                    <div>
+                    <!-- 修改重點：給備註加了 id="field-remarks" 以便控制顯示/隱藏 -->
+                    <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-700">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="例如：重啟 Server / 1號舖">
                     </div>
