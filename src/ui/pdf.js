@@ -50,12 +50,10 @@ export const pdfScript = `
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                     valStr = formatHours(mins) + ' hr';
                 } else if (r.type === 'transport') {
-                    // === 交通費 PDF 邏輯 ===
                     itemStr = '交通費';
                     detailStr = r.location ? \`(\${r.location})\` : '-';
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
-                    // 交通費我們用 黑色 或 深橙色，這裡用黑色即可，與 Income 區分
                 } else if (r.type === 'oncall') {
                     itemStr = '當更 On-Call';
                     const startD = r.date.split('-')[2];
@@ -78,8 +76,6 @@ export const pdfScript = `
                 drawTxt(safeItem, col.item, chineseFont);
                 
                 drawTxt(detailStr, col.detail, detailFont);
-                
-                // 收入顯示綠色，交通費顯示黑色(或可自訂顏色)
                 drawTxt(valStr, col.val, helveticaBold, isMoney ? rgb(0,0.5,0) : rgb(0,0,0));
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
@@ -92,21 +88,22 @@ export const pdfScript = `
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            // 總時數
             drawTxt("總時數: ", 350, chineseFont);
             drawTxt(formatHours(grandTotalMinutes) + " hr", 410, helveticaBold);
             yPos -= 20;
 
-            // 總收入
             drawTxt("總收入: ", 350, chineseFont);
             drawTxt("$" + grandTotalMoney, 410, helveticaBold, rgb(0,0.5,0));
             yPos -= 20;
 
-            // === 總交通費 ===
             drawTxt("總交通: ", 350, chineseFont);
-            // 交通費金額用一般黑色或橙色
-            drawTxt("$" + grandTotalTransport, 410, helveticaBold); // 黑色
-            // 若想用橙色: rgb(0.8, 0.4, 0)
+            drawTxt("$" + grandTotalTransport, 410, helveticaBold); 
+            yPos -= 20;
+
+            // === 新增：總計 ===
+            const totalAll = grandTotalMoney + grandTotalTransport;
+            drawTxt("總計:", 350, chineseFont); 
+            drawTxt("$" + totalAll, 410, helveticaBold); 
             
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
