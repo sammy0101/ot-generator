@@ -20,7 +20,6 @@ export default {
         timestamp: new Date().toISOString()
       });
 
-      // 依日期排序
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
       await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
       
@@ -31,7 +30,6 @@ export default {
     if (url.pathname === '/api/get' && request.method === 'GET') {
       const month = url.searchParams.get('month');
       const pin = url.searchParams.get('pin');
-
       if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
 
       const key = `OT_${month}`;
@@ -57,12 +55,12 @@ function htmlUI() {
     <script src="https://unpkg.com/@pdf-lib/fontkit@0.0.4/dist/fontkit.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 font-sans">
-    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
         
         <!-- PIN 輸入區 -->
         <div class="mb-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
             <label class="block text-sm font-bold text-gray-700 mb-1">存取密碼 (PIN)</label>
-            <input type="password" id="pin" class="w-full border-gray-300 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="請輸入密碼">
+            <input type="password" id="pin" class="w-full border-gray-300 border rounded px-3 py-2" placeholder="請輸入密碼">
         </div>
 
         <!-- 分頁標籤 -->
@@ -93,11 +91,8 @@ function htmlUI() {
                         <input type="time" id="end" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
                     </div>
                 </div>
-                
-                <!-- 即時顯示時數計算 -->
                 <div class="text-right text-sm text-gray-500" id="durationCalc">時數: 0 小時</div>
-
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-700 transition duration-150">儲存記錄</button>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-700 transition">儲存記錄</button>
             </form>
         </div>
 
@@ -115,13 +110,12 @@ function htmlUI() {
                 <p class="text-center text-gray-400">請選擇月份並查詢</p>
             </div>
 
-            <!-- 總計顯示 -->
             <div id="totalSummary" class="text-right font-bold text-lg text-gray-800 mb-4 hidden">
                 本月總計: <span id="totalHoursDisplay" class="text-indigo-600">0</span> 小時
             </div>
 
-            <button onclick="generatePDF()" id="pdfBtn" class="w-full bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 transition duration-150 hidden shadow-md">
-                下載 PDF 報表
+            <button onclick="generatePDF()" id="pdfBtn" class="w-full bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 transition hidden shadow-md">
+                下載 PDF 報表 (表格版)
             </button>
         </div>
 
@@ -129,27 +123,23 @@ function htmlUI() {
     </div>
 
     <script>
-        // === 初始化 ===
         document.getElementById('date').valueAsDate = new Date();
         document.getElementById('queryMonth').value = new Date().toISOString().slice(0, 7);
         let currentRecords = [];
         let grandTotalMinutes = 0;
 
-        // === 工具函數: 計算時間差 (分鐘) ===
         function getMinutesDiff(start, end) {
             const [sh, sm] = start.split(':').map(Number);
             const [eh, em] = end.split(':').map(Number);
             let diff = (eh * 60 + em) - (sh * 60 + sm);
-            if (diff < 0) diff += 24 * 60; // 處理跨日 (假設只跨一天)
+            if (diff < 0) diff += 24 * 60; 
             return diff;
         }
 
-        // === 工具函數: 格式化分鐘數為小數 (例如 1.5 小時) ===
         function formatHours(minutes) {
-            return (minutes / 60).toFixed(1); // 保留一位小數
+            return (minutes / 60).toFixed(1);
         }
 
-        // === 監聽輸入框，即時計算單日打卡時數 ===
         function updateDurationDisplay() {
             const s = document.getElementById('start').value;
             const e = document.getElementById('end').value;
@@ -161,25 +151,20 @@ function htmlUI() {
         document.getElementById('start').addEventListener('change', updateDurationDisplay);
         document.getElementById('end').addEventListener('change', updateDurationDisplay);
 
-        // === 切換分頁 ===
         function switchTab(tab) {
             document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
             document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
-            
-            const activeClass = "flex-1 py-3 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 transition";
-            const inactiveClass = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition";
-            
-            document.getElementById('tab-record').className = tab === 'record' ? activeClass : inactiveClass;
-            document.getElementById('tab-export').className = tab === 'export' ? activeClass : inactiveClass;
+            document.getElementById('tab-record').classList.toggle('text-indigo-600', tab === 'record');
+            document.getElementById('tab-record').classList.toggle('border-indigo-600', tab === 'record');
+            document.getElementById('tab-export').classList.toggle('text-indigo-600', tab === 'export');
+            document.getElementById('tab-export').classList.toggle('border-indigo-600', tab === 'export');
             document.getElementById('msg').innerText = '';
         }
 
-        // === 儲存記錄 ===
         document.getElementById('addForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const pin = document.getElementById('pin').value;
             if(!pin) return alert('請先輸入 PIN 密碼');
-
             const btn = e.target.querySelector('button');
             btn.disabled = true;
             btn.innerText = '儲存中...';
@@ -192,26 +177,21 @@ function htmlUI() {
                     start: document.getElementById('start').value,
                     end: document.getElementById('end').value
                 };
-
                 const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
                 if(res.ok) {
                     document.getElementById('msg').innerText = '✅ 儲存成功';
                     document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
-                    // 不重置地點，方便連續輸入
                 } else {
                     throw new Error(await res.text());
                 }
             } catch(err) {
-                alert('錯誤: ' + err.message);
-                document.getElementById('msg').innerText = '❌ 儲存失敗';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-red-600';
+                alert(err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerText = '儲存記錄';
             }
         });
 
-        // === 查詢記錄並計算總合 ===
         async function loadRecords() {
             const pin = document.getElementById('pin').value;
             const month = document.getElementById('queryMonth').value;
@@ -220,8 +200,7 @@ function htmlUI() {
             const listEl = document.getElementById('recordsList');
             const summaryEl = document.getElementById('totalSummary');
             const pdfBtn = document.getElementById('pdfBtn');
-            
-            listEl.innerHTML = '<p class="text-center text-gray-400">載入中...</p>';
+            listEl.innerHTML = '<p class="text-center">載入中...</p>';
 
             try {
                 const res = await fetch(\`/api/get?month=\${month}&pin=\${pin}\`);
@@ -229,127 +208,147 @@ function htmlUI() {
                 if(data.error) throw new Error(data.error);
 
                 currentRecords = data;
-                grandTotalMinutes = 0; // 重置總計
+                grandTotalMinutes = 0;
 
                 if(data.length === 0) {
                     listEl.innerHTML = '<p class="text-center text-gray-500">該月份沒有記錄</p>';
                     summaryEl.classList.add('hidden');
                     pdfBtn.classList.add('hidden');
                 } else {
-                    let html = '';
+                    let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>地點</th><th class="text-right">時間</th><th class="text-right">時數</th></tr></thead><tbody>';
                     data.forEach(r => {
                         const mins = getMinutesDiff(r.start, r.end);
                         grandTotalMinutes += mins;
-                        // 列表顯示改用阿拉伯數字 YYYY-MM-DD
                         html += \`
-                            <div class="flex justify-between items-center border-b border-gray-200 py-2 last:border-0">
-                                <div>
-                                    <span class="font-bold text-gray-700">\${r.date}</span>
-                                    <span class="text-gray-600 ml-2">\${r.location}</span>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-indigo-600 font-mono">\${r.start.replace(':','')} - \${r.end.replace(':','')}</div>
-                                    <div class="text-xs text-gray-400">(\${formatHours(mins)} hr)</div>
-                                </div>
-                            </div>
+                            <tr class="border-b last:border-0">
+                                <td class="py-2">\${r.date}</td>
+                                <td class="py-2">\${r.location}</td>
+                                <td class="py-2 text-right font-mono">\${r.start.replace(':','')} - \${r.end.replace(':','')}</td>
+                                <td class="py-2 text-right">\${formatHours(mins)}</td>
+                            </tr>
                         \`;
                     });
+                    html += '</tbody></table>';
                     listEl.innerHTML = html;
-                    
-                    // 顯示總計
                     document.getElementById('totalHoursDisplay').innerText = formatHours(grandTotalMinutes);
                     summaryEl.classList.remove('hidden');
                     pdfBtn.classList.remove('hidden');
-                    document.getElementById('msg').innerText = \`已載入 \${data.length} 筆記錄\`;
+                    document.getElementById('msg').innerText = '';
                 }
             } catch(err) {
-                listEl.innerHTML = '<p class="text-center text-red-500">載入失敗</p>';
                 alert(err.message);
+                listEl.innerHTML = '載入失敗';
             }
         }
 
-        // === 生成 PDF (含總計) ===
+        // === 核心修改：PDF 表格化生成 ===
         async function generatePDF() {
             if(currentRecords.length === 0) return;
             const btn = document.getElementById('pdfBtn');
-            btn.innerText = "生成 PDF 中...";
+            btn.innerText = "生成中...";
             btn.disabled = true;
 
             try {
-                const { PDFDocument, rgb } = PDFLib;
+                const { PDFDocument, rgb, StandardFonts } = PDFLib;
                 const pdfDoc = await PDFDocument.create();
                 pdfDoc.registerFontkit(fontkit);
 
-                // 下載中文字型
+                // 1. 載入標準字型 (顯示數字、日期、英文，保證不亂碼)
+                const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+                // 2. 載入中文字型 (只用來顯示標題和地點中文)
                 const fontBytes = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@4.5.12/files/noto-sans-tc-all-400-normal.woff').then(res => res.arrayBuffer());
-                const customFont = await pdfDoc.embedFont(fontBytes);
+                const chineseFont = await pdfDoc.embedFont(fontBytes);
 
                 const page = pdfDoc.addPage([595.28, 841.89]); // A4
                 const { width, height } = page.getSize();
-                const fontSize = 12;
+                
                 let yPos = height - 60;
+                const marginX = 40;
 
-                // --- 標題 (使用阿拉伯數字) ---
-                // 例如: "2025-12 OT 記錄表"
-                const titleText = \`\${document.getElementById('queryMonth').value} OT 記錄表\`;
-                page.drawText(titleText, { x: 50, y: yPos, size: 20, font: customFont });
+                // --- 標題區 ---
+                // 使用英文日期字串，避免中文字型處理數字的 Bug
+                const monthStr = document.getElementById('queryMonth').value; // "2025-12"
+                
+                // 畫: "2025-12" (用 Helvetica)
+                page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
+                // 畫: " OT 記錄表" (用中文)
+                page.drawText(' OT 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
+                
                 yPos -= 40;
 
-                // --- 內容 ---
+                // --- 表格標題列 ---
+                const colX = { date: 40, loc: 130, time: 350, hours: 480 };
+                const fontSize = 11;
+
+                page.drawText('日期', { x: colX.date, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
+                page.drawText('地點', { x: colX.loc, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
+                page.drawText('時間', { x: colX.time, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
+                page.drawText('小時', { x: colX.hours, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
+
+                // 畫一條標題底線
+                page.drawLine({ start: { x: marginX, y: yPos - 5 }, end: { x: width - marginX, y: yPos - 5 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
+                yPos -= 25;
+
+                // --- 表格內容迴圈 ---
                 for (const rec of currentRecords) {
-                    // 格式: 2025-12-01 地點 0900-1800時間
-                    // 這裡強制使用 data.date (YYYY-MM-DD)，不轉換成中文日期
-                    const timeStr = \`\${rec.start.replace(':','')}-\${rec.end.replace(':','')}時間\`;
-                    const lineText = \`\${rec.date}  \${rec.location}  \${timeStr}\`;
+                    const mins = getMinutesDiff(rec.start, rec.end);
+                    const timeStr = \`\${rec.start.replace(':','')} - \${rec.end.replace(':','')}\`;
+                    const hoursStr = formatHours(mins);
 
-                    page.drawText(lineText, { x: 50, y: yPos, size: fontSize, font: customFont });
-                    yPos -= 20;
+                    // 欄位 1: 日期 (純數字 -> Helvetica)
+                    page.drawText(rec.date, { x: colX.date, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
 
-                    // 換頁檢測
+                    // 欄位 2: 地點 (可能有中文 -> ChineseFont)
+                    // 簡單截斷防止過長
+                    const safeLoc = rec.location.length > 15 ? rec.location.substring(0,14)+'...' : rec.location;
+                    page.drawText(safeLoc, { x: colX.loc, y: yPos, size: fontSize, font: chineseFont, color: rgb(0,0,0) });
+
+                    // 欄位 3: 時間 (純數字 -> Helvetica)
+                    page.drawText(timeStr, { x: colX.time, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
+
+                    // 欄位 4: 時數 (純數字 -> Helvetica)
+                    page.drawText(hoursStr, { x: colX.hours, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
+
+                    // 畫底線 (淺灰色)
+                    page.drawLine({ start: { x: marginX, y: yPos - 8 }, end: { x: width - marginX, y: yPos - 8 }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) });
+
+                    yPos -= 25; // 下一行
+
+                    // 換頁判定
                     if (yPos < 50) {
                         const newPage = pdfDoc.addPage([595.28, 841.89]);
                         yPos = height - 50;
+                        // 在新頁面重畫標題列 (可選)
                     }
                 }
 
-                // --- 總計 ---
-                yPos -= 20;
-                // 確保總計有位置寫，沒位置就換頁
-                if (yPos < 50) {
-                    const newPage = pdfDoc.addPage([595.28, 841.89]);
-                    yPos = height - 50;
-                }
+                // --- 底部總計 ---
+                yPos -= 10;
+                page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width - marginX, y: yPos }, thickness: 1, color: rgb(0, 0, 0) });
+                
+                yPos -= 25;
+                const totalLabel = "本月總計: ";
+                const totalValue = \`\${formatHours(grandTotalMinutes)} 小時\`;
 
-                // 畫一條分隔線
-                page.drawLine({
-                    start: { x: 50, y: yPos + 10 },
-                    end: { x: 500, y: yPos + 10 },
-                    thickness: 1,
-                    color: rgb(0.5, 0.5, 0.5),
-                });
-
-                const totalText = \`本月總計: \${formatHours(grandTotalMinutes)} 小時\`;
-                page.drawText(totalText, { 
-                    x: 50, 
-                    y: yPos - 10, 
-                    size: 14, 
-                    font: customFont, 
-                    color: rgb(0, 0, 0) // 黑色
-                });
+                page.drawText(totalLabel, { x: 400, y: yPos, size: 14, font: chineseFont });
+                // 數字用 Helvetica 畫
+                page.drawText(totalValue, { x: 470, y: yPos, size: 14, font: helveticaBold });
 
                 // 下載
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = \`OT_\${document.getElementById('queryMonth').value}.pdf\`;
+                link.download = \`OT_\${monthStr}.pdf\`;
                 link.click();
 
             } catch(err) {
                 console.error(err);
                 alert("生成失敗: " + err.message);
             } finally {
-                btn.innerText = "下載 PDF 報表";
+                btn.innerText = "下載 PDF 報表 (表格版)";
                 btn.disabled = false;
             }
         }
