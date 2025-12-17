@@ -64,6 +64,32 @@ export const logicScript = `
         } catch(err) { alert(err.message); }
     }
 
+    // === 新增：刪除整個月 ===
+    async function deleteMonth(month) {
+        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        
+        const pin = document.getElementById('pin').value;
+        try {
+            const res = await fetch('/api/delete_month', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if(res.ok) { 
+                alert('已刪除 ' + month + ' 的資料');
+                // 清空當前畫面
+                document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
+                document.getElementById('calendarView').classList.add('hidden');
+                document.getElementById('totalSummary').classList.add('hidden');
+                document.getElementById('pdfBtn').classList.add('hidden');
+                // 重新載入列表
+                fetchHistoryMonths();
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { alert(err.message); }
+    }
+    // ======================
+
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
         if(!pin) return;
@@ -73,14 +99,24 @@ export const logicScript = `
             if(months.error) return; 
             const area = document.getElementById('historyMonthsArea');
             const badges = document.getElementById('historyBadges');
+            
             if(months.length > 0) {
                 area.classList.remove('hidden');
+                // === 修改重點：將按鈕改為 [載入 | 刪除] 的組合 ===
                 badges.innerHTML = months.map(m => \`
-                    <button onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded hover:bg-indigo-200 transition">
-                        \${m}
-                    </button>
+                    <div class="inline-flex rounded-md shadow-sm" role="group">
+                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
+                                class="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 border border-indigo-200 rounded-l-lg hover:bg-indigo-200 focus:z-10 focus:ring-2 focus:ring-indigo-400">
+                            \${m}
+                        </button>
+                        <button type="button" onclick="deleteMonth('\${m}')" 
+                                class="px-2 py-1 text-xs font-medium text-red-600 bg-indigo-100 border-t border-b border-r border-indigo-200 rounded-r-lg hover:bg-red-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-red-400" title="刪除整月">
+                            ✕
+                        </button>
+                    </div>
                 \`).join('');
+            } else {
+                area.classList.add('hidden');
             }
         } catch(e) {}
     }
@@ -159,10 +195,6 @@ export const logicScript = `
         const moneyDays = new Set();
 
         records.forEach(r => {
-            // 月曆顯示時，不需要過濾 $0，因為可能還是想知道那天有記錄
-            // 但如果完全不想顯示 $0 的格子，可以把下面這行解開：
-            // if (r.type !== 'hourly' && (Number(r.amount)||0) === 0) return;
-
             const d = parseInt(r.date.split('-')[2]);
             if (r.type === 'hourly') otDays.add(d);
             else {
@@ -230,10 +262,7 @@ export const logicScript = `
                 
                 data.forEach(r => {
                     const amount = Number(r.amount) || 0; 
-                    
-                    // === 過濾：如果是金額相關類型，且金額為 0，則跳過不顯示 ===
                     if (r.type !== 'hourly' && amount === 0) return;
-                    // ===============================================
 
                     let detail = '', value = '', typeLabel = '';
 
@@ -246,13 +275,9 @@ export const logicScript = `
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
                         typeLabel = '<span class="text-green-600 font-bold">當更</span>';
-                        
-                        // === 格式化：改為 XX日 - XX日 ===
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
-                        // ============================
-                        
                         value = \`$\${amount}\`;
                     } else {
                         grandTotalMoney += amount;
