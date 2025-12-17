@@ -241,7 +241,6 @@ function htmlUI() {
             }
         }
 
-        // === 核心修改：PDF 表格化生成 ===
         async function generatePDF() {
             if(currentRecords.length === 0) return;
             const btn = document.getElementById('pdfBtn');
@@ -253,11 +252,11 @@ function htmlUI() {
                 const pdfDoc = await PDFDocument.create();
                 pdfDoc.registerFontkit(fontkit);
 
-                // 1. 載入標準字型 (顯示數字、日期、英文，保證不亂碼)
+                // 1. 載入標準字型 (數字/英文)
                 const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
                 const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-                // 2. 載入中文字型 (只用來顯示標題和地點中文)
+                // 2. 載入中文字型 (中文)
                 const fontBytes = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@4.5.12/files/noto-sans-tc-all-400-normal.woff').then(res => res.arrayBuffer());
                 const chineseFont = await pdfDoc.embedFont(fontBytes);
 
@@ -268,12 +267,8 @@ function htmlUI() {
                 const marginX = 40;
 
                 // --- 標題區 ---
-                // 使用英文日期字串，避免中文字型處理數字的 Bug
-                const monthStr = document.getElementById('queryMonth').value; // "2025-12"
-                
-                // 畫: "2025-12" (用 Helvetica)
+                const monthStr = document.getElementById('queryMonth').value;
                 page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
-                // 畫: " OT 記錄表" (用中文)
                 page.drawText(' OT 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
                 
                 yPos -= 40;
@@ -287,54 +282,54 @@ function htmlUI() {
                 page.drawText('時間', { x: colX.time, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
                 page.drawText('小時', { x: colX.hours, y: yPos, size: fontSize, font: chineseFont, color: rgb(0.4,0.4,0.4) });
 
-                // 畫一條標題底線
                 page.drawLine({ start: { x: marginX, y: yPos - 5 }, end: { x: width - marginX, y: yPos - 5 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
                 yPos -= 25;
 
-                // --- 表格內容迴圈 ---
+                // --- 內容迴圈 ---
                 for (const rec of currentRecords) {
                     const mins = getMinutesDiff(rec.start, rec.end);
                     const timeStr = \`\${rec.start.replace(':','')} - \${rec.end.replace(':','')}\`;
                     const hoursStr = formatHours(mins);
 
-                    // 欄位 1: 日期 (純數字 -> Helvetica)
+                    // 日期 (英數)
                     page.drawText(rec.date, { x: colX.date, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
 
-                    // 欄位 2: 地點 (可能有中文 -> ChineseFont)
-                    // 簡單截斷防止過長
+                    // 地點 (中文)
                     const safeLoc = rec.location.length > 15 ? rec.location.substring(0,14)+'...' : rec.location;
                     page.drawText(safeLoc, { x: colX.loc, y: yPos, size: fontSize, font: chineseFont, color: rgb(0,0,0) });
 
-                    // 欄位 3: 時間 (純數字 -> Helvetica)
+                    // 時間 (英數)
                     page.drawText(timeStr, { x: colX.time, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
 
-                    // 欄位 4: 時數 (純數字 -> Helvetica)
+                    // 時數 (英數)
                     page.drawText(hoursStr, { x: colX.hours, y: yPos, size: fontSize, font: helveticaFont, color: rgb(0,0,0) });
 
-                    // 畫底線 (淺灰色)
                     page.drawLine({ start: { x: marginX, y: yPos - 8 }, end: { x: width - marginX, y: yPos - 8 }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) });
 
-                    yPos -= 25; // 下一行
-
-                    // 換頁判定
+                    yPos -= 25;
                     if (yPos < 50) {
-                        const newPage = pdfDoc.addPage([595.28, 841.89]);
+                        pdfDoc.addPage([595.28, 841.89]);
                         yPos = height - 50;
-                        // 在新頁面重畫標題列 (可選)
                     }
                 }
 
-                // --- 底部總計 ---
+                // --- 底部總計 (修正點) ---
                 yPos -= 10;
                 page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width - marginX, y: yPos }, thickness: 1, color: rgb(0, 0, 0) });
-                
                 yPos -= 25;
-                const totalLabel = "本月總計: ";
-                const totalValue = \`\${formatHours(grandTotalMinutes)} 小時\`;
 
-                page.drawText(totalLabel, { x: 400, y: yPos, size: 14, font: chineseFont });
-                // 數字用 Helvetica 畫
-                page.drawText(totalValue, { x: 470, y: yPos, size: 14, font: helveticaBold });
+                // 1. 先畫中文 "本月總計: "
+                page.drawText("本月總計: ", { x: 380, y: yPos, size: 14, font: chineseFont, color: rgb(0, 0, 0) });
+
+                // 2. 再畫數字 (用 Helvetica Bold)
+                const totalValStr = formatHours(grandTotalMinutes);
+                // 380(起點) + 70(文字寬度預估) = 450
+                const numX = 455; 
+                page.drawText(totalValStr, { x: numX, y: yPos, size: 14, font: helveticaBold, color: rgb(0, 0, 0) });
+
+                // 3. 計算數字寬度，接著畫 " 小時" (用中文)
+                const numWidth = helveticaBold.widthOfTextAtSize(totalValStr, 14);
+                page.drawText(" 小時", { x: numX + numWidth, y: yPos, size: 14, font: chineseFont, color: rgb(0, 0, 0) });
 
                 // 下載
                 const pdfBytes = await pdfDoc.save();
