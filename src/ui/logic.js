@@ -9,11 +9,33 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
 
+    // === 新增：初始化 PIN 碼 ===
+    (function initPin() {
+        const savedPin = localStorage.getItem('ot_pin');
+        if (savedPin) {
+            document.getElementById('pin').value = savedPin;
+            document.getElementById('rememberPin').checked = true;
+            // 如果有 PIN，自動載入歷史月份，讓介面看起來已準備好
+            fetchHistoryMonths();
+        }
+    })();
+
+    // === 新增：管理 PIN 碼儲存 ===
+    function managePinStorage() {
+        const pin = document.getElementById('pin').value;
+        const remember = document.getElementById('rememberPin').checked;
+        if (remember && pin) {
+            localStorage.setItem('ot_pin', pin);
+        } else {
+            localStorage.removeItem('ot_pin');
+        }
+    }
+    // ========================
+
     function setType(type) {
-        // 重置欄位
         document.getElementById('amount').value = '';
         document.getElementById('moneyRemarks').value = ''; 
-        document.getElementById('transportSelect').selectedIndex = 0; // 重置下拉選單
+        document.getElementById('transportSelect').selectedIndex = 0; 
         document.getElementById('recordType').value = type;
         
         ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
@@ -31,8 +53,6 @@ export const logicScript = `
         const fieldRemarks = document.getElementById('field-remarks');
         const labelDate = document.getElementById('label-date');
         const labelRemarks = document.getElementById('label-remarks');
-        
-        // 取得輸入元件
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
 
@@ -53,21 +73,19 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); // 當更不需要備註
+                fieldRemarks.classList.add('hidden'); 
                 document.getElementById('endDate').required = true;
             } else { 
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden');
+                fieldRemarks.classList.remove('hidden'); 
                 document.getElementById('endDate').required = false;
 
                 if (type === 'transport') {
-                    // === 交通：顯示下拉選單，隱藏文字框 ===
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
                 } else {
-                    // === Call：顯示文字框，隱藏下拉選單 ===
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
@@ -111,6 +129,10 @@ export const logicScript = `
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
         if(!pin) return;
+        
+        // 執行任何操作時，更新儲存狀態
+        managePinStorage();
+
         try {
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const months = await res.json();
@@ -177,6 +199,9 @@ export const logicScript = `
         const btn = e.target.querySelector('button');
         btn.disabled = true; btn.innerText = '儲存中...';
 
+        // 儲存記錄時，也更新 PIN 碼儲存狀態
+        managePinStorage();
+
         try {
             const type = document.getElementById('recordType').value;
             const payload = { pin, type, date: document.getElementById('date').value };
@@ -188,13 +213,11 @@ export const logicScript = `
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
                 
-                // === 修改：根據類型從不同地方取值 ===
                 if (type === 'transport') {
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
                 }
-                // =================================
 
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -209,7 +232,6 @@ export const logicScript = `
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
-                // 儲存後重置下拉選單
                 document.getElementById('transportSelect').selectedIndex = 0; 
 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
@@ -271,6 +293,10 @@ export const logicScript = `
         const pin = document.getElementById('pin').value;
         const monthStr = document.getElementById('queryMonth').value; 
         if(!pin) return alert('請先輸入 PIN 密碼');
+        
+        // 查詢時也更新 PIN 儲存狀態
+        managePinStorage();
+
         const listEl = document.getElementById('recordsList');
         const summaryEl = document.getElementById('totalSummary');
         
@@ -311,7 +337,6 @@ export const logicScript = `
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-yellow-600 font-bold">交通費</span>\`;
-                        // 交通費的 location 現在是選單的值 (例如: "隧道")
                         detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     } else if (r.type === 'oncall') {
