@@ -11,15 +11,10 @@ export const htmlContent = `
     <style>
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
-        
-        /* 樣式定義 */
-        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; } /* 藍 */
-        .has-money { background-color: #059669; color: white; font-weight: bold; } /* 綠 */
-        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; } /* 橙 (交通費) */
-        
-        /* 混合樣式 (簡化處理，若當天有多種，優先顯示順序：OT > 當更 > 交通) */
+        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
+        .has-money { background-color: #059669; color: white; font-weight: bold; }
+        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; }
         .has-both { background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); color: white; font-weight: bold; }
-        
         .no-ot { background-color: #F3F4F6; color: #9CA3AF; }
         .empty-day { background-color: transparent; }
     </style>
@@ -37,9 +32,7 @@ export const htmlContent = `
             <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">月結報表</button>
         </div>
 
-        <!-- 分頁 1: 新增記錄 -->
         <div id="view-record">
-            <!-- 按鈕組：新增了交通費 -->
             <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg overflow-x-auto">
                 <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2 px-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 whitespace-nowrap transition">🕒 OT</button>
                 <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 whitespace-nowrap transition">📅 當更</button>
@@ -55,7 +48,6 @@ export const htmlContent = `
                     <input type="date" id="date" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required>
                 </div>
 
-                <!-- 欄位組 A: 時數 OT -->
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">地點</label>
@@ -74,7 +66,6 @@ export const htmlContent = `
                     <div class="text-right text-sm text-gray-500 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
 
-                <!-- 欄位組 B: 金額 (當更/Call/交通) -->
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-700">結束日期 (至)</label>
@@ -86,7 +77,7 @@ export const htmlContent = `
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-700" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="例如：重啟 Server / 的士費">
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="例如：重啟 Server / 1號舖">
                     </div>
                 </div>
 
@@ -94,7 +85,6 @@ export const htmlContent = `
             </form>
         </div>
 
-        <!-- 分頁 2: 月結報表 -->
         <div id="view-export" class="hidden">
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
@@ -121,8 +111,12 @@ export const htmlContent = `
             <div id="totalSummary" class="text-right border-t pt-4 space-y-1 hidden">
                 <div class="text-gray-600">總時數: <span id="sumHours" class="font-bold text-indigo-600 text-xl">0</span> hr</div>
                 <div class="text-gray-600">總收入: <span id="sumMoney" class="font-bold text-green-600 text-xl">$0</span></div>
-                <!-- 新增：總交通費 -->
                 <div class="text-gray-600">總交通: <span id="sumTransport" class="font-bold text-yellow-600 text-xl">$0</span></div>
+                
+                <!-- 新增：總計 (Total) -->
+                <div class="text-gray-800 mt-2 pt-2 border-t border-gray-200">
+                    總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span>
+                </div>
             </div>
 
             <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 hidden shadow-md">
