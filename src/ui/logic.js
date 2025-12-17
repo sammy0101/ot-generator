@@ -9,7 +9,6 @@ export const logicScript = `
     let grandTotalMoney = 0;
 
     function setType(type) {
-        // 切換類型時，清空金額，防止資料殘留
         document.getElementById('amount').value = '';
         document.getElementById('recordType').value = type;
         
@@ -52,6 +51,30 @@ export const logicScript = `
             }
         }
     }
+
+    // === 新增：刪除記錄函式 ===
+    async function deleteRecord(id, date) {
+        if(!confirm('確定要刪除這筆記錄嗎？')) return;
+        
+        const pin = document.getElementById('pin').value;
+        const btn = document.getElementById('pdfBtn'); // 借用按鈕狀態避免重複點擊
+        
+        try {
+            const res = await fetch('/api/delete', {
+                method: 'POST',
+                body: JSON.stringify({ pin, id, date })
+            });
+            if(res.ok) {
+                // 刪除成功後重新載入
+                loadRecords();
+            } else {
+                throw new Error('刪除失敗');
+            }
+        } catch(err) {
+            alert(err.message);
+        }
+    }
+    // =======================
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
@@ -126,7 +149,6 @@ export const logicScript = `
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
             } else {
-                // 強制轉換為數字，避免傳送空字串
                 payload.amount = Number(document.getElementById('amount').value) || 0;
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -137,12 +159,8 @@ export const logicScript = `
             if(res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
-                
-                // === 修復重點：儲存成功後，清空輸入欄位 ===
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
-                // =====================================
-
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -180,9 +198,8 @@ export const logicScript = `
             const div = document.createElement('div');
             div.innerText = d;
             
-            // === 修復重點：雙色判斷 ===
             if (otDays.has(d) && moneyDays.has(d)) {
-                div.className = 'calendar-day has-both'; // 既有OT又有錢 -> 雙色
+                div.className = 'calendar-day has-both';
             } else if (moneyDays.has(d)) {
                 div.className = 'calendar-day has-money';
             } else if (otDays.has(d)) {
@@ -190,8 +207,6 @@ export const logicScript = `
             } else {
                 div.className = 'calendar-day no-ot';
             }
-            // ========================
-
             grid.appendChild(div);
         }
         document.getElementById('calendarView').classList.remove('hidden');
@@ -223,14 +238,12 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
+                // 新增 "操作" 欄位
+                let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
                 
                 data.forEach(r => {
                     let detail = '', value = '', typeLabel = '';
-                    
-                    // === 修復重點：確保金額是數字，避免 undefined ===
                     const amount = Number(r.amount) || 0; 
-                    // =======================================
 
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
@@ -257,6 +270,9 @@ export const logicScript = `
                             <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-500">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
+                            <td class="py-2 text-right">
+                                <button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-500 hover:text-red-700 text-xs">🗑️</button>
+                            </td>
                         </tr>
                     \`;
                 });
