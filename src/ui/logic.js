@@ -8,6 +8,9 @@ export const logicScript = `
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
+    
+    // === 新增：本地月份快取 (解決 Cloudflare 延遲問題) ===
+    let knownMonths = new Set(); 
 
     // === 初始化與 PIN 管理 ===
     (function initPin() {
@@ -28,7 +31,34 @@ export const logicScript = `
             localStorage.removeItem('ot_pin');
         }
     }
-    // ========================
+
+    // === 新增：統一渲染月份按鈕 ===
+    function renderMonthButtons() {
+        const area = document.getElementById('historyMonthsArea');
+        const badges = document.getElementById('historyBadges');
+        
+        // 轉為陣列並排序 (新月份在前)
+        const sortedMonths = Array.from(knownMonths).sort().reverse();
+
+        if (sortedMonths.length > 0) {
+            area.classList.remove('hidden');
+            badges.innerHTML = sortedMonths.map(m => \`
+                <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
+                    <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
+                            class="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 border border-indigo-200 rounded-l-lg hover:bg-indigo-200 focus:z-10 focus:ring-2 focus:ring-indigo-400">
+                        \${m}
+                    </button>
+                    <button type="button" onclick="deleteMonth('\${m}')" 
+                            class="px-2 py-1 text-xs font-medium text-red-600 bg-indigo-100 border-t border-b border-r border-indigo-200 rounded-r-lg hover:bg-red-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-red-400" title="刪除整月">
+                        ✕
+                    </button>
+                </div>
+            \`).join('');
+        } else {
+            area.classList.add('hidden');
+        }
+    }
+    // =================================
 
     function setType(type) {
         document.getElementById('amount').value = '';
@@ -105,21 +135,19 @@ export const logicScript = `
         } catch(err) { alert(err.message); }
     }
 
-    async function deleteMonth(month, btnElement) {
+    async function deleteMonth(month) {
         if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         
         const pin = document.getElementById('pin').value;
-        
-        btnElement.disabled = true;
-        btnElement.innerText = '...';
-
         try {
             const res = await fetch('/api/delete_month', {
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
-                btnElement.parentNode.remove();
+                // 從本地快取移除並重畫
+                knownMonths.delete(month);
+                renderMonthButtons();
 
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
@@ -135,8 +163,6 @@ export const logicScript = `
             }
         } catch(err) { 
             alert(err.message); 
-            btnElement.disabled = false;
-            btnElement.innerText = '✕';
         }
     }
 
@@ -149,26 +175,10 @@ export const logicScript = `
         try {
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const months = await res.json();
-            if(months.error) return; 
-            const area = document.getElementById('historyMonthsArea');
-            const badges = document.getElementById('historyBadges');
-            
-            if(months.length > 0) {
-                area.classList.remove('hidden');
-                badges.innerHTML = months.map(m => \`
-                    <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
-                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                                class="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 border border-indigo-200 rounded-l-lg hover:bg-indigo-200 focus:z-10 focus:ring-2 focus:ring-indigo-400">
-                            \${m}
-                        </button>
-                        <button type="button" onclick="deleteMonth('\${m}', this)" 
-                                class="px-2 py-1 text-xs font-medium text-red-600 bg-indigo-100 border-t border-b border-r border-indigo-200 rounded-r-lg hover:bg-red-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-red-400" title="刪除整月">
-                            ✕
-                        </button>
-                    </div>
-                \`).join('');
-            } else {
-                area.classList.add('hidden');
+            if(!months.error) {
+                // 合併新資料到 Set (避免覆蓋本地剛新增的資料)
+                months.forEach(m => knownMonths.add(m));
+                renderMonthButtons();
             }
         } catch(e) {}
     }
@@ -246,9 +256,11 @@ export const logicScript = `
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
 
-                // === 修改重點：儲存成功後，立即重新載入月份按鈕 ===
-                fetchHistoryMonths(); 
-                // ============================================
+                // === 關鍵修改：手動將這個月份加入列表並更新，不依賴後端延遲的列表 ===
+                const currentMonth = payload.date.substring(0, 7);
+                knownMonths.add(currentMonth);
+                renderMonthButtons();
+                // =========================================================
 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
