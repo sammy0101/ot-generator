@@ -73,6 +73,11 @@ export const htmlContent = `
                         <label class="block text-sm font-medium text-gray-700">金額 (HKD)</label>
                         <input type="number" id="amount" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="輸入金額">
                     </div>
+                    <!-- 新增：備註欄位 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">備註 (選填)</label>
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="例如：重啟 Server / 1號舖">
+                    </div>
                 </div>
 
                 <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-700 transition">儲存記錄</button>
@@ -94,7 +99,6 @@ export const htmlContent = `
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-600">
                     <span class="flex items-center"><span class="w-3 h-3 bg-indigo-600 rounded mr-1"></span>OT</span>
                     <span class="flex items-center"><span class="w-3 h-3 bg-green-600 rounded mr-1"></span>當更/Call</span>
-                    <!-- 移除了重疊的圖示說明 -->
                 </div>
             </div>
 
