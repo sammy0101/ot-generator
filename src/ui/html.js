@@ -6,6 +6,7 @@ export const htmlContent = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OT 記錄器 Pro</title>
     
+    <!-- 您指定的圖標 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -28,6 +29,14 @@ export const htmlContent = `
         <div class="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
             <label class="block text-xs font-bold text-gray-700 mb-1">存取密碼 (PIN)</label>
             <input type="password" id="pin" class="w-full border-gray-300 border rounded px-2 py-1" placeholder="****">
+            
+            <!-- 新增：記住密碼勾選框 -->
+            <div class="mt-2 flex items-center">
+                <input type="checkbox" id="rememberPin" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="rememberPin" class="ml-2 block text-xs text-gray-700 font-bold cursor-pointer">
+                    記住密碼 (下次自動登入)
+                </label>
+            </div>
         </div>
 
         <div class="flex border-b mb-6">
@@ -79,14 +88,11 @@ export const htmlContent = `
                         <input type="number" id="amount" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="輸入金額">
                     </div>
                     
-                    <!-- 修改區域：備註欄位與下拉選單共存 -->
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-700" id="label-remarks">備註 (選填)</label>
                         
-                        <!-- 給 Call 用的文字框 -->
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="例如：重啟 Server">
                         
-                        <!-- 給 交通 用的下拉選單 (預設隱藏) -->
                         <select id="transportSelect" class="mt-1 block w-full border border-gray-300 rounded-md p-2 hidden bg-white">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
