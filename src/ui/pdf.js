@@ -39,6 +39,10 @@ export const pdfScript = `
             for (const r of currentRecords) {
                 let itemStr = '', detailStr = '', valStr = '';
                 let isMoney = false;
+                
+                // === 修復：強制處理金額為數字 ===
+                const amount = Number(r.amount) || 0; 
+                // ============================
 
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
@@ -48,11 +52,11 @@ export const pdfScript = `
                 } else if (r.type === 'oncall') {
                     itemStr = '當更 On-Call';
                     detailStr = r.endDate ? \`~ \${r.endDate}\` : '';
-                    valStr = '$' + r.amount;
+                    valStr = '$' + amount;
                     isMoney = true;
                 } else { 
                     itemStr = 'Call';
-                    valStr = '$' + r.amount;
+                    valStr = '$' + amount;
                     isMoney = true;
                 }
 
