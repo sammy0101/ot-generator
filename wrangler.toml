@@ -1,0 +1,5 @@
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01" # 日期新一點沒關係
+
+# 如果你是免費用戶，確保沒有開啟不支援的功能
