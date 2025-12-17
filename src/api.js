@@ -3,45 +3,56 @@
 export async function handleAdd(request, env) {
     try {
         const data = await request.json();
-        // 驗證 PIN
-        if (data.pin !== env.AUTH_PIN) {
-            return new Response('密碼錯誤', { status: 401 });
-        }
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
 
         const monthKey = `OT_${data.date.substring(0, 7)}`;
-        
         let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
         if (!records) records = [];
 
-        // 建立新記錄物件
-        const newRecord = {
+        records.push({
             id: Date.now(),
-            type: data.type || 'hourly', // 預設為時數
-            date: data.date,             // 開始日期
-            endDate: data.endDate,       // 結束日期 (當更用)
-            location: data.location,     // 地點或備註
-            start: data.start,           // 開始時間 (OT用)
-            end: data.end,               // 結束時間 (OT用)
-            amount: data.amount ? parseInt(data.amount) : 0, // 金額 (HKD)
+            type: data.type || 'hourly',
+            date: data.date,
+            endDate: data.endDate,
+            location: data.location,
+            start: data.start,
+            end: data.end,
+            amount: data.amount ? parseInt(data.amount) : 0,
             timestamp: new Date().toISOString()
-        };
+        });
 
-        records.push(newRecord);
-
-        // 排序 (依日期)
         records.sort((a, b) => new Date(a.date) - new Date(b.date));
-
         await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
 
-        return new Response(JSON.stringify({ success: true }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
     } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500 });
     }
 }
 
-// 讀取與列表功能的代碼不需要改，維持原樣即可
+// === 新增：刪除功能 ===
+export async function handleDelete(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        // 需要日期來決定 Key (哪個月的資料庫)
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+
+        // 過濾掉要刪除的 ID
+        const newRecords = records.filter(r => r.id !== data.id);
+        
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+// ===================
+
 export async function handleGet(request, env) {
     const url = new URL(request.url);
     const month = url.searchParams.get('month');
