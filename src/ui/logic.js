@@ -7,18 +7,19 @@ export const logicScript = `
     let currentRecords = [];
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
+    let grandTotalTransport = 0; // 新增：交通費總計
 
     function setType(type) {
         document.getElementById('amount').value = '';
         document.getElementById('moneyRemarks').value = ''; 
         document.getElementById('recordType').value = type;
         
-        ['hourly', 'oncall', 'percall'].forEach(t => {
+        ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (t === type) {
-                btn.className = "flex-1 py-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 transition";
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 whitespace-nowrap transition";
             } else {
-                btn.className = "flex-1 py-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-200 transition";
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-200 whitespace-nowrap transition";
             }
         });
 
@@ -27,6 +28,7 @@ export const logicScript = `
         const fieldEndDate = document.getElementById('field-endDate');
         const fieldRemarks = document.getElementById('field-remarks');
         const labelDate = document.getElementById('label-date');
+        const labelRemarks = document.getElementById('label-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -52,6 +54,15 @@ export const logicScript = `
                 fieldEndDate.classList.add('hidden');
                 fieldRemarks.classList.remove('hidden'); 
                 document.getElementById('endDate').required = false;
+
+                // 根據類型修改備註的標題提示
+                if (type === 'transport') {
+                    labelRemarks.innerText = '行程/詳情 (選填)';
+                    document.getElementById('moneyRemarks').placeholder = '例如：公司 -> 客戶 (的士)';
+                } else {
+                    labelRemarks.innerText = '備註 (選填)';
+                    document.getElementById('moneyRemarks').placeholder = '例如：重啟 Server';
+                }
             }
         }
     }
@@ -193,10 +204,12 @@ export const logicScript = `
         
         const otDays = new Set();
         const moneyDays = new Set();
+        const transportDays = new Set(); // 新增：交通費日子
 
         records.forEach(r => {
             const d = parseInt(r.date.split('-')[2]);
             if (r.type === 'hourly') otDays.add(d);
+            else if (r.type === 'transport') transportDays.add(d);
             else {
                 moneyDays.add(d);
                 if (r.type === 'oncall' && r.endDate) {
@@ -218,10 +231,13 @@ export const logicScript = `
             const div = document.createElement('div');
             div.innerText = d;
             
+            // 簡易的顏色優先級： OT+Money > Money > Transport > OT
             if (otDays.has(d) && moneyDays.has(d)) {
                 div.className = 'calendar-day has-both';
             } else if (moneyDays.has(d)) {
                 div.className = 'calendar-day has-money';
+            } else if (transportDays.has(d)) {
+                div.className = 'calendar-day has-transport'; // 橙色
             } else if (otDays.has(d)) {
                 div.className = 'calendar-day has-ot';
             } else {
@@ -249,6 +265,7 @@ export const logicScript = `
             currentRecords = data;
             grandTotalMinutes = 0;
             grandTotalMoney = 0;
+            grandTotalTransport = 0; // 重置
             
             const [y, m] = monthStr.split('-').map(Number);
             renderCalendar(y, m, data);
@@ -272,6 +289,12 @@ export const logicScript = `
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                         value = \`\${formatHours(mins)} hr\`;
+                    } else if (r.type === 'transport') {
+                        // === 交通費邏輯 ===
+                        grandTotalTransport += amount;
+                        typeLabel = \`<span class="text-yellow-600 font-bold">交通費</span>\`;
+                        detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
+                        value = \`$\${amount}\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
                         typeLabel = \`<span class="text-green-600 font-bold">當更</span>\`; 
@@ -279,11 +302,9 @@ export const logicScript = `
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
                         value = \`$\${amount}\`;
-                    } else {
-                        // === Call 的邏輯修改 ===
+                    } else { // percall
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\`; // 項目欄只顯示 Call
-                        // 詳情欄顯示備註，如果沒有則顯示 -
+                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\`;
                         detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     }
@@ -305,6 +326,7 @@ export const logicScript = `
 
                 document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
                 document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
+                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport; // 顯示總交通費
                 summaryEl.classList.remove('hidden');
                 document.getElementById('pdfBtn').classList.remove('hidden');
             }
