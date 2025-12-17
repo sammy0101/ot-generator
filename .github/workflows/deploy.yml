@@ -3,7 +3,7 @@ name: Deploy to Cloudflare Workers
 on:
   push:
     branches:
-      - main  # 當推送到 main 分支時觸發，如果你的分支叫 master 請改為 master
+      - main
 
 jobs:
   deploy:
@@ -18,5 +18,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 如果你的 package.json 裡面沒有安裝 wrangler，可以在這裡強制指定版本，例如：
-          # wranglerVersion: '3'
+          # 1. 告訴 Wrangler 我們要上傳一個叫做 AUTH_PIN 的加密變數
+          secrets: |
+            AUTH_PIN
+        env:
+          # 2. 從 GitHub Secrets 讀取密碼，並放入環境變數供 Wrangler 抓取
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
