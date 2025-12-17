@@ -1,5 +1,10 @@
 name = "ot-generator"
 main = "src/index.js"
-compatibility_date = "2023-12-01" # 日期新一點沒關係
+compatibility_date = "2023-12-01"
 
-# 如果你是免費用戶，確保沒有開啟不支援的功能
+# === KV 設定 ===
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡改成佔位符，不要留真實 ID
+
+# [vars] 區塊記得要是空的或已刪除 (因為密碼已經移走了)
