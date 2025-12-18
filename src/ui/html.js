@@ -46,7 +46,6 @@ export const htmlContent = `
 <body class="bg-gray-100 min-h-screen p-4 font-sans">
     <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
         
-        <!-- 修改：標題還原，移除名字 -->
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">OT 記錄器</h1>
         </div>
@@ -67,11 +66,8 @@ export const htmlContent = `
 
         <div class="flex border-b mb-6" id="tabContainer">
             <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 transition">新增記錄</button>
-            
-            <!-- 修改：名字放在這裡 -->
-            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">
-                月結報表 <span id="uiUserName" class="text-sm font-normal ml-1"></span>
-            </button>
+            <!-- 修改：移除名字 -->
+            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">月結報表</button>
         </div>
 
         <div id="view-record">
@@ -153,8 +149,11 @@ export const htmlContent = `
                 <div class="text-gray-600">總時數: <span id="sumHours" class="font-bold text-indigo-600 text-xl">0</span> hr</div>
                 <div class="text-gray-600">總收入: <span id="sumMoney" class="font-bold text-green-600 text-xl">$0</span></div>
                 <div class="text-gray-600">總交通: <span id="sumTransport" class="font-bold text-yellow-600 text-xl">$0</span></div>
-                <div class="text-gray-800 mt-2 pt-2 border-t border-gray-200">
-                    總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span>
+                
+                <!-- 修改：底部改為 Flex 布局，左邊顯示名字，右邊顯示總計 -->
+                <div class="text-gray-800 mt-2 pt-2 border-t border-gray-200 flex justify-between items-center">
+                    <span id="uiUserNameDisplay" class="text-gray-500 font-bold text-lg"></span>
+                    <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
             <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 hidden shadow-md">
