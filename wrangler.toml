@@ -2,12 +2,11 @@ name = "ot-generator"
 main = "src/index.js"
 compatibility_date = "2023-12-01"
 
-# === KV 設定 ===
+# KV 設定
 [[kv_namespaces]]
 binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡改成佔位符，不要留真實 ID
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
 
-# [vars] 區塊記得要是空的或已刪除 (因為密碼已經移走了)
+# === 修改重點：加入 vars 區塊 ===
 [vars]
-# 這裡先寫預設值，部署時會被 GitHub Secrets 替換掉
-USER_NAME = "REPLACE_ME_NAME"
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
