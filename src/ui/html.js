@@ -16,17 +16,28 @@ export const htmlContent = `
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
         /* 單色 */
-        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
-        .has-money { background-color: #059669; color: white; font-weight: bold; }
-        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; }
+        .has-ot { background-color: #4F46E5; color: white; font-weight: bold; } /* 藍 */
+        .has-money { background-color: #059669; color: white; font-weight: bold; } /* 綠 */
+        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; } /* 橙 */
         
-        /* 雙色 (斜條紋) */
+        /* 雙色組合 */
+        /* OT + 當更 (藍/綠) */
         .has-both { 
             background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); 
             color: white; font-weight: bold; 
         }
+        /* 當更 + 交通 (綠/橙) */
+        .has-money-transport { 
+            background: linear-gradient(135deg, #059669 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
+        /* OT + 交通 (藍/橙) */
+        .has-ot-transport { 
+            background: linear-gradient(135deg, #4F46E5 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
         
-        /* 三色 (斜條紋: 藍 -> 綠 -> 橙) */
+        /* 三色 (藍/綠/橙) */
         .has-triple {
             background: linear-gradient(135deg, 
                 #4F46E5 33%, 
@@ -42,7 +53,6 @@ export const htmlContent = `
 <body class="bg-gray-100 min-h-screen p-4 font-sans">
     <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
         
-        <!-- === 登入區 (分享模式下會隱藏) === -->
         <div id="authSection" class="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
             <label class="block text-xs font-bold text-gray-700 mb-1">存取密碼 (PIN)</label>
             <input type="password" id="pin" class="w-full border-gray-300 border rounded px-2 py-1" placeholder="****">
@@ -55,7 +65,6 @@ export const htmlContent = `
             </div>
         </div>
 
-        <!-- === 分享模式標題 (僅在分享模式顯示) === -->
         <div id="shareHeader" class="hidden mb-6 text-center">
             <h1 class="text-2xl font-bold text-gray-800" id="shareTitle">OT 記錄報表</h1>
             <p class="text-sm text-gray-500 mt-1">唯讀模式</p>
@@ -130,7 +139,6 @@ export const htmlContent = `
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
 
-            <!-- 查詢區：新增了複製連結按鈕 -->
             <div class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 border border-gray-300 rounded-md p-2">
                 <button onclick="loadRecords()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 whitespace-nowrap">查詢</button>
