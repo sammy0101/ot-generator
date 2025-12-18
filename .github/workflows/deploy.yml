@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-  # === 新增：手動觸發按鈕 ===
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -15,25 +14,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # === 步驟 1：注入 KV ID ===
+      # 步驟 1：只注入 KV ID (因為它是 ID 不是敏感資料，用替換的沒問題)
       - name: Inject KV ID
         run: |
           sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
 
-      # === 步驟 2：注入中文名字 (強制替換) ===
-      - name: Inject User Name
-        run: |
-          # 使用雙引號確保變數被解析
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 步驟 3：部署 ===
+      # 步驟 2：部署 (名字透過 secrets 上傳)
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 只需上傳 PIN 碼作為加密 Secret，名字已經透過上面的 sed 寫入檔案了
+          # 告訴 Cloudflare 這兩個是加密變數
           secrets: |
             AUTH_PIN
+            USER_NAME
         env:
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
+          USER_NAME: ${{ secrets.USER_NAME }}
