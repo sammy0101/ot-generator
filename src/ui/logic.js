@@ -10,33 +10,27 @@ export const logicScript = `
     let grandTotalTransport = 0;
     let knownMonths = new Set();
     
-    // 檢查是否為分享模式
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
-    // === 初始化 ===
     (function init() {
         if (isShareMode) {
-            // === 分享模式設定 ===
-            document.getElementById('authSection').classList.add('hidden'); // 隱藏 PIN
-            document.getElementById('tabContainer').classList.add('hidden'); // 隱藏分頁切換
-            document.getElementById('view-record').classList.add('hidden'); // 隱藏新增表單
-            document.getElementById('view-export').classList.remove('hidden'); // 顯示報表
-            document.getElementById('btn-share').classList.add('hidden'); // 隱藏分享按鈕
-            document.getElementById('historyMonthsArea').classList.add('hidden'); // 隱藏歷史按鈕(因無 PIN 無法列出)
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('tabContainer').classList.add('hidden');
+            document.getElementById('view-record').classList.add('hidden');
+            document.getElementById('view-export').classList.remove('hidden');
+            document.getElementById('btn-share').classList.add('hidden');
+            document.getElementById('historyMonthsArea').classList.add('hidden');
             
-            // 顯示標題
             document.getElementById('shareHeader').classList.remove('hidden');
             if(window.USER_NAME) document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
-                // 自動載入，使用公開 API
                 loadRecords(true); 
             }
         } else {
-            // === 正常模式設定 ===
             const savedPin = localStorage.getItem('ot_pin');
             if (savedPin) {
                 document.getElementById('pin').value = savedPin;
@@ -57,7 +51,6 @@ export const logicScript = `
         }
     }
 
-    // 複製分享連結
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
         const url = \`\${window.location.origin}\${window.location.pathname}?view=share&month=\${month}\`;
@@ -89,11 +82,6 @@ export const logicScript = `
             area.classList.add('hidden');
         }
     }
-
-    // ... (setType, deleteRecord, deleteMonth, fetchHistoryMonths, getMinutesDiff, formatHours, updateDuration, switchTab, addForm 保持不變) ...
-    // 為了節省篇幅，這裡省略未修改的函式，請保留您原本的代碼，
-    // 或如果需要完整代碼，我可以再貼一次。
-    // 重點是下面的 renderCalendar 和 loadRecords
 
     function setType(type) {
         document.getElementById('amount').value = '';
@@ -181,6 +169,7 @@ export const logicScript = `
             });
             if(res.ok) { 
                 btnElement.parentNode.remove();
+                knownMonths.delete(month);
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
                     document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
@@ -314,15 +303,19 @@ export const logicScript = `
             const div = document.createElement('div');
             div.innerText = d;
             
-            // === 修改：三色邏輯 ===
             const hasOT = otDays.has(d);
             const hasMoney = moneyDays.has(d);
             const hasTransport = transportDays.has(d);
 
+            // === 修改：加入更多的雙色組合 ===
             if (hasOT && hasMoney && hasTransport) {
-                div.className = 'calendar-day has-triple'; // 三色
+                div.className = 'calendar-day has-triple';
             } else if (hasOT && hasMoney) {
                 div.className = 'calendar-day has-both'; // 藍綠
+            } else if (hasMoney && hasTransport) {
+                div.className = 'calendar-day has-money-transport'; // 綠橙 (新增)
+            } else if (hasOT && hasTransport) {
+                div.className = 'calendar-day has-ot-transport'; // 藍橙 (新增)
             } else if (hasMoney) {
                 div.className = 'calendar-day has-money';
             } else if (hasTransport) {
@@ -332,19 +325,18 @@ export const logicScript = `
             } else {
                 div.className = 'calendar-day no-ot';
             }
+            // =============================
+            
             grid.appendChild(div);
         }
         document.getElementById('calendarView').classList.remove('hidden');
     }
 
-    // === 修改：loadRecords 支援強制使用公開 API ===
     async function loadRecords(forcePublic = false) {
         const pin = document.getElementById('pin').value;
         const monthStr = document.getElementById('queryMonth').value; 
         
-        // 如果不是分享模式且沒有 PIN，則阻擋
         if(!isShareMode && !pin) return alert('請先輸入 PIN 密碼');
-        
         if(!isShareMode) managePinStorage();
 
         const listEl = document.getElementById('recordsList');
@@ -353,7 +345,6 @@ export const logicScript = `
         listEl.innerHTML = '<p class="text-center">載入中...</p>';
         
         try {
-            // 決定使用哪個 API endpoint
             let url;
             if (isShareMode || forcePublic) {
                 url = \`/api/public/get?month=\${monthStr}\`;
@@ -380,7 +371,6 @@ export const logicScript = `
             } else {
                 let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
                 
-                // 如果是分享模式，隱藏操作欄位的標頭
                 if(isShareMode) {
                     html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
                 }
@@ -416,7 +406,6 @@ export const logicScript = `
                         value = \`$\${amount}\`;
                     }
 
-                    // 分享模式不顯示刪除按鈕
                     const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-500 hover:text-red-700 text-xs">🗑️</button></td>\`;
 
                     html += \`
