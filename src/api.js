@@ -48,24 +48,17 @@ export async function handleDelete(request, env) {
     }
 }
 
-// === 新增：刪除整個月的資料 ===
 export async function handleDeleteMonth(request, env) {
     try {
         const data = await request.json();
         if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        // data.month 格式應為 "2025-12"
         const monthKey = `OT_${data.month}`;
-        
-        // 直接從 KV 刪除該 Key
         await env.OT_RECORDS.delete(monthKey);
-
         return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
     } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), { status: 500 });
     }
 }
-// ===========================
 
 export async function handleGet(request, env) {
     const url = new URL(request.url);
@@ -76,6 +69,17 @@ export async function handleGet(request, env) {
     const records = await env.OT_RECORDS.get(key, { type: 'json' }) || [];
     return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
 }
+
+// === 新增：公開讀取 API (不需要 PIN) ===
+export async function handlePublicGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    // 這裡不做 PIN 檢查，因為是給公司分享用的
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) || [];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+// ===================================
 
 export async function handleListMonths(request, env) {
     const url = new URL(request.url);
