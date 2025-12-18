@@ -18,16 +18,30 @@ export const pdfScript = `
             let yPos = height - 60;
             const marginX = 40;
 
-            // 定義顏色
             const colorBlack = rgb(0, 0, 0);
-            const colorGreen = rgb(0, 0.5, 0);      // 收入綠
-            const colorOrange = rgb(0.85, 0.5, 0);  // 交通橙 (調深一點以便閱讀)
+            const colorGreen = rgb(0, 0.5, 0);
+            const colorOrange = rgb(0.85, 0.5, 0);
 
             const monthStr = document.getElementById('queryMonth').value;
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
             page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
+            
+            // === 新增：印出名字 ===
+            if (window.USER_NAME) {
+                const nameWidth = chineseFont.widthOfTextAtSize(window.USER_NAME, 14);
+                page.drawText(window.USER_NAME, { 
+                    x: width - marginX - nameWidth, 
+                    y: yPos, 
+                    size: 14, 
+                    font: chineseFont,
+                    color: rgb(0.3, 0.3, 0.3)
+                });
+            }
+            // ==================
+
             yPos -= 40;
 
+            // ... (其餘 PDF 生成代碼保持不變，因為篇幅關係省略，請使用上一版代碼，僅加入上面那段名字邏輯) ...
             const col = { d: 40, item: 130, detail: 350, val: 480 };
             const fontSize = 11;
             const drawTxt = (text, x, font, color=colorBlack) => 
@@ -47,7 +61,7 @@ export const pdfScript = `
 
                 let itemStr = '', detailStr = '', valStr = '';
                 let detailFont = helvetica; 
-                let rowColor = colorBlack; // 預設黑色 (OT)
+                let rowColor = colorBlack;
 
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
@@ -60,7 +74,7 @@ export const pdfScript = `
                     detailStr = r.location ? \`(\${r.location})\` : '-';
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
-                    rowColor = colorOrange; // === 交通費設為橙色 ===
+                    rowColor = colorOrange;
                 } else if (r.type === 'oncall') {
                     itemStr = '當更 On-Call';
                     const startD = r.date.split('-')[2];
@@ -68,13 +82,13 @@ export const pdfScript = `
                     detailStr = \`\${startD}日 - \${endD}日\`;
                     detailFont = chineseFont;
                     valStr = '$' + amount;
-                    rowColor = colorGreen; // === 收入設為綠色 ===
+                    rowColor = colorGreen;
                 } else { 
                     itemStr = 'Call';
                     detailStr = r.location ? \`(\${r.location})\` : '-';
                     detailFont = chineseFont;
                     valStr = '$' + amount;
-                    rowColor = colorGreen; // === 收入設為綠色 ===
+                    rowColor = colorGreen;
                 }
 
                 drawTxt(r.date, col.d, helvetica);
@@ -84,7 +98,6 @@ export const pdfScript = `
                 
                 drawTxt(detailStr, col.detail, detailFont);
                 
-                // 使用上面判斷好的顏色
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
@@ -97,22 +110,18 @@ export const pdfScript = `
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            // 總時數
             drawTxt("總時數: ", 350, chineseFont);
             drawTxt(formatHours(grandTotalMinutes) + " hr", 410, helveticaBold);
             yPos -= 20;
 
-            // 總收入
             drawTxt("總收入: ", 350, chineseFont);
-            drawTxt("$" + grandTotalMoney, 410, helveticaBold, colorGreen); // 綠色
+            drawTxt("$" + grandTotalMoney, 410, helveticaBold, colorGreen);
             yPos -= 20;
 
-            // 總交通
             drawTxt("總交通: ", 350, chineseFont);
-            drawTxt("$" + grandTotalTransport, 410, helveticaBold, colorOrange); // 橙色
+            drawTxt("$" + grandTotalTransport, 410, helveticaBold, colorOrange);
             yPos -= 20;
 
-            // 總計 (黑色)
             const totalAll = grandTotalMoney + grandTotalTransport;
             drawTxt("總計:", 350, chineseFont); 
             drawTxt("$" + totalAll, 410, helveticaBold, colorBlack); 
