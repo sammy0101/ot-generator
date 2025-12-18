@@ -30,8 +30,9 @@ export default {
     }
 
     // === 讀取 USER_NAME ===
-    // 這裡直接讀取 env.USER_NAME，這是由 deploy.yml 中的 secrets 上傳的
-    const userName = env.USER_NAME || "";
+    // 這裡會讀取被 sed 替換後的 wrangler.toml 裡的 [vars]
+    // 如果替換失敗，會顯示空字串，不會報錯
+    const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
     
     return new Response(getHtml(userName), {
       headers: { 'content-type': 'text/html;charset=UTF-8' },
