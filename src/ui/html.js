@@ -15,12 +15,10 @@ export const htmlContent = `
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
-        /* 單色 */
         .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
         .has-money { background-color: #059669; color: white; font-weight: bold; }
         .has-transport { background-color: #F59E0B; color: white; font-weight: bold; }
         
-        /* 雙色 */
         .has-both { 
             background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); 
             color: white; font-weight: bold; 
@@ -33,8 +31,6 @@ export const htmlContent = `
             background: linear-gradient(135deg, #4F46E5 50%, #F59E0B 50%); 
             color: white; font-weight: bold; 
         }
-        
-        /* === 關鍵：三色條紋 (藍 -> 綠 -> 橙) === */
         .has-triple {
             background: linear-gradient(135deg, 
                 #4F46E5 33%, 
@@ -50,10 +46,9 @@ export const htmlContent = `
 <body class="bg-gray-100 min-h-screen p-4 font-sans">
     <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
         
+        <!-- 修改：標題還原，移除名字 -->
         <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">
-                OT 記錄器 <span id="uiUserName" class="text-indigo-600"></span>
-            </h1>
+            <h1 class="text-2xl font-bold text-gray-800">OT 記錄器</h1>
         </div>
 
         <div id="authSection" class="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
@@ -72,7 +67,11 @@ export const htmlContent = `
 
         <div class="flex border-b mb-6" id="tabContainer">
             <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 transition">新增記錄</button>
-            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">月結報表</button>
+            
+            <!-- 修改：名字放在這裡 -->
+            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition">
+                月結報表 <span id="uiUserName" class="text-sm font-normal ml-1"></span>
+            </button>
         </div>
 
         <div id="view-record">
