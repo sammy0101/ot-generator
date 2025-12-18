@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  # === 新增：手動觸發按鈕 ===
+  workflow_dispatch: 
 
 jobs:
   deploy:
