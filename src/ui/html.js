@@ -15,18 +15,31 @@ export const htmlContent = `
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
+        /* 單色 */
         .has-ot { background-color: #4F46E5; color: white; font-weight: bold; }
         .has-money { background-color: #059669; color: white; font-weight: bold; }
         .has-transport { background-color: #F59E0B; color: white; font-weight: bold; }
         
         /* 雙色 */
-        .has-both { background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); color: white; font-weight: bold; }
-        .has-money-transport { background: linear-gradient(135deg, #059669 50%, #F59E0B 50%); color: white; font-weight: bold; }
-        .has-ot-transport { background: linear-gradient(135deg, #4F46E5 50%, #F59E0B 50%); color: white; font-weight: bold; }
+        .has-both { 
+            background: linear-gradient(135deg, #4F46E5 50%, #059669 50%); 
+            color: white; font-weight: bold; 
+        }
+        .has-money-transport { 
+            background: linear-gradient(135deg, #059669 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
+        .has-ot-transport { 
+            background: linear-gradient(135deg, #4F46E5 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
         
-        /* 三色 */
+        /* === 關鍵：三色條紋 (藍 -> 綠 -> 橙) === */
         .has-triple {
-            background: linear-gradient(135deg, #4F46E5 33%, #059669 33%, #059669 66%, #F59E0B 66%);
+            background: linear-gradient(135deg, 
+                #4F46E5 33%, 
+                #059669 33%, #059669 66%, 
+                #F59E0B 66%);
             color: white; font-weight: bold;
         }
         
@@ -37,23 +50,18 @@ export const htmlContent = `
 <body class="bg-gray-100 min-h-screen p-4 font-sans">
     <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden p-6">
         
-        <!-- === 新增：頂部標題與名字顯示 === -->
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">
                 OT 記錄器 <span id="uiUserName" class="text-indigo-600"></span>
             </h1>
         </div>
-        <!-- ============================== -->
 
         <div id="authSection" class="mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
             <label class="block text-xs font-bold text-gray-700 mb-1">存取密碼 (PIN)</label>
             <input type="password" id="pin" class="w-full border-gray-300 border rounded px-2 py-1" placeholder="****">
-            
             <div class="mt-2 flex items-center">
                 <input type="checkbox" id="rememberPin" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <label for="rememberPin" class="ml-2 block text-xs text-gray-700 font-bold cursor-pointer">
-                    記住密碼 (下次自動登入)
-                </label>
+                <label for="rememberPin" class="ml-2 block text-xs text-gray-700 font-bold cursor-pointer">記住密碼 (下次自動登入)</label>
             </div>
         </div>
 
@@ -77,12 +85,10 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full border border-gray-300 rounded-md p-2" required>
                 </div>
-
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">地點</label>
@@ -100,7 +106,6 @@ export const htmlContent = `
                     </div>
                     <div class="text-right text-sm text-gray-500 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
-
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-700">結束日期 (至)</label>
@@ -121,7 +126,6 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
-
                 <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-700 transition">儲存記錄</button>
             </form>
         </div>
@@ -130,13 +134,11 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
-
             <div class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 border border-gray-300 rounded-md p-2">
                 <button onclick="loadRecords()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 whitespace-nowrap">查詢</button>
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 whitespace-nowrap" title="複製分享連結">🔗</button>
             </div>
-
             <div id="calendarView" class="mb-6 hidden">
                 <div class="calendar-grid"></div>
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-600 flex-wrap">
@@ -145,11 +147,9 @@ export const htmlContent = `
                     <span class="flex items-center"><span class="w-3 h-3 bg-yellow-500 rounded mr-1"></span>交通</span>
                 </div>
             </div>
-
             <div id="recordsList" class="bg-gray-50 rounded-md border border-gray-200 p-4 mb-4 max-h-80 overflow-y-auto text-sm space-y-2">
                 <p class="text-center text-gray-400">請查詢</p>
             </div>
-
             <div id="totalSummary" class="text-right border-t pt-4 space-y-1 hidden">
                 <div class="text-gray-600">總時數: <span id="sumHours" class="font-bold text-indigo-600 text-xl">0</span> hr</div>
                 <div class="text-gray-600">總收入: <span id="sumMoney" class="font-bold text-green-600 text-xl">$0</span></div>
@@ -158,12 +158,10 @@ export const htmlContent = `
                     總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span>
                 </div>
             </div>
-
             <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 hidden shadow-md">
                 下載 PDF 報表
             </button>
         </div>
-
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 `;
