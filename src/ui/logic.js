@@ -15,6 +15,12 @@ export const logicScript = `
     const sharedMonth = urlParams.get('month');
 
     (function init() {
+        // === 修改重點：填入名字 ===
+        if (window.USER_NAME) {
+            document.getElementById('uiUserName').innerText = \`(\${window.USER_NAME})\`;
+        }
+        // =======================
+
         if (isShareMode) {
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('tabContainer').classList.add('hidden');
@@ -24,6 +30,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
+            // 分享標題也加上名字
             if(window.USER_NAME) document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
 
             if (sharedMonth) {
@@ -307,15 +314,14 @@ export const logicScript = `
             const hasMoney = moneyDays.has(d);
             const hasTransport = transportDays.has(d);
 
-            // === 修改：加入更多的雙色組合 ===
             if (hasOT && hasMoney && hasTransport) {
                 div.className = 'calendar-day has-triple';
             } else if (hasOT && hasMoney) {
-                div.className = 'calendar-day has-both'; // 藍綠
+                div.className = 'calendar-day has-both';
             } else if (hasMoney && hasTransport) {
-                div.className = 'calendar-day has-money-transport'; // 綠橙 (新增)
+                div.className = 'calendar-day has-money-transport';
             } else if (hasOT && hasTransport) {
-                div.className = 'calendar-day has-ot-transport'; // 藍橙 (新增)
+                div.className = 'calendar-day has-ot-transport';
             } else if (hasMoney) {
                 div.className = 'calendar-day has-money';
             } else if (hasTransport) {
@@ -325,7 +331,6 @@ export const logicScript = `
             } else {
                 div.className = 'calendar-day no-ot';
             }
-            // =============================
             
             grid.appendChild(div);
         }
