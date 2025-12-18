@@ -26,9 +26,8 @@ export const pdfScript = `
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
             page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
             
-            // === 修改重點：在這裡印出名字 ===
+            // 右上角印出名字
             if (window.USER_NAME) {
-                // 用中文字型計算寬度，確保對齊
                 const nameText = window.USER_NAME;
                 const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
                 
@@ -40,7 +39,6 @@ export const pdfScript = `
                     color: rgb(0.3, 0.3, 0.3)
                 });
             }
-            // ============================
 
             yPos -= 40;
 
@@ -132,7 +130,15 @@ export const pdfScript = `
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = \`Report_\${monthStr}.pdf\`;
+            
+            // === 修改重點：檔名加入名字 ===
+            let filename = \`OT_Record_\${monthStr}.pdf\`;
+            if (window.USER_NAME) {
+                filename = \`OT_Record_\${monthStr}_\${window.USER_NAME}.pdf\`;
+            }
+            link.download = filename;
+            // =========================
+            
             link.click();
 
         } catch(err) { console.error(err); alert("生成失敗: " + err.message); } 
