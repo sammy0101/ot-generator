@@ -13,19 +13,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # === 新增這個步驟：替換 KV ID ===
-      - name: Inject KV ID into wrangler.toml
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+      # (如果您有用 sed 替換 KV ID 的步驟保留在這裡)
+      # - name: Inject KV ID...
 
-      # === 部署步驟 ===
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 這裡依然只處理密碼 (AUTH_PIN)，KV ID 已經在上面被寫入檔案了
+          # === 修改重點：在這裡加入 USER_NAME ===
           secrets: |
             AUTH_PIN
+            USER_NAME
         env:
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
+          # === 修改重點：對應環境變數 ===
+          USER_NAME: ${{ secrets.USER_NAME }}
