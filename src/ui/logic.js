@@ -15,7 +15,6 @@ export const logicScript = `
     const sharedMonth = urlParams.get('month');
 
     (function init() {
-        // 設定頂部全域名字
         if (window.USER_NAME) {
             const el = document.getElementById('uiUserName');
             if(el) el.innerText = \`(\${window.USER_NAME})\`;
@@ -330,7 +329,6 @@ export const logicScript = `
             } else {
                 div.className = 'calendar-day no-ot';
             }
-            
             grid.appendChild(div);
         }
         document.getElementById('calendarView').classList.remove('hidden');
@@ -373,19 +371,18 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                // === 修改重點：在表格上方加入名字標題 ===
-                const nameDisplay = window.USER_NAME ? \`<span class="text-indigo-600 font-bold">\${window.USER_NAME}</span> 的 \` : '';
+                // === 修改：移除名字標題，只留月份 ===
                 let html = \`
                     <h3 class="text-center text-gray-700 font-bold mb-2 text-lg">
-                        \${nameDisplay}\${monthStr} 報表
+                        \${monthStr} 報表
                     </h3>
                     <table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>
                 \`;
-                // ===================================
+                // ==================================
                 
                 if(isShareMode) {
                     html = \`
-                        <h3 class="text-center text-gray-700 font-bold mb-2 text-lg">\${nameDisplay}\${monthStr} 報表</h3>
+                        <h3 class="text-center text-gray-700 font-bold mb-2 text-lg">\${monthStr} 報表</h3>
                         <table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>
                     \`;
                 }
