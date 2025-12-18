@@ -15,11 +15,11 @@ export const logicScript = `
     const sharedMonth = urlParams.get('month');
 
     (function init() {
-        // === 修改重點：填入名字 ===
+        // 設定頂部全域名字
         if (window.USER_NAME) {
-            document.getElementById('uiUserName').innerText = \`(\${window.USER_NAME})\`;
+            const el = document.getElementById('uiUserName');
+            if(el) el.innerText = \`(\${window.USER_NAME})\`;
         }
-        // =======================
 
         if (isShareMode) {
             document.getElementById('authSection').classList.add('hidden');
@@ -30,7 +30,6 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            // 分享標題也加上名字
             if(window.USER_NAME) document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
 
             if (sharedMonth) {
@@ -374,10 +373,21 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
+                // === 修改重點：在表格上方加入名字標題 ===
+                const nameDisplay = window.USER_NAME ? \`<span class="text-indigo-600 font-bold">\${window.USER_NAME}</span> 的 \` : '';
+                let html = \`
+                    <h3 class="text-center text-gray-700 font-bold mb-2 text-lg">
+                        \${nameDisplay}\${monthStr} 報表
+                    </h3>
+                    <table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>
+                \`;
+                // ===================================
                 
                 if(isShareMode) {
-                    html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
+                    html = \`
+                        <h3 class="text-center text-gray-700 font-bold mb-2 text-lg">\${nameDisplay}\${monthStr} 報表</h3>
+                        <table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>
+                    \`;
                 }
 
                 data.forEach(r => {
