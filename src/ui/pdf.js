@@ -26,22 +26,24 @@ export const pdfScript = `
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
             page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
             
-            // === 新增：印出名字 ===
+            // === 修改重點：在這裡印出名字 ===
             if (window.USER_NAME) {
-                const nameWidth = chineseFont.widthOfTextAtSize(window.USER_NAME, 14);
-                page.drawText(window.USER_NAME, { 
+                // 用中文字型計算寬度，確保對齊
+                const nameText = window.USER_NAME;
+                const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
+                
+                page.drawText(nameText, { 
                     x: width - marginX - nameWidth, 
                     y: yPos, 
                     size: 14, 
-                    font: chineseFont,
+                    font: chineseFont, 
                     color: rgb(0.3, 0.3, 0.3)
                 });
             }
-            // ==================
+            // ============================
 
             yPos -= 40;
 
-            // ... (其餘 PDF 生成代碼保持不變，因為篇幅關係省略，請使用上一版代碼，僅加入上面那段名字邏輯) ...
             const col = { d: 40, item: 130, detail: 350, val: 480 };
             const fontSize = 11;
             const drawTxt = (text, x, font, color=colorBlack) => 
