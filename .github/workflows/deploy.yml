@@ -13,23 +13,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # === 關鍵步驟 1：把 KV ID 填進去 ===
-      # 這一步會把 wrangler.toml 裡的 "REPLACE_ME_KV_ID" 換成真正的 ID
-      - name: Inject KV ID into wrangler.toml
+      # === 步驟 1：注入 KV ID ===
+      - name: Inject KV ID
         run: |
           sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
 
-      # === 關鍵步驟 2：部署 ===
+      # === 步驟 2：注入中文名字 (強制替換) ===
+      - name: Inject User Name
+        run: |
+          # 使用雙引號確保變數被解析
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+
+      # === 步驟 3：部署 ===
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 告訴 Cloudflare 我們要上傳這些加密變數
+          # 只需上傳 PIN 碼作為加密 Secret，名字已經透過上面的 sed 寫入檔案了
           secrets: |
             AUTH_PIN
-            USER_NAME
         env:
-          # 將 GitHub Secrets 對應到環境變數
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
-          USER_NAME: ${{ secrets.USER_NAME }}
