@@ -15,7 +15,10 @@ export const logicScript = `
     const sharedMonth = urlParams.get('month');
 
     (function init() {
-        // === 修改重點：移除了設定 uiUserNameDisplay 的代碼 ===
+        if (window.USER_NAME) {
+            const el = document.getElementById('uiUserNameDisplay');
+            if(el) el.innerText = window.USER_NAME;
+        }
 
         if (isShareMode) {
             document.getElementById('authSection').classList.add('hidden');
@@ -68,14 +71,15 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
+            // === 修改：暗黑模式的月份按鈕樣式 ===
             badges.innerHTML = sortedMonths.map(m => \`
                 <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 border border-indigo-200 rounded-l-lg hover:bg-indigo-200 focus:z-10 focus:ring-2 focus:ring-indigo-400">
+                            class="px-3 py-1 text-xs font-medium text-indigo-200 bg-indigo-900/50 border border-indigo-700 rounded-l-lg hover:bg-indigo-900 focus:z-10 focus:ring-2 focus:ring-indigo-500">
                         \${m}
                     </button>
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="px-2 py-1 text-xs font-medium text-red-600 bg-indigo-100 border-t border-b border-r border-indigo-200 rounded-r-lg hover:bg-red-100 hover:text-red-700 focus:z-10 focus:ring-2 focus:ring-red-400" title="刪除整月">
+                            class="px-2 py-1 text-xs font-medium text-red-200 bg-red-900/50 border-t border-b border-r border-red-700 rounded-r-lg hover:bg-red-900 hover:text-red-100 focus:z-10 focus:ring-2 focus:ring-red-500" title="刪除整月">
                         ✕
                     </button>
                 </div>
@@ -94,9 +98,11 @@ export const logicScript = `
         ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (t === type) {
-                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-white shadow text-indigo-600 whitespace-nowrap transition";
+                // === 修改：選中狀態 (深灰底/白字/邊框) ===
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
             } else {
-                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-200 whitespace-nowrap transition";
+                // === 修改：未選中狀態 (更深灰底/灰字) ===
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
             }
         });
 
@@ -174,7 +180,7 @@ export const logicScript = `
                 knownMonths.delete(month);
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-400">已刪除</p>';
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
                     document.getElementById('calendarView').classList.add('hidden');
                     document.getElementById('totalSummary').classList.add('hidden');
                     document.getElementById('pdfBtn').classList.add('hidden');
@@ -224,8 +230,8 @@ export const logicScript = `
         document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
         if(tab === 'export' && document.getElementById('pin').value) fetchHistoryMonths();
         
-        const active = "flex-1 py-3 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 transition";
-        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-500 transition";
+        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
+        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
         document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
         document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
     }
@@ -258,7 +264,7 @@ export const logicScript = `
             const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
             if(res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-600';
+                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
@@ -341,7 +347,7 @@ export const logicScript = `
         const listEl = document.getElementById('recordsList');
         const summaryEl = document.getElementById('totalSummary');
         
-        listEl.innerHTML = '<p class="text-center">載入中...</p>';
+        listEl.innerHTML = '<p class="text-center text-gray-400">載入中...</p>';
         
         try {
             let url;
@@ -368,10 +374,11 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                let html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
+                // === 修改：暗黑模式表格樣式 ===
+                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
                 
                 if(isShareMode) {
-                    html = '<table class="w-full text-left"><thead><tr class="text-gray-500 border-b"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
+                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
                 }
 
                 data.forEach(r => {
@@ -388,30 +395,30 @@ export const logicScript = `
                         value = \`\${formatHours(mins)} hr\`;
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
-                        typeLabel = \`<span class="text-yellow-600 font-bold">交通費</span>\`;
-                        detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
+                        typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
+                        detail = r.location ? \`<span class="text-gray-400">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-green-600 font-bold">當更</span>\`; 
+                        typeLabel = \`<span class="text-emerald-400 font-bold">當更</span>\`; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = \`\${startD}日 - \${endD}日\`; 
                         value = \`$\${amount}\`;
                     } else { 
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-green-600 font-bold">Call</span>\`;
-                        detail = r.location ? \`<span class="text-gray-600">(\${r.location})</span>\` : '-';
+                        typeLabel = \`<span class="text-emerald-400 font-bold">Call</span>\`;
+                        detail = r.location ? \`<span class="text-gray-400">(\${r.location})</span>\` : '-';
                         value = \`$\${amount}\`;
                     }
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-500 hover:text-red-700 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
-                        <tr class="border-b last:border-0 hover:bg-gray-50">
+                        <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
                             <td class="py-2 text-xs md:text-sm">\${r.date.split('-')[2]}日</td>
                             <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
-                            <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-500">\${detail}</td>
+                            <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
                             \${deleteBtn}
                         </tr>
