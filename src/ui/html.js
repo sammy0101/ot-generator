@@ -4,25 +4,35 @@ export const htmlContent = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 設定 iOS Web App 模式 (讓它看起來更像原生 App) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OT 記錄器">
+
     <title>OT 記錄器 Pro</title>
     
+    <!-- 1. 瀏覽器分頁圖示 (Favicon) - 保持原本的 Emoji -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+
+    <!-- 2. iPhone 主畫面圖示 (Apple Touch Icon) -->
+    <!-- 請將下方的 href 換成您自己的圖片網址 -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/@pdf-lib/fontkit@0.0.4/dist/fontkit.umd.min.js"></script>
     <style>
-        body { background-color: #111827; /* gray-900 */ }
+        body { background-color: #111827; }
         
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
-        /* 暗黑模式下的顏色調整 */
-        .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); } /* Indigo-500 */
-        .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); } /* Emerald-500 */
-        .has-transport { background-color: #f59e0b; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); } /* Amber-500 */
+        /* 樣式定義 */
+        .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
+        .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
+        .has-transport { background-color: #f59e0b; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
-        /* 漸層色也稍微調亮一點點以適應暗底 */
         .has-both { 
             background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); 
             color: white; font-weight: bold; 
@@ -43,8 +53,7 @@ export const htmlContent = `
             color: white; font-weight: bold;
         }
         
-        /* 沒記錄的日子：深灰底 + 灰字 */
-        .no-ot { background-color: #374151; color: #9ca3af; } /* gray-700 / gray-400 */
+        .no-ot { background-color: #374151; color: #9ca3af; }
         .empty-day { background-color: transparent; }
     </style>
 </head>
@@ -55,7 +64,6 @@ export const htmlContent = `
             <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
         </div>
 
-        <!-- 登入區：改為深灰底 -->
         <div id="authSection" class="mb-4 bg-gray-700 p-3 rounded-lg border border-gray-600">
             <label class="block text-xs font-bold text-gray-300 mb-1">存取密碼 (PIN)</label>
             <input type="password" id="pin" class="w-full bg-gray-800 border-gray-600 text-white border rounded px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="****">
@@ -70,14 +78,12 @@ export const htmlContent = `
             <p class="text-sm text-gray-400 mt-1">唯讀模式</p>
         </div>
 
-        <!-- 分頁按鈕 -->
         <div class="flex border-b border-gray-700 mb-6" id="tabContainer">
             <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50">新增記錄</button>
             <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition">月結報表</button>
         </div>
 
         <div id="view-record">
-            <!-- 類型選擇器 -->
             <div class="flex gap-2 mb-4 bg-gray-900 p-1 rounded-lg overflow-x-auto border border-gray-700">
                 <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white shadow transition">🕒 OT</button>
                 <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 transition">📅 當更</button>
@@ -91,8 +97,6 @@ export const htmlContent = `
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-                
-                <!-- Hourly OT -->
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
@@ -110,8 +114,6 @@ export const htmlContent = `
                     </div>
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
-
-                <!-- Money Group -->
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -146,7 +148,6 @@ export const htmlContent = `
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
             </div>
             
-            <!-- 月曆區域 -->
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2 rounded-lg border border-gray-700">
                 <div class="calendar-grid"></div>
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
