@@ -4,20 +4,9 @@ export const htmlContent = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- 設定 iOS Web App 模式 (讓它看起來更像原生 App) -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="OT 記錄器">
-
     <title>OT 記錄器 Pro</title>
     
-    <!-- 1. 瀏覽器分頁圖示 (Favicon) - 保持原本的 Emoji -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
-
-    <!-- 2. iPhone 主畫面圖示 (Apple Touch Icon) -->
-    <!-- 請將下方的 href 換成您自己的圖片網址 -->
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -28,33 +17,28 @@ export const htmlContent = `
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
-        /* 樣式定義 */
         .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
         .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
         .has-transport { background-color: #f59e0b; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
-        .has-both { 
-            background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-money-transport { 
-            background: linear-gradient(135deg, #10b981 50%, #f59e0b 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-ot-transport { 
-            background: linear-gradient(135deg, #6366f1 50%, #f59e0b 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-triple {
-            background: linear-gradient(135deg, 
-                #6366f1 33%, 
-                #10b981 33%, #10b981 66%, 
-                #f59e0b 66%);
-            color: white; font-weight: bold;
-        }
+        .has-both { background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); color: white; font-weight: bold; }
+        .has-money-transport { background: linear-gradient(135deg, #10b981 50%, #f59e0b 50%); color: white; font-weight: bold; }
+        .has-ot-transport { background: linear-gradient(135deg, #6366f1 50%, #f59e0b 50%); color: white; font-weight: bold; }
+        .has-triple { background: linear-gradient(135deg, #6366f1 33%, #10b981 33%, #10b981 66%, #f59e0b 66%); color: white; font-weight: bold; }
         
         .no-ot { background-color: #374151; color: #9ca3af; }
         .empty-day { background-color: transparent; }
+
+        /* === 修改：刪除模式樣式 === */
+        /* 預設隱藏所有刪除相關介面 */
+        .delete-ui { display: none; }
+        
+        /* 當容器被加上 edit-mode class 時，顯示刪除介面 */
+        .edit-mode .delete-ui { display: inline-block; }
+        
+        /* 表格內的刪除按鈕需要 display: table-cell */
+        .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell; }
+        /* ======================== */
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
@@ -142,10 +126,15 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
+            
+            <!-- 查詢區：新增管理按鈕 -->
             <div class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <button onclick="loadRecords()" class="bg-gray-700 border border-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                
+                <!-- 新增：管理模式切換按鈕 -->
+                <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
             </div>
             
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2 rounded-lg border border-gray-700">
