@@ -10,14 +10,16 @@ export const logicScript = `
     let grandTotalTransport = 0;
     let knownMonths = new Set();
     
+    // === 新增：管理模式狀態 ===
+    let isEditMode = false;
+
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
     (function init() {
         if (window.USER_NAME) {
-            const el = document.getElementById('uiUserNameDisplay');
-            if(el) el.innerText = window.USER_NAME;
+            // 這裡不需要做什麼，因為名字已經在 HTML 移除了
         }
 
         if (isShareMode) {
@@ -26,6 +28,7 @@ export const logicScript = `
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
             document.getElementById('btn-share').classList.add('hidden');
+            document.getElementById('btn-edit').classList.add('hidden'); // 分享模式隱藏管理按鈕
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
@@ -56,6 +59,30 @@ export const logicScript = `
         }
     }
 
+    // === 新增：切換管理模式 ===
+    function toggleEditMode() {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return alert('請先輸入 PIN 密碼才能進入管理模式');
+        
+        isEditMode = !isEditMode;
+        
+        const btn = document.getElementById('btn-edit');
+        const container = document.getElementById('view-export');
+        
+        if (isEditMode) {
+            btn.classList.add('bg-red-600', 'hover:bg-red-500');
+            btn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
+            btn.innerText = '完成';
+            container.classList.add('edit-mode'); // CSS 控制顯示刪除按鈕
+        } else {
+            btn.classList.add('bg-gray-600', 'hover:bg-gray-500');
+            btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+            btn.innerText = '✏️';
+            container.classList.remove('edit-mode');
+        }
+    }
+    // =======================
+
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
         const url = \`\${window.location.origin}\${window.location.pathname}?view=share&month=\${month}\`;
@@ -71,15 +98,15 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            // === 修改：暗黑模式的月份按鈕樣式 ===
             badges.innerHTML = sortedMonths.map(m => \`
                 <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
                             class="px-3 py-1 text-xs font-medium text-indigo-200 bg-indigo-900/50 border border-indigo-700 rounded-l-lg hover:bg-indigo-900 focus:z-10 focus:ring-2 focus:ring-indigo-500">
                         \${m}
                     </button>
+                    <!-- 修改：加上 delete-ui class -->
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="px-2 py-1 text-xs font-medium text-red-200 bg-red-900/50 border-t border-b border-r border-red-700 rounded-r-lg hover:bg-red-900 hover:text-red-100 focus:z-10 focus:ring-2 focus:ring-red-500" title="刪除整月">
+                            class="delete-ui px-2 py-1 text-xs font-medium text-red-200 bg-red-900/50 border-t border-b border-r border-red-700 rounded-r-lg hover:bg-red-900 hover:text-red-100 focus:z-10 focus:ring-2 focus:ring-red-500" title="刪除整月">
                         ✕
                     </button>
                 </div>
@@ -98,10 +125,8 @@ export const logicScript = `
         ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (t === type) {
-                // === 修改：選中狀態 (深灰底/白字/邊框) ===
                 btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
             } else {
-                // === 修改：未選中狀態 (更深灰底/灰字) ===
                 btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
             }
         });
@@ -176,7 +201,11 @@ export const logicScript = `
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
-                btnElement.parentNode.remove();
+                btnElement.parentNode.remove(); // 注意：這裡是移除包含按鈕的父容器，但 HTML 結構裡 delete-ui 是按鈕本身
+                // 修正：如果使用 delete-ui class 控制按鈕顯示，移除時要小心結構
+                // 我們在 HTML 裡把 delete-ui 加在 button 上，父層是 div.inline-flex
+                // 所以移除 btnElement.parentNode 是正確的 (連同前面的月份按鈕一起移除)
+                
                 knownMonths.delete(month);
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
@@ -374,8 +403,8 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                // === 修改：暗黑模式表格樣式 ===
-                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10">操作</th></tr></thead><tbody>';
+                // === 修改重點：加上 delete-ui class 且預設隱藏 ===
+                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
                 
                 if(isShareMode) {
                     html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
@@ -412,7 +441,8 @@ export const logicScript = `
                         value = \`$\${amount}\`;
                     }
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    // === 修改重點：加上 delete-ui class ===
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
