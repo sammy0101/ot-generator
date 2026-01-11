@@ -28,7 +28,7 @@ export const logicScript = `
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
             document.getElementById('btn-share').classList.add('hidden');
-            document.getElementById('btn-edit').classList.add('hidden'); // 分享模式隱藏管理按鈕
+            document.getElementById('btn-edit').classList.add('hidden'); 
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
@@ -59,7 +59,6 @@ export const logicScript = `
         }
     }
 
-    // === 新增：切換管理模式 ===
     function toggleEditMode() {
         const pin = document.getElementById('pin').value;
         if (!pin) return alert('請先輸入 PIN 密碼才能進入管理模式');
@@ -73,7 +72,7 @@ export const logicScript = `
             btn.classList.add('bg-red-600', 'hover:bg-red-500');
             btn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
             btn.innerText = '完成';
-            container.classList.add('edit-mode'); // CSS 控制顯示刪除按鈕
+            container.classList.add('edit-mode'); 
         } else {
             btn.classList.add('bg-gray-600', 'hover:bg-gray-500');
             btn.classList.remove('bg-red-600', 'hover:bg-red-500');
@@ -81,7 +80,6 @@ export const logicScript = `
             container.classList.remove('edit-mode');
         }
     }
-    // =======================
 
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
@@ -98,15 +96,16 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
+            // === 修改：改成膠囊形狀 (rounded-full) ===
             badges.innerHTML = sortedMonths.map(m => \`
-                <div class="inline-flex rounded-md shadow-sm mb-2 mr-2" role="group">
+                <div class="inline-flex items-center rounded-full border border-indigo-700 bg-indigo-900/30 overflow-hidden shadow-sm mb-2 mr-2 group">
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-3 py-1 text-xs font-medium text-indigo-200 bg-indigo-900/50 border border-indigo-700 rounded-l-lg hover:bg-indigo-900 focus:z-10 focus:ring-2 focus:ring-indigo-500">
+                            class="px-4 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none">
                         \${m}
                     </button>
-                    <!-- 修改：加上 delete-ui class -->
+                    <!-- 刪除按鈕：有左邊框分隔，預設隱藏 (由 delete-ui 控制) -->
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="delete-ui px-2 py-1 text-xs font-medium text-red-200 bg-red-900/50 border-t border-b border-r border-red-700 rounded-r-lg hover:bg-red-900 hover:text-red-100 focus:z-10 focus:ring-2 focus:ring-red-500" title="刪除整月">
+                            class="delete-ui px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 hover:text-red-200 border-l border-indigo-700 transition focus:outline-none" title="刪除整月">
                         ✕
                     </button>
                 </div>
@@ -201,11 +200,7 @@ export const logicScript = `
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
-                btnElement.parentNode.remove(); // 注意：這裡是移除包含按鈕的父容器，但 HTML 結構裡 delete-ui 是按鈕本身
-                // 修正：如果使用 delete-ui class 控制按鈕顯示，移除時要小心結構
-                // 我們在 HTML 裡把 delete-ui 加在 button 上，父層是 div.inline-flex
-                // 所以移除 btnElement.parentNode 是正確的 (連同前面的月份按鈕一起移除)
-                
+                btnElement.parentNode.remove();
                 knownMonths.delete(month);
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
@@ -403,7 +398,6 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                // === 修改重點：加上 delete-ui class 且預設隱藏 ===
                 let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
                 
                 if(isShareMode) {
@@ -441,7 +435,6 @@ export const logicScript = `
                         value = \`$\${amount}\`;
                     }
 
-                    // === 修改重點：加上 delete-ui class ===
                     const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
@@ -465,6 +458,11 @@ export const logicScript = `
                 
                 summaryEl.classList.remove('hidden');
                 document.getElementById('pdfBtn').classList.remove('hidden');
+                
+                // 如果在載入資料時已經處於編輯模式，需要再次觸發顯示刪除按鈕
+                if(isEditMode) {
+                    document.getElementById('view-export').classList.add('edit-mode');
+                }
             }
         } catch(err) { alert(err.message); }
     }
