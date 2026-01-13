@@ -10,7 +10,6 @@ export const logicScript = `
     let grandTotalTransport = 0;
     let knownMonths = new Set();
     
-    // === 新增：管理模式狀態 ===
     let isEditMode = false;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -19,7 +18,8 @@ export const logicScript = `
 
     (function init() {
         if (window.USER_NAME) {
-            // 這裡不需要做什麼，因為名字已經在 HTML 移除了
+            const el = document.getElementById('uiUserNameDisplay');
+            if(el) el.innerText = window.USER_NAME;
         }
 
         if (isShareMode) {
@@ -96,16 +96,16 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            // === 修改：改成膠囊形狀 (rounded-full) ===
             badges.innerHTML = sortedMonths.map(m => \`
                 <div class="inline-flex items-center rounded-full border border-indigo-700 bg-indigo-900/30 overflow-hidden shadow-sm mb-2 mr-2 group">
+                    <!-- 修改：px-4 改為 px-3，稍微收窄一點 -->
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-4 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none">
+                            class="px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none">
                         \${m}
                     </button>
-                    <!-- 刪除按鈕：有左邊框分隔，預設隱藏 (由 delete-ui 控制) -->
+                    <!-- 修改：px-3 改為 px-2，讓 X 變窄，不那麼佔空間 -->
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="delete-ui px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 hover:text-red-200 border-l border-indigo-700 transition focus:outline-none" title="刪除整月">
+                            class="delete-ui px-2 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 hover:text-red-200 border-l border-indigo-700 transition focus:outline-none" title="刪除整月">
                         ✕
                     </button>
                 </div>
@@ -459,7 +459,6 @@ export const logicScript = `
                 summaryEl.classList.remove('hidden');
                 document.getElementById('pdfBtn').classList.remove('hidden');
                 
-                // 如果在載入資料時已經處於編輯模式，需要再次觸發顯示刪除按鈕
                 if(isEditMode) {
                     document.getElementById('view-export').classList.add('edit-mode');
                 }
