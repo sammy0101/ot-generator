@@ -96,16 +96,18 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
+            // === 修改：懸浮氣泡樣式 (iOS Style) ===
             badges.innerHTML = sortedMonths.map(m => \`
-                <div class="inline-flex items-center rounded-full border border-indigo-700 bg-indigo-900/30 overflow-hidden shadow-sm mb-2 mr-2 group">
-                    <!-- 修改：px-4 改為 px-3，稍微收窄一點 -->
+                <div class="relative inline-block mb-3 mr-3">
+                    <!-- 月份按鈕：保持原本的膠囊形狀 -->
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none">
+                            class="px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm">
                         \${m}
                     </button>
-                    <!-- 修改：px-3 改為 px-2，讓 X 變窄，不那麼佔空間 -->
+                    
+                    <!-- 刪除按鈕：懸浮在右上角的紅色圓點 (edit-mode 時才顯示) -->
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="delete-ui px-2 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 hover:text-red-200 border-l border-indigo-700 transition focus:outline-none" title="刪除整月">
+                            class="delete-ui absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">
                         ✕
                     </button>
                 </div>
