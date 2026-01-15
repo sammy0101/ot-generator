@@ -1,6 +1,11 @@
 name: Deploy to Cloudflare Workers
 
 on:
+  # === 修改：加入 push 事件，當 main 分支有更新時自動執行 ===
+  push:
+    branches:
+      - main
+  # === 保留：手動觸發按鈕 ===
   workflow_dispatch:
 
 jobs:
