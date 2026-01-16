@@ -19,32 +19,41 @@ export const htmlContent = `
         
         .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
         .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
-        .has-transport { background-color: #f59e0b; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
+        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
-        .has-both { background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); color: white; font-weight: bold; }
-        .has-money-transport { background: linear-gradient(135deg, #10b981 50%, #f59e0b 50%); color: white; font-weight: bold; }
-        .has-ot-transport { background: linear-gradient(135deg, #6366f1 50%, #f59e0b 50%); color: white; font-weight: bold; }
-        .has-triple { background: linear-gradient(135deg, #6366f1 33%, #10b981 33%, #10b981 66%, #f59e0b 66%); color: white; font-weight: bold; }
+        .has-both { 
+            background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); 
+            color: white; font-weight: bold; 
+        }
+        .has-money-transport { 
+            background: linear-gradient(135deg, #10b981 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
+        .has-ot-transport { 
+            background: linear-gradient(135deg, #6366f1 50%, #F59E0B 50%); 
+            color: white; font-weight: bold; 
+        }
+        .has-triple {
+            background: linear-gradient(135deg, 
+                #6366f1 33%, 
+                #10b981 33%, #10b981 66%, 
+                #F59E0B 66%);
+            color: white; font-weight: bold;
+        }
         
-        .no-ot { background-color: #374151; color: #9ca3af; }
+        .no-ot { background-color: #374151; color: #9CA3AF; }
         .empty-day { background-color: transparent; }
 
-        /* === 修改：刪除模式樣式 === */
-        /* 預設隱藏所有刪除相關介面 */
-        .delete-ui { display: none; }
-        
-        /* 當容器被加上 edit-mode class 時，顯示刪除介面 */
-        .edit-mode .delete-ui { display: inline-block; }
-        
-        /* 表格內的刪除按鈕需要 display: table-cell */
-        .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell; }
-        /* ======================== */
+        .delete-ui { display: none !important; }
+        .edit-mode .delete-ui { display: flex !important; }
+        .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
     <div class="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-6 border border-gray-700">
         
-        <div class="text-center mb-6">
+        <!-- 修改重點：加上 id="mainTitleArea" 以便在分享模式隱藏 -->
+        <div id="mainTitleArea" class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
         </div>
 
@@ -126,14 +135,10 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
-            
-            <!-- 查詢區：新增管理按鈕 -->
             <div class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <button onclick="loadRecords()" class="bg-gray-700 border border-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                
-                <!-- 新增：管理模式切換按鈕 -->
                 <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
             </div>
             
