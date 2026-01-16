@@ -22,6 +22,10 @@ export const logicScript = `
         }
 
         if (isShareMode) {
+            // === 修改重點：隱藏主標題 "OT 記錄器" ===
+            document.getElementById('mainTitleArea').classList.add('hidden');
+            // ===================================
+            
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
@@ -98,10 +102,9 @@ export const logicScript = `
             badges.innerHTML = sortedMonths.map(m => \`
                 <div class="relative inline-block mb-3 mr-3">
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm">
+                            class="px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none shadow-sm border border-indigo-700 rounded-full bg-indigo-900/30">
                         \${m}
                     </button>
-                    <!-- 修改：移除了 'flex' class，這樣 display: none 才會生效 -->
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
                             class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">
                         ✕
