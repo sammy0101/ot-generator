@@ -48,15 +48,7 @@ export const htmlContent = `
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
         
-        /* 歷史記錄標籤樣式 - 修改部分 */
-        .history-chip {
-            /* 加入 cursor-pointer 確保滑鼠變手形，select-none 防止反白文字 */
-            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 cursor-pointer select-none transition hover:bg-gray-600 hover:text-white;
-        }
-        .history-delete {
-            /* 刪除按鈕 X 的樣式，Hover 時變紅色 */
-            @apply ml-1.5 text-gray-400 hover:text-red-400 font-bold px-1 rounded hover:bg-gray-800 transition;
-        }
+        /* === 修正：移除了無效的 @apply 樣式 === */
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
@@ -146,8 +138,7 @@ export const htmlContent = `
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         
-                        <!-- 備註歷史記錄 (現在只有 Call 會顯示，但我們邏輯已修改為不儲存) -->
-                        <!-- 為了兼容舊資料，此容器仍保留，但新資料不會再寫入 -->
+                        <!-- 備註歷史 (只對 Call 有效) -->
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
 
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
