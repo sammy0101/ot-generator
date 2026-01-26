@@ -18,14 +18,12 @@ export const logicScript = `
 
     (function init() {
         if (window.USER_NAME) {
-            // 已在 HTML 移除名字顯示，此處為空
+            const el = document.getElementById('uiUserNameDisplay');
+            if(el) el.innerText = window.USER_NAME;
         }
 
         if (isShareMode) {
-            // === 修改重點：隱藏主標題 "OT 記錄器" ===
             document.getElementById('mainTitleArea').classList.add('hidden');
-            // ===================================
-            
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
@@ -102,7 +100,7 @@ export const logicScript = `
             badges.innerHTML = sortedMonths.map(m => \`
                 <div class="relative inline-block mb-3 mr-3">
                     <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-indigo-800 transition focus:outline-none shadow-sm border border-indigo-700 rounded-full bg-indigo-900/30">
+                            class="px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm">
                         \${m}
                     </button>
                     <button type="button" onclick="deleteMonth('\${m}', this)" 
@@ -122,6 +120,11 @@ export const logicScript = `
         document.getElementById('transportSelect').selectedIndex = 0; 
         document.getElementById('recordType').value = type;
         
+        // 切換類型時重置倍數為 1
+        if (type !== 'hourly') {
+            setMultiplier(1);
+        }
+
         ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (t === type) {
@@ -178,6 +181,28 @@ export const logicScript = `
             }
         }
     }
+
+    // === 新增：設定倍數 ===
+    function setMultiplier(val) {
+        document.getElementById('multiplier').value = val;
+        
+        // 更新按鈕樣式
+        [1, 1.5, 2, 3].forEach(v => {
+            // 注意 HTML ID 命名要一致
+            // 1.5 在 DOM ID 可能需要特殊處理，這裡簡單處理
+            const btnId = 'mul-' + v; 
+            const btn = document.getElementById(btnId);
+            if(btn) {
+                if (v === val) {
+                    btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
+                } else {
+                    btn.className = "flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
+                }
+            }
+        });
+        updateDuration();
+    }
+    // ===================
 
     async function deleteRecord(id, date) {
         if(!confirm('確定要刪除這筆記錄嗎？')) return;
@@ -241,14 +266,27 @@ export const logicScript = `
 
     document.getElementById('start').addEventListener('change', updateDuration);
     document.getElementById('end').addEventListener('change', updateDuration);
+    
+    // === 修改：更新顯示時考慮倍數 ===
     function updateDuration() {
         const s = document.getElementById('start').value;
         const e = document.getElementById('end').value;
+        const mul = parseFloat(document.getElementById('multiplier').value) || 1;
+        
         if (s && e) {
             const mins = getMinutesDiff(s, e);
-            document.getElementById('durationCalc').innerText = \`時數: \${formatHours(mins)} 小時\`;
+            const effectiveMins = mins * mul;
+            const hoursStr = formatHours(mins);
+            const effHoursStr = formatHours(effectiveMins);
+            
+            if (mul === 1) {
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} 小時\`;
+            } else {
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
+            }
         }
     }
+    // =============================
 
     function switchTab(tab) {
         document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
@@ -270,7 +308,13 @@ export const logicScript = `
         managePinStorage();
         try {
             const type = document.getElementById('recordType').value;
-            const payload = { pin, type, date: document.getElementById('date').value };
+            const payload = { 
+                pin, 
+                type, 
+                date: document.getElementById('date').value,
+                // 加入倍數
+                multiplier: document.getElementById('multiplier').value 
+            };
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
@@ -294,6 +338,10 @@ export const logicScript = `
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
+                
+                // 重置倍數
+                setMultiplier(1);
+
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 renderMonthButtons();
@@ -413,10 +461,21 @@ export const logicScript = `
                     
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
-                        grandTotalMinutes += mins;
+                        
+                        // === 修改：倍數計算 ===
+                        const mul = r.multiplier || 1;
+                        const effectiveMins = mins * mul;
+                        grandTotalMinutes += effectiveMins; // 加總用乘算後的
+                        // ==================
+
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        value = \`\${formatHours(mins)} hr\`;
+                        
+                        // === 修改：顯示倍數 ===
+                        const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
+                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`; // 顯示乘算後的時數
+                        // ==================
+
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
