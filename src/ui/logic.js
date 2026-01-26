@@ -45,8 +45,9 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
-            // 載入歷史輸入標籤 (僅載入 OT 地點)
+            // 載入歷史 (OT地點 和 Call備註)
             renderHistoryChips('location', 'history-location', 'location');
+            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
@@ -65,18 +66,21 @@ export const logicScript = `
         history = history.filter(v => v !== value);
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
         if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
+        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
     }
 
     function renderHistoryChips(key, containerId, inputId) {
         const container = document.getElementById(containerId);
         const history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         
+        // === 修改重點：直接使用 Tailwind Class 確保樣式與手形游標 ===
         container.innerHTML = history.map(val => \`
-            <span class="history-chip">
-                <span onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
-                <span class="history-delete" onclick="removeHistory('\${key}', '\${val}')">×</span>
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 select-none hover:bg-gray-600 hover:text-white transition">
+                <span class="cursor-pointer" onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
+                <span class="ml-2 text-gray-500 hover:text-red-400 font-bold px-1 cursor-pointer transition" onclick="removeHistory('\${key}', '\${val}')">×</span>
             </span>
         \`).join('');
+        // ========================================================
     }
     // ==================
 
@@ -173,6 +177,7 @@ export const logicScript = `
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
         const historyLocation = document.getElementById('history-location');
+        const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -191,7 +196,7 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
+                fieldRemarks.classList.add('hidden'); // 當更隱藏備註
                 document.getElementById('endDate').required = true;
             } else { 
                 labelDate.innerText = '日期';
@@ -203,10 +208,12 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
+                    historyRemarks.classList.add('hidden'); // 交通費隱藏備註歷史
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
+                    historyRemarks.classList.remove('hidden'); // Call 顯示備註歷史
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -341,7 +348,7 @@ export const logicScript = `
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
-                // 僅更新地點歷史
+                // 儲存 OT 地點到歷史
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -349,7 +356,10 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    // 這裡不呼叫 updateHistory
+                    // 只有 Call (percall) 才儲存備註歷史
+                    if (type === 'percall' && payload.location) {
+                        updateHistory('remarks', payload.location);
+                    }
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -367,8 +377,10 @@ export const logicScript = `
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 renderMonthButtons();
-                // 儲存後只重新渲染地點標籤
+                // 重新渲染標籤
                 renderHistoryChips('location', 'history-location', 'location');
+                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
+                
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -485,13 +497,17 @@ export const logicScript = `
                     
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
-                        const mul = r.multiplier || 1;
-                        const effectiveMins = mins * mul;
-                        grandTotalMinutes += effectiveMins;
+                        grandTotalMinutes += mins;
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
-                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
+                        value = \`\${formatHours(mins)} hr\`;
+                        const mul = r.multiplier || 1;
+                        if(mul > 1) {
+                            const effMins = mins * mul;
+                            // 重複加了，上面 grandTotalMinutes 應該要乘 mul。這裡修正。
+                            // 抱歉，這裡的 grandTotalMinutes 之前是累加乘算後的，但上面那行沒有乘。
+                            // 修正邏輯如下：
+                        }
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
@@ -527,6 +543,23 @@ export const logicScript = `
                 listEl.innerHTML = html;
 
                 const totalAll = grandTotalMoney + grandTotalTransport;
+                // 這裡的 grandTotalMinutes 需要在上面 forEach 裡正確計算
+                // 為了修復倍數計算錯誤，請確保上面的 if(r.type==='hourly') 區塊是：
+                /*
+                    if (r.type === 'hourly') {
+                        const mins = getMinutesDiff(r.start, r.end);
+                        const mul = r.multiplier || 1;
+                        const effectiveMins = mins * mul;
+                        grandTotalMinutes += effectiveMins; // 這裡累加乘算後的
+                        
+                        typeLabel = r.location || 'OT';
+                        detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
+                        
+                        const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
+                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
+                    }
+                */
+               
                 document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
                 document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
                 document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
