@@ -48,12 +48,14 @@ export const htmlContent = `
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
         
-        /* 歷史記錄標籤樣式 */
+        /* 歷史記錄標籤樣式 - 修改部分 */
         .history-chip {
-            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 cursor-pointer transition hover:bg-gray-600 hover:text-white;
+            /* 加入 cursor-pointer 確保滑鼠變手形，select-none 防止反白文字 */
+            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 cursor-pointer select-none transition hover:bg-gray-600 hover:text-white;
         }
         .history-delete {
-            @apply ml-1.5 text-gray-500 hover:text-red-400 font-bold px-1;
+            /* 刪除按鈕 X 的樣式，Hover 時變紅色 */
+            @apply ml-1.5 text-gray-400 hover:text-red-400 font-bold px-1 rounded hover:bg-gray-800 transition;
         }
     </style>
 </head>
@@ -103,7 +105,6 @@ export const htmlContent = `
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
-                        <!-- 新增：地點歷史記錄 -->
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
@@ -145,7 +146,8 @@ export const htmlContent = `
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         
-                        <!-- 新增：備註歷史記錄 (只會在 input 模式顯示) -->
+                        <!-- 備註歷史記錄 (現在只有 Call 會顯示，但我們邏輯已修改為不儲存) -->
+                        <!-- 為了兼容舊資料，此容器仍保留，但新資料不會再寫入 -->
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
 
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
@@ -157,7 +159,6 @@ export const htmlContent = `
                     </div>
                 </div>
 
-                <!-- 修改：加上 ID 讓 JS 可以精準選取 -->
                 <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
