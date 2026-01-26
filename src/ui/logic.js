@@ -45,9 +45,8 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
-            // 載入歷史輸入標籤
+            // 載入歷史輸入標籤 (僅載入 OT 地點)
             renderHistoryChips('location', 'history-location', 'location');
-            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
@@ -55,10 +54,8 @@ export const logicScript = `
     function updateHistory(key, value) {
         if (!value) return;
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
-        // 避免重複，移到最前面
         history = history.filter(v => v !== value);
         history.unshift(value);
-        // 只保留最近 10 筆
         if (history.length > 10) history.pop();
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
     }
@@ -67,9 +64,7 @@ export const logicScript = `
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         history = history.filter(v => v !== value);
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
-        // 重新渲染對應的區域
         if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
-        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
     }
 
     function renderHistoryChips(key, containerId, inputId) {
@@ -156,7 +151,6 @@ export const logicScript = `
         document.getElementById('transportSelect').selectedIndex = 0; 
         document.getElementById('recordType').value = type;
         
-        // 切換類型時重置倍數為 1
         if (type !== 'hourly') {
             setMultiplier(1);
         }
@@ -178,7 +172,7 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
-        const historyRemarks = document.getElementById('history-remarks'); // 歷史區塊
+        const historyLocation = document.getElementById('history-location');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -209,12 +203,10 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
-                    historyRemarks.classList.add('hidden'); // 交通費不顯示文字歷史
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
-                    historyRemarks.classList.remove('hidden'); // Call 顯示文字歷史
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -334,9 +326,7 @@ export const logicScript = `
         e.preventDefault();
         const pin = document.getElementById('pin').value;
         if(!pin) return alert('請先輸入 PIN 密碼');
-        // === 修正：精準選取提交按鈕 ===
         const btn = document.getElementById('btn-submit-record');
-        // ==========================
         btn.disabled = true; btn.innerText = '儲存中...';
         managePinStorage();
         try {
@@ -351,7 +341,7 @@ export const logicScript = `
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
-                // 更新地點歷史
+                // 僅更新地點歷史
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -359,10 +349,7 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    // 更新備註歷史 (只針對非交通的 Call)
-                    if (type === 'percall' && payload.location) {
-                        updateHistory('remarks', payload.location);
-                    }
+                    // 這裡不呼叫 updateHistory
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -380,9 +367,8 @@ export const logicScript = `
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 renderMonthButtons();
-                // 儲存後重新渲染歷史標籤 (確保新加入的馬上出現)
+                // 儲存後只重新渲染地點標籤
                 renderHistoryChips('location', 'history-location', 'location');
-                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
