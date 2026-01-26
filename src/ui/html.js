@@ -52,7 +52,6 @@ export const htmlContent = `
 <body class="min-h-screen p-4 font-sans text-gray-200">
     <div class="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-6 border border-gray-700">
         
-        <!-- 修改重點：加上 id="mainTitleArea" 以便在分享模式隱藏 -->
         <div id="mainTitleArea" class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
         </div>
@@ -86,11 +85,26 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
+
                 <div id="group-hourly">
+                    <!-- 新增：倍數選擇 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-1">倍數</label>
+                        <div class="flex gap-2">
+                            <input type="hidden" id="multiplier" value="1">
+                            <button type="button" onclick="setMultiplier(1)" id="mul-1" class="flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition">x1</button>
+                            <button type="button" onclick="setMultiplier(1.5)" id="mul-1.5" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x1.5</button>
+                            <button type="button" onclick="setMultiplier(2)" id="mul-2" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x2</button>
+                            <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
+                        </div>
+                    </div>
+                    <!-- ================= -->
+
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
@@ -107,6 +121,7 @@ export const htmlContent = `
                     </div>
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
+
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -127,6 +142,7 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
+
                 <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
