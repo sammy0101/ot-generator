@@ -17,12 +17,10 @@ export const htmlContent = `
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .calendar-day { text-align: center; padding: 4px; border-radius: 4px; font-size: 0.8rem; height: 32px; display: flex; align-items: center; justify-content: center; }
         
-        /* 單色 */
         .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
         .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
         .has-transport { background-color: #F59E0B; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
-        /* 雙色 */
         .has-both { 
             background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); 
             color: white; font-weight: bold; 
@@ -35,8 +33,6 @@ export const htmlContent = `
             background: linear-gradient(135deg, #6366f1 50%, #F59E0B 50%); 
             color: white; font-weight: bold; 
         }
-        
-        /* 三色 */
         .has-triple {
             background: linear-gradient(135deg, 
                 #6366f1 33%, 
@@ -51,6 +47,14 @@ export const htmlContent = `
         .delete-ui { display: none !important; }
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
+        
+        /* 歷史記錄標籤樣式 */
+        .history-chip {
+            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 cursor-pointer transition hover:bg-gray-600 hover:text-white;
+        }
+        .history-delete {
+            @apply ml-1.5 text-gray-500 hover:text-red-400 font-bold px-1;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
@@ -89,15 +93,18 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-                
+
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <!-- 新增：地點歷史記錄 -->
+                        <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -111,7 +118,6 @@ export const htmlContent = `
                         </div>
                     </div>
 
-                    <!-- 修改：倍數選擇移到這裡 (時間下方) -->
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -122,7 +128,6 @@ export const htmlContent = `
                             <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
                         </div>
                     </div>
-                    <!-- ============================== -->
 
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
@@ -139,6 +144,10 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        
+                        <!-- 新增：備註歷史記錄 (只會在 input 模式顯示) -->
+                        <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
+
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -148,7 +157,8 @@ export const htmlContent = `
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
+                <!-- 修改：加上 ID 讓 JS 可以精準選取 -->
+                <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
 
