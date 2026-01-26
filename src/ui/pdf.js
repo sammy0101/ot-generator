@@ -26,7 +26,6 @@ export const pdfScript = `
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
             page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
             
-            // 右上角印出名字
             if (window.USER_NAME) {
                 const nameText = window.USER_NAME;
                 const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
@@ -67,7 +66,17 @@ export const pdfScript = `
                     itemStr = r.location || 'OT';
                     const mins = getMinutesDiff(r.start, r.end);
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                    valStr = formatHours(mins) + ' hr';
+                    
+                    // === 修改：PDF 倍數處理 ===
+                    const mul = r.multiplier || 1;
+                    const effectiveMins = mins * mul;
+                    valStr = formatHours(effectiveMins) + ' hr';
+                    
+                    if (mul > 1) {
+                        valStr += \` (x\${mul})\`; // 在 PDF 時數後標註 (x2)
+                    }
+                    // ======================
+
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
@@ -131,13 +140,11 @@ export const pdfScript = `
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             
-            // === 修改重點：檔名加入名字 ===
             let filename = \`OT_Record_\${monthStr}.pdf\`;
             if (window.USER_NAME) {
                 filename = \`OT_Record_\${monthStr}_\${window.USER_NAME}.pdf\`;
             }
             link.download = filename;
-            // =========================
             
             link.click();
 
