@@ -1,5 +1,3 @@
-// src/api.js
-
 export async function handleAdd(request, env) {
     try {
         const data = await request.json();
@@ -17,6 +15,9 @@ export async function handleAdd(request, env) {
             location: data.location,
             start: data.start,
             end: data.end,
+            // === 新增：儲存倍數 (預設為 1) ===
+            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
+            // ==============================
             amount: data.amount ? parseInt(data.amount) : 0,
             timestamp: new Date().toISOString()
         });
@@ -70,16 +71,13 @@ export async function handleGet(request, env) {
     return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
 }
 
-// === 新增：公開讀取 API (不需要 PIN) ===
 export async function handlePublicGet(request, env) {
     const url = new URL(request.url);
     const month = url.searchParams.get('month');
-    // 這裡不做 PIN 檢查，因為是給公司分享用的
     const key = `OT_${month}`;
     const records = await env.OT_RECORDS.get(key, { type: 'json' }) || [];
     return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
 }
-// ===================================
 
 export async function handleListMonths(request, env) {
     const url = new URL(request.url);
