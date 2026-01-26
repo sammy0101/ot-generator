@@ -9,7 +9,6 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
-    
     let isEditMode = false;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -46,8 +45,45 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
+            // 載入歷史輸入標籤
+            renderHistoryChips('location', 'history-location', 'location');
+            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
+
+    // === 歷史記錄功能 ===
+    function updateHistory(key, value) {
+        if (!value) return;
+        let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
+        // 避免重複，移到最前面
+        history = history.filter(v => v !== value);
+        history.unshift(value);
+        // 只保留最近 10 筆
+        if (history.length > 10) history.pop();
+        localStorage.setItem('ot_history_' + key, JSON.stringify(history));
+    }
+
+    function removeHistory(key, value) {
+        let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
+        history = history.filter(v => v !== value);
+        localStorage.setItem('ot_history_' + key, JSON.stringify(history));
+        // 重新渲染對應的區域
+        if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
+        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
+    }
+
+    function renderHistoryChips(key, containerId, inputId) {
+        const container = document.getElementById(containerId);
+        const history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
+        
+        container.innerHTML = history.map(val => \`
+            <span class="history-chip">
+                <span onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
+                <span class="history-delete" onclick="removeHistory('\${key}', '\${val}')">×</span>
+            </span>
+        \`).join('');
+    }
+    // ==================
 
     function managePinStorage() {
         if(isShareMode) return;
@@ -142,6 +178,7 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
+        const historyRemarks = document.getElementById('history-remarks'); // 歷史區塊
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -172,24 +209,21 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
+                    historyRemarks.classList.add('hidden'); // 交通費不顯示文字歷史
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
+                    historyRemarks.classList.remove('hidden'); // Call 顯示文字歷史
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
         }
     }
 
-    // === 新增：設定倍數 ===
     function setMultiplier(val) {
         document.getElementById('multiplier').value = val;
-        
-        // 更新按鈕樣式
         [1, 1.5, 2, 3].forEach(v => {
-            // 注意 HTML ID 命名要一致
-            // 1.5 在 DOM ID 可能需要特殊處理，這裡簡單處理
             const btnId = 'mul-' + v; 
             const btn = document.getElementById(btnId);
             if(btn) {
@@ -202,7 +236,6 @@ export const logicScript = `
         });
         updateDuration();
     }
-    // ===================
 
     async function deleteRecord(id, date) {
         if(!confirm('確定要刪除這筆記錄嗎？')) return;
@@ -267,7 +300,6 @@ export const logicScript = `
     document.getElementById('start').addEventListener('change', updateDuration);
     document.getElementById('end').addEventListener('change', updateDuration);
     
-    // === 修改：更新顯示時考慮倍數 ===
     function updateDuration() {
         const s = document.getElementById('start').value;
         const e = document.getElementById('end').value;
@@ -286,7 +318,6 @@ export const logicScript = `
             }
         }
     }
-    // =============================
 
     function switchTab(tab) {
         document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
@@ -303,7 +334,9 @@ export const logicScript = `
         e.preventDefault();
         const pin = document.getElementById('pin').value;
         if(!pin) return alert('請先輸入 PIN 密碼');
-        const btn = e.target.querySelector('button');
+        // === 修正：精準選取提交按鈕 ===
+        const btn = document.getElementById('btn-submit-record');
+        // ==========================
         btn.disabled = true; btn.innerText = '儲存中...';
         managePinStorage();
         try {
@@ -312,19 +345,24 @@ export const logicScript = `
                 pin, 
                 type, 
                 date: document.getElementById('date').value,
-                // 加入倍數
                 multiplier: document.getElementById('multiplier').value 
             };
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
+                // 更新地點歷史
+                updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
                 if (type === 'transport') {
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
+                    // 更新備註歷史 (只針對非交通的 Call)
+                    if (type === 'percall' && payload.location) {
+                        updateHistory('remarks', payload.location);
+                    }
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -338,13 +376,13 @@ export const logicScript = `
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
-                
-                // 重置倍數
                 setMultiplier(1);
-
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 renderMonthButtons();
+                // 儲存後重新渲染歷史標籤 (確保新加入的馬上出現)
+                renderHistoryChips('location', 'history-location', 'location');
+                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -461,21 +499,13 @@ export const logicScript = `
                     
                     if (r.type === 'hourly') {
                         const mins = getMinutesDiff(r.start, r.end);
-                        
-                        // === 修改：倍數計算 ===
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
-                        grandTotalMinutes += effectiveMins; // 加總用乘算後的
-                        // ==================
-
+                        grandTotalMinutes += effectiveMins;
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        
-                        // === 修改：顯示倍數 ===
                         const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
-                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`; // 顯示乘算後的時數
-                        // ==================
-
+                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
