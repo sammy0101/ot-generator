@@ -2,8 +2,10 @@ export const pdfScript = `
     async function generatePDF() {
         if(currentRecords.length === 0) return;
         const btn = document.getElementById('pdfBtn');
-        btn.innerText = "下載字型與生成中... (首次需約10秒)"; // 提示使用者稍微等一下
+        const originalText = btn.innerText;
+        btn.innerText = "正在下載字型與生成..."; 
         btn.disabled = true;
+        
         try {
             const { PDFDocument, rgb, StandardFonts } = PDFLib;
             const pdfDoc = await PDFDocument.create();
@@ -12,13 +14,18 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：改用 TTF 格式字型 (粉圓體)，解決公司電腦亂碼問題 ===
-            // 舊的 WOFF 連結：.../noto-sans-tc-...woff
-            // 新的 TTF 連結：
-            const fontUrl = 'https://cdn.jsdelivr.net/gh/justfont/open-huninn-font@master/jf-openhuninn-1.1.ttf';
-            const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+            // === 修改：換回最穩定的 Noto Sans TC 來源 ===
+            // 使用 unpkg CDN，速度快且穩定
+            const fontUrl = 'https://unpkg.com/@fontsource/noto-sans-tc@4.5.12/files/noto-sans-tc-all-400-normal.woff';
+            
+            // 加入錯誤檢查
+            const fontRes = await fetch(fontUrl);
+            if (!fontRes.ok) {
+                throw new Error(\`字型下載失敗: \${fontRes.status} \${fontRes.statusText}\`);
+            }
+            const fontBytes = await fontRes.arrayBuffer();
             const chineseFont = await pdfDoc.embedFont(fontBytes);
-            // ========================================================
+            // ============================================
 
             const page = pdfDoc.addPage([595.28, 841.89]);
             const { width, height } = page.getSize();
@@ -153,7 +160,12 @@ export const pdfScript = `
             
             link.click();
 
-        } catch(err) { console.error(err); alert("生成失敗: " + err.message); } 
-        finally { btn.disabled = false; btn.innerText = "下載 PDF 報表"; }
+        } catch(err) { 
+            console.error(err); 
+            alert("生成失敗: " + err.message); 
+        } finally { 
+            btn.disabled = false; 
+            btn.innerText = originalText; 
+        }
     }
 `;
