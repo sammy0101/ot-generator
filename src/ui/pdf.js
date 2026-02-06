@@ -2,7 +2,8 @@ export const pdfScript = `
     async function generatePDF() {
         if(currentRecords.length === 0) return;
         const btn = document.getElementById('pdfBtn');
-        btn.innerText = "生成中..."; btn.disabled = true;
+        btn.innerText = "下載字型與生成中... (首次需約10秒)"; // 提示使用者稍微等一下
+        btn.disabled = true;
         try {
             const { PDFDocument, rgb, StandardFonts } = PDFLib;
             const pdfDoc = await PDFDocument.create();
@@ -10,8 +11,14 @@ export const pdfScript = `
             
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            const fontBytes = await fetch('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@4.5.12/files/noto-sans-tc-all-400-normal.woff').then(res => res.arrayBuffer());
+            
+            // === 修改重點：改用 TTF 格式字型 (粉圓體)，解決公司電腦亂碼問題 ===
+            // 舊的 WOFF 連結：.../noto-sans-tc-...woff
+            // 新的 TTF 連結：
+            const fontUrl = 'https://cdn.jsdelivr.net/gh/justfont/open-huninn-font@master/jf-openhuninn-1.1.ttf';
+            const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
             const chineseFont = await pdfDoc.embedFont(fontBytes);
+            // ========================================================
 
             const page = pdfDoc.addPage([595.28, 841.89]);
             const { width, height } = page.getSize();
@@ -67,15 +74,13 @@ export const pdfScript = `
                     const mins = getMinutesDiff(r.start, r.end);
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
                     
-                    // === 修改：PDF 倍數處理 ===
                     const mul = r.multiplier || 1;
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
                     
                     if (mul > 1) {
-                        valStr += \` (x\${mul})\`; // 在 PDF 時數後標註 (x2)
+                        valStr += \` (x\${mul})\`;
                     }
-                    // ======================
 
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
