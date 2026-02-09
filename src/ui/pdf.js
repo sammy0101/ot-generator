@@ -3,7 +3,8 @@ export const pdfScript = `
         if(currentRecords.length === 0) return;
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
-        btn.innerText = "下載字型與生成中... (首次需約 10 秒)"; 
+        
+        btn.innerText = "下載字型與生成中... (首次需約 5-10 秒)"; 
         btn.disabled = true;
         
         try {
@@ -14,15 +15,23 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：改用 TTF 格式字型 (思源柔黑體) ===
-            // 這種格式對舊版 PDF 閱讀器和公司電腦的相容性最好
-            const fontUrl = 'https://cdn.jsdelivr.net/gh/ButTaiwan/genjuu-font@master/GenJyuuGothic-Regular.ttf';
-            
-            const fontRes = await fetch(fontUrl);
-            if (!fontRes.ok) {
-                throw new Error(\`字型下載失敗: \${fontRes.status} (請檢查網路或稍後再試)\`);
+            // === 修改重點：使用指定的 CDN 連結 ===
+            const fontUrlPrimary = 'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
+            // 備用連結 (jsDelivr)
+            const fontUrlBackup = 'https://cdn.jsdelivr.net/gh/justfont/open-huninn-font@v2.1/jf-openhuninn-2.1.ttf';
+
+            let fontBytes;
+            try {
+                const res = await fetch(fontUrlPrimary);
+                if (!res.ok) throw new Error('Primary font failed');
+                fontBytes = await res.arrayBuffer();
+            } catch (e) {
+                console.warn('主字型下載失敗，嘗試備用連結...');
+                const res = await fetch(fontUrlBackup);
+                if (!res.ok) throw new Error('字型下載完全失敗，請檢查網路。');
+                fontBytes = await res.arrayBuffer();
             }
-            const fontBytes = await fontRes.arrayBuffer();
+
             const chineseFont = await pdfDoc.embedFont(fontBytes);
             // ============================================
 
@@ -41,7 +50,6 @@ export const pdfScript = `
             
             if (window.USER_NAME) {
                 const nameText = window.USER_NAME;
-                // 用中文字型計算名字寬度
                 const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
                 
                 page.drawText(nameText, { 
@@ -60,7 +68,6 @@ export const pdfScript = `
             const drawTxt = (text, x, font, color=colorBlack) => 
                 page.drawText(text, { x, y: yPos, size: fontSize, font, color });
 
-            // 表頭全部改用中文字型，防止亂碼
             drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
             drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
             drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
@@ -94,7 +101,6 @@ export const pdfScript = `
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
                     detailStr = r.location ? \`(\${r.location})\` : '-';
-                    // 備註可能含中文，強制使用中文字型
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
                     rowColor = colorOrange;
@@ -117,10 +123,8 @@ export const pdfScript = `
                 drawTxt(r.date, col.d, helvetica);
                 
                 const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
-                // 項目名稱使用中文字型
                 drawTxt(safeItem, col.item, chineseFont);
                 
-                // 詳情根據內容決定字型
                 drawTxt(detailStr, col.detail, detailFont);
                 
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
@@ -135,7 +139,6 @@ export const pdfScript = `
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            // 總計標籤全部改用中文字型
             drawTxt("總時數: ", 350, chineseFont);
             drawTxt(formatHours(grandTotalMinutes) + " hr", 410, helveticaBold);
             yPos -= 20;
