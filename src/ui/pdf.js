@@ -15,23 +15,14 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：使用指定的 CDN 連結 ===
-            const fontUrlPrimary = 'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
-            // 備用連結 (jsDelivr)
-            const fontUrlBackup = 'https://cdn.jsdelivr.net/gh/justfont/open-huninn-font@v2.1/jf-openhuninn-2.1.ttf';
+            // === 修改重點：只使用您指定的 CDN 連結 ===
+            const fontUrl = 'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
 
-            let fontBytes;
-            try {
-                const res = await fetch(fontUrlPrimary);
-                if (!res.ok) throw new Error('Primary font failed');
-                fontBytes = await res.arrayBuffer();
-            } catch (e) {
-                console.warn('主字型下載失敗，嘗試備用連結...');
-                const res = await fetch(fontUrlBackup);
-                if (!res.ok) throw new Error('字型下載完全失敗，請檢查網路。');
-                fontBytes = await res.arrayBuffer();
+            const fontRes = await fetch(fontUrl);
+            if (!fontRes.ok) {
+                throw new Error(\`字型下載失敗: \${fontRes.status} (請檢查網路)\`);
             }
-
+            const fontBytes = await fontRes.arrayBuffer();
             const chineseFont = await pdfDoc.embedFont(fontBytes);
             // ============================================
 
