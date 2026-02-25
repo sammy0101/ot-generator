@@ -4,12 +4,11 @@ export const logicScript = `
     document.getElementById('endDate').valueAsDate = today;
     document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
     
-    let currentRecords = [];
+    let currentRecords =[];
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
-    // 新增：已發送月份快取
     let sentMonths = new Set(); 
     let isEditMode = false;
 
@@ -18,10 +17,6 @@ export const logicScript = `
     const sharedMonth = urlParams.get('month');
 
     (function init() {
-        if (window.USER_NAME) {
-            // 已移除 HTML 名字顯示
-        }
-
         if (isShareMode) {
             document.getElementById('mainTitleArea').classList.add('hidden');
             document.getElementById('authSection').classList.add('hidden');
@@ -50,9 +45,6 @@ export const logicScript = `
         }
     })();
 
-    // ... (updateHistory, removeHistory, renderHistoryChips, managePinStorage ... 保持不變) ...
-    // 為節省長度，請確保包含上述歷史記錄與 PIN 管理函式，以下是重點修改部分
-    
     function updateHistory(key, value) {
         if (!value) return;
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
@@ -75,9 +67,9 @@ export const logicScript = `
         const history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         
         container.innerHTML = history.map(val => \`
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 select-none hover:bg-gray-600 hover:text-white transition">
-                <span class="cursor-pointer" onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
-                <span class="ml-2 text-gray-500 hover:text-red-400 font-bold px-1 cursor-pointer transition" onclick="removeHistory('\${key}', '\${val}')">×</span>
+            <span class="history-chip">
+                <span onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
+                <span class="history-delete" onclick="removeHistory('\${key}', '\${val}')">×</span>
             </span>
         \`).join('');
     }
@@ -115,42 +107,29 @@ export const logicScript = `
         }
     }
 
-    // === 新增：切換發送狀態 ===
     async function toggleSent(month, btnElement) {
         const pin = document.getElementById('pin').value;
         if (!pin) return;
-
-        // 視覺回饋
         const originalText = btnElement.innerText;
         btnElement.innerText = '...';
         btnElement.disabled = true;
-
         try {
             const res = await fetch('/api/toggle_sent', {
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
-            
             if (res.ok) {
                 const data = await res.json();
-                // 更新本地快取
-                if (data.list.includes(month)) {
-                    sentMonths.add(month);
-                } else {
-                    sentMonths.delete(month);
-                }
-                // 重畫按鈕以更新樣式
+                if (data.list.includes(month)) sentMonths.add(month);
+                else sentMonths.delete(month);
                 renderMonthButtons();
-            } else {
-                throw new Error('操作失敗');
-            }
+            } else throw new Error('操作失敗');
         } catch (e) {
             alert(e.message);
             btnElement.innerText = originalText;
             btnElement.disabled = false;
         }
     }
-    // ========================
 
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
@@ -167,46 +146,139 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            // === 修改：加入狀態判斷與狀態切換按鈕 ===
             badges.innerHTML = sortedMonths.map(m => {
-                // 判斷是否已發送，加上 .sent 類別
                 const isSent = sentMonths.has(m);
                 const btnClass = isSent 
-                    ? "month-btn sent px-4 py-2 text-sm font-bold border rounded-full transition focus:outline-none shadow-sm" // 綠色 (在 CSS 定義)
-                    : "month-btn px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm"; // 原本的藍色
+                    ? "month-btn sent px-4 py-2 text-sm font-bold border rounded-full transition focus:outline-none shadow-sm"
+                    : "month-btn px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm";
 
                 return \`
                     <div class="relative inline-block mb-3 mr-3">
-                        <!-- 月份按鈕 -->
-                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                                class="\${btnClass}">
-                            \${m}
-                        </button>
-                        
-                        <!-- 狀態切換按鈕 (左上角，綠色/灰色切換) -->
-                        <button type="button" onclick="toggleSent('\${m}', this)" 
-                                class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" 
-                                title="\${isSent ? '取消已發送' : '標記為已發送'}">
-                            \${isSent ? '✕' : '📤'}
-                        </button>
-
-                        <!-- 刪除按鈕 (右上角，紅色) -->
-                        <button type="button" onclick="deleteMonth('\${m}', this)" 
-                                class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">
-                            ✕
-                        </button>
+                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
+                        <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
             }).join('');
-            // ======================================
         } else {
             area.classList.add('hidden');
         }
     }
 
-    // ... (setType, deleteRecord, deleteMonth, fetchHistoryMonths, getMinutesDiff, formatHours, updateDuration, switchTab, addForm, renderCalendar, loadRecords... 保持不變) ...
-    // 請保留原本的其他函式，以下僅列出 fetchHistoryMonths 的修改
-    
+    function setType(type) {
+        document.getElementById('amount').value = '';
+        document.getElementById('moneyRemarks').value = ''; 
+        document.getElementById('transportSelect').selectedIndex = 0; 
+        document.getElementById('recordType').value = type;
+        
+        if (type !== 'hourly') setMultiplier(1);['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
+            const btn = document.getElementById('btn-' + t);
+            if (t === type) {
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
+            } else {
+                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
+            }
+        });
+
+        const groupHourly = document.getElementById('group-hourly');
+        const groupMoney = document.getElementById('group-money');
+        const fieldEndDate = document.getElementById('field-endDate');
+        const fieldRemarks = document.getElementById('field-remarks');
+        const labelDate = document.getElementById('label-date');
+        const labelRemarks = document.getElementById('label-remarks');
+        const inputRemarks = document.getElementById('moneyRemarks');
+        const selectTransport = document.getElementById('transportSelect');
+
+        if (type === 'hourly') {
+            groupHourly.classList.remove('hidden');
+            groupMoney.classList.add('hidden');
+            labelDate.innerText = '日期';
+            document.getElementById('start').required = true;
+            document.getElementById('end').required = true;
+            document.getElementById('amount').required = false;
+        } else {
+            groupHourly.classList.add('hidden');
+            groupMoney.classList.remove('hidden');
+            document.getElementById('start').required = false;
+            document.getElementById('end').required = false;
+            document.getElementById('amount').required = true;
+
+            if (type === 'oncall') {
+                labelDate.innerText = '開始日期';
+                fieldEndDate.classList.remove('hidden');
+                fieldRemarks.classList.add('hidden'); 
+                document.getElementById('endDate').required = true;
+            } else { 
+                labelDate.innerText = '日期';
+                fieldEndDate.classList.add('hidden');
+                fieldRemarks.classList.remove('hidden'); 
+                document.getElementById('endDate').required = false;
+
+                if (type === 'transport') {
+                    labelRemarks.innerText = '行程/詳情';
+                    inputRemarks.classList.add('hidden');
+                    selectTransport.classList.remove('hidden');
+                } else {
+                    labelRemarks.innerText = '備註 (選填)';
+                    inputRemarks.classList.remove('hidden');
+                    selectTransport.classList.add('hidden');
+                    inputRemarks.placeholder = '例如：重啟 Server';
+                }
+            }
+        }
+    }
+
+    function setMultiplier(val) {
+        document.getElementById('multiplier').value = val;[1, 1.5, 2, 3].forEach(v => {
+            const btnId = 'mul-' + v; 
+            const btn = document.getElementById(btnId);
+            if(btn) {
+                if (v === val) {
+                    btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
+                } else {
+                    btn.className = "flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
+                }
+            }
+        });
+        updateDuration();
+    }
+
+    async function deleteRecord(id, date) {
+        if(!confirm('確定要刪除這筆記錄嗎？')) return;
+        const pin = document.getElementById('pin').value;
+        try {
+            const res = await fetch('/api/delete', {
+                method: 'POST',
+                body: JSON.stringify({ pin, id, date })
+            });
+            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); }
+    }
+
+    async function deleteMonth(month, btnElement) {
+        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        const pin = document.getElementById('pin').value;
+        btnElement.disabled = true; btnElement.innerText = '...';
+        try {
+            const res = await fetch('/api/delete_month', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if(res.ok) { 
+                btnElement.parentNode.remove();
+                knownMonths.delete(month);
+                const currentViewMonth = document.getElementById('queryMonth').value;
+                if (currentViewMonth === month) {
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
+                    document.getElementById('calendarView').classList.add('hidden');
+                    document.getElementById('totalSummary').classList.add('hidden');
+                    document.getElementById('pdfBtn').classList.add('hidden');
+                }
+                alert('已刪除 ' + month + ' 的資料');
+            } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
+    }
+
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
         if(!pin) return;
@@ -215,25 +287,16 @@ export const logicScript = `
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const data = await res.json();
             if(!data.error) {
-                // === 修改：同時更新月份列表和狀態列表 ===
                 data.months.forEach(m => knownMonths.add(m));
-                sentMonths = new Set(data.sentList); // 更新已發送清單
+                sentMonths = new Set(data.sentList ||[]);
                 renderMonthButtons();
-                // =================================
             }
         } catch(e) {}
     }
-    
-    // 請記得補回其他的函式 (setType, deleteRecord, deleteMonth, getMinutesDiff 等等)，代碼與上一次邏輯一致，未變動部分省略。
-    // 如果需要完整代碼，請告知。
-
-    // ... (其他函式從略) ...
-    // 為確保複製貼上方便，這裡提供後續所有函式 (無變更，僅為了完整性)
-    
     document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
 
     function getMinutesDiff(start, end) {
-        const [sh, sm] = start.split(':').map(Number);
+        const[sh, sm] = start.split(':').map(Number);
         const [eh, em] = end.split(':').map(Number);
         let diff = (eh * 60 + em) - (sh * 60 + sm);
         if (diff < 0) diff += 24 * 60; 
@@ -293,6 +356,7 @@ export const logicScript = `
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
+                // === 只儲存 OT 地點的歷史 ===
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -300,6 +364,7 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
+                    // 已經移除 Call 備註的 updateHistory
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -316,137 +381,14 @@ export const logicScript = `
                 setMultiplier(1);
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
-                // 這裡 fetchHistoryMonths 用來更新按鈕狀態（避免剛新增的月份沒狀態）
                 fetchHistoryMonths();
+                // 只重新渲染地點標籤
                 renderHistoryChips('location', 'history-location', 'location');
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
         finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
     });
-
-    function setType(type) {
-        document.getElementById('amount').value = '';
-        document.getElementById('moneyRemarks').value = ''; 
-        document.getElementById('transportSelect').selectedIndex = 0; 
-        document.getElementById('recordType').value = type;
-        
-        if (type !== 'hourly') {
-            setMultiplier(1);
-        }
-
-        ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
-            const btn = document.getElementById('btn-' + t);
-            if (t === type) {
-                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
-            } else {
-                btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
-            }
-        });
-
-        const groupHourly = document.getElementById('group-hourly');
-        const groupMoney = document.getElementById('group-money');
-        const fieldEndDate = document.getElementById('field-endDate');
-        const fieldRemarks = document.getElementById('field-remarks');
-        const labelDate = document.getElementById('label-date');
-        const labelRemarks = document.getElementById('label-remarks');
-        const inputRemarks = document.getElementById('moneyRemarks');
-        const selectTransport = document.getElementById('transportSelect');
-        const historyLocation = document.getElementById('history-location');
-        const historyRemarks = document.getElementById('history-remarks');
-
-        if (type === 'hourly') {
-            groupHourly.classList.remove('hidden');
-            groupMoney.classList.add('hidden');
-            labelDate.innerText = '日期';
-            document.getElementById('start').required = true;
-            document.getElementById('end').required = true;
-            document.getElementById('amount').required = false;
-        } else {
-            groupHourly.classList.add('hidden');
-            groupMoney.classList.remove('hidden');
-            document.getElementById('start').required = false;
-            document.getElementById('end').required = false;
-            document.getElementById('amount').required = true;
-
-            if (type === 'oncall') {
-                labelDate.innerText = '開始日期';
-                fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
-                document.getElementById('endDate').required = true;
-            } else { 
-                labelDate.innerText = '日期';
-                fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); 
-                document.getElementById('endDate').required = false;
-
-                if (type === 'transport') {
-                    labelRemarks.innerText = '行程/詳情';
-                    inputRemarks.classList.add('hidden');
-                    selectTransport.classList.remove('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden');
-                } else {
-                    labelRemarks.innerText = '備註 (選填)';
-                    inputRemarks.classList.remove('hidden');
-                    selectTransport.classList.add('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden'); 
-                    inputRemarks.placeholder = '例如：重啟 Server';
-                }
-            }
-        }
-    }
-
-    function setMultiplier(val) {
-        document.getElementById('multiplier').value = val;
-        [1, 1.5, 2, 3].forEach(v => {
-            const btnId = 'mul-' + v; 
-            const btn = document.getElementById(btnId);
-            if(btn) {
-                if (v === val) {
-                    btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
-                } else {
-                    btn.className = "flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
-                }
-            }
-        });
-        updateDuration();
-    }
-
-    async function deleteRecord(id, date) {
-        if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
-        try {
-            const res = await fetch('/api/delete', {
-                method: 'POST',
-                body: JSON.stringify({ pin, id, date })
-            });
-            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
-    }
-
-    async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; btnElement.innerText = '...';
-        try {
-            const res = await fetch('/api/delete_month', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if(res.ok) { 
-                btnElement.parentNode.remove();
-                knownMonths.delete(month);
-                const currentViewMonth = document.getElementById('queryMonth').value;
-                if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
-                    document.getElementById('calendarView').classList.add('hidden');
-                    document.getElementById('totalSummary').classList.add('hidden');
-                    document.getElementById('pdfBtn').classList.add('hidden');
-                }
-                alert('已刪除 ' + month + ' 的資料');
-            } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
-    }
 
     function renderCalendar(year, month, records) {
         const grid = document.querySelector('.calendar-grid');
@@ -536,7 +478,7 @@ export const logicScript = `
             grandTotalMoney = 0;
             grandTotalTransport = 0;
             
-            const [y, m] = monthStr.split('-').map(Number);
+            const[y, m] = monthStr.split('-').map(Number);
             renderCalendar(y, m, data);
 
             if(data.length === 0) {
