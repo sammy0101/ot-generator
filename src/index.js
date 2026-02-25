@@ -1,4 +1,5 @@
-import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleGetFont, handleToggleSent } from './api.js';
+// 移除了 handleGetFont
+import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent } from './api.js';
 import { getHtml } from './ui/index.js';
 
 export default {
@@ -17,11 +18,9 @@ export default {
       return handleDeleteMonth(request, env);
     }
 
-    // === 新增：切換狀態路由 ===
     if (url.pathname === '/api/toggle_sent' && request.method === 'POST') {
       return handleToggleSent(request, env);
     }
-    // ======================
 
     if (url.pathname === '/api/get' && request.method === 'GET') {
       return handleGet(request, env);
@@ -29,10 +28,6 @@ export default {
 
     if (url.pathname === '/api/public/get' && request.method === 'GET') {
       return handlePublicGet(request, env);
-    }
-
-    if (url.pathname === '/api/font' && request.method === 'GET') {
-      return handleGetFont(request, env);
     }
 
     if (url.pathname === '/api/list_months' && request.method === 'GET') {
