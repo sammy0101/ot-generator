@@ -46,7 +46,6 @@ export const htmlContent = `
             font-size: 0.8em;
         }
 
-        /* 歷史記錄標籤樣式 (原生 CSS) */
         .history-chip {
             display: inline-flex; align-items: center; padding: 0.25rem 0.5rem; 
             border-radius: 9999px; font-size: 0.75rem; font-weight: 500; 
@@ -98,6 +97,7 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
@@ -109,6 +109,7 @@ export const htmlContent = `
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="mt-2"></div>
                     </div>
+                    
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
@@ -119,6 +120,7 @@ export const htmlContent = `
                             <input type="time" id="end" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
+
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -129,6 +131,7 @@ export const htmlContent = `
                             <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
                         </div>
                     </div>
+
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
 
@@ -144,6 +147,7 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        <div id="history-remarks" class="mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -152,6 +156,7 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
+
                 <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
@@ -160,12 +165,15 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
-            <div class="flex gap-2 mb-4">
+            
+            <!-- === 修改重點：加上 id="queryControls" === -->
+            <div id="queryControls" class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <button onclick="loadRecords()" class="bg-gray-700 border border-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
                 <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
             </div>
+            <!-- ======================================= -->
             
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2 rounded-lg border border-gray-700">
                 <div class="calendar-grid"></div>
