@@ -21,25 +21,10 @@ export const htmlContent = `
         .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
         .has-transport { background-color: #F59E0B; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
-        .has-both { 
-            background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-money-transport { 
-            background: linear-gradient(135deg, #10b981 50%, #F59E0B 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-ot-transport { 
-            background: linear-gradient(135deg, #6366f1 50%, #F59E0B 50%); 
-            color: white; font-weight: bold; 
-        }
-        .has-triple {
-            background: linear-gradient(135deg, 
-                #6366f1 33%, 
-                #10b981 33%, #10b981 66%, 
-                #F59E0B 66%);
-            color: white; font-weight: bold;
-        }
+        .has-both { background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); color: white; font-weight: bold; }
+        .has-money-transport { background: linear-gradient(135deg, #10b981 50%, #F59E0B 50%); color: white; font-weight: bold; }
+        .has-ot-transport { background: linear-gradient(135deg, #6366f1 50%, #F59E0B 50%); color: white; font-weight: bold; }
+        .has-triple { background: linear-gradient(135deg, #6366f1 33%, #10b981 33%, #10b981 66%, #F59E0B 66%); color: white; font-weight: bold; }
         
         .no-ot { background-color: #374151; color: #9CA3AF; }
         .empty-day { background-color: transparent; }
@@ -47,8 +32,22 @@ export const htmlContent = `
         .delete-ui { display: none !important; }
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
-        
-        /* === 修正：移除了無效的 @apply 樣式 === */
+
+        /* === 新增：狀態切換按鈕 === */
+        .status-ui { display: none !important; }
+        .edit-mode .status-ui { display: flex !important; }
+
+        /* === 新增：已發送月份的樣式 (綠色) === */
+        .month-btn.sent {
+            background-color: #065f46; /* emerald-800 */
+            border-color: #059669; /* emerald-600 */
+            color: #d1fae5; /* emerald-100 */
+        }
+        /* 已發送時加上一個小勾勾在文字前 */
+        .month-btn.sent::before {
+            content: '✓ ';
+            font-size: 0.8em;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
@@ -87,19 +86,16 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
-                    
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
@@ -110,7 +106,6 @@ export const htmlContent = `
                             <input type="time" id="end" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
-
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -121,10 +116,8 @@ export const htmlContent = `
                             <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
                         </div>
                     </div>
-
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
-
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -137,10 +130,7 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        
-                        <!-- 備註歷史 (只對 Call 有效) -->
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
-
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -149,7 +139,6 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
-
                 <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
