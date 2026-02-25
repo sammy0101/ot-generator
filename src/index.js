@@ -1,4 +1,4 @@
-import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet } from './api.js';
+import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleGetFont, handleToggleSent } from './api.js';
 import { getHtml } from './ui/index.js';
 
 export default {
@@ -17,6 +17,12 @@ export default {
       return handleDeleteMonth(request, env);
     }
 
+    // === 新增：切換狀態路由 ===
+    if (url.pathname === '/api/toggle_sent' && request.method === 'POST') {
+      return handleToggleSent(request, env);
+    }
+    // ======================
+
     if (url.pathname === '/api/get' && request.method === 'GET') {
       return handleGet(request, env);
     }
@@ -25,13 +31,14 @@ export default {
       return handlePublicGet(request, env);
     }
 
+    if (url.pathname === '/api/font' && request.method === 'GET') {
+      return handleGetFont(request, env);
+    }
+
     if (url.pathname === '/api/list_months' && request.method === 'GET') {
       return handleListMonths(request, env);
     }
 
-    // === 讀取 USER_NAME ===
-    // 這裡會讀取被 sed 替換後的 wrangler.toml 裡的 [vars]
-    // 如果替換失敗，會顯示空字串，不會報錯
     const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
     
     return new Response(getHtml(userName), {
