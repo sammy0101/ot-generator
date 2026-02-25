@@ -28,17 +28,19 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            
-            // === 修改重點：隱藏整個查詢列 (包含月份選擇器與按鈕) ===
             document.getElementById('queryControls').classList.add('hidden');
-            // ========================================================
-            
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
+            
+            // === 修改重點：在分享標題加上月份 ===
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+            } else {
+                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
             }
+            // ================================
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
@@ -184,38 +186,18 @@ export const logicScript = `
         }
     }
 
-    async function fetchHistoryMonths() {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return;
-        managePinStorage();
-        try {
-            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
-            const data = await res.json();
-            if (!data.error) {
-                if (Array.isArray(data)) {
-                    data.forEach(m => knownMonths.add(m));
-                } else if (data.months) {
-                    data.months.forEach(m => knownMonths.add(m));
-                    sentMonths = new Set(data.sentList ||[]);
-                }
-                renderMonthButtons();
-            }
-        } catch(e) {
-            console.error("載入月份失敗:", e);
-        }
-    }
-
-    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
-
     function setType(type) {
         document.getElementById('amount').value = '';
         document.getElementById('moneyRemarks').value = ''; 
         document.getElementById('transportSelect').selectedIndex = 0; 
         document.getElementById('recordType').value = type;
         
-        if (type !== 'hourly') setMultiplier(1);
-        
-        ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
+        if (type !== 'hourly') {
+            setMultiplier(1);
+        }
+
+        const btnTypes =['hourly', 'oncall', 'percall', 'transport'];
+        btnTypes.forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
@@ -234,6 +216,7 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
+        const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -264,10 +247,12 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
+                    if(historyRemarks) historyRemarks.classList.add('hidden');
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
+                    if(historyRemarks) historyRemarks.classList.remove('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -275,10 +260,11 @@ export const logicScript = `
     }
 
     function setMultiplier(val) {
-        document.getElementById('multiplier').value = val;[1, 1.5, 2, 3].forEach(v => {
-            const btnId = 'mul-' + v; 
-            const btn = document.getElementById(btnId);
-            if(btn) {
+        document.getElementById('multiplier').value = val;
+        const mulVals = [1, 1.5, 2, 3];
+        mulVals.forEach(v => {
+            const btn = document.getElementById('mul-' + v);
+            if (btn) {
                 if (v === val) {
                     btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
                 } else {
@@ -287,42 +273,6 @@ export const logicScript = `
             }
         });
         updateDuration();
-    }
-
-    async function deleteRecord(id, date) {
-        if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
-        try {
-            const res = await fetch('/api/delete', {
-                method: 'POST',
-                body: JSON.stringify({ pin, id, date })
-            });
-            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
-    }
-
-    async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; btnElement.innerText = '...';
-        try {
-            const res = await fetch('/api/delete_month', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if(res.ok) { 
-                btnElement.parentNode.remove();
-                knownMonths.delete(month);
-                const currentViewMonth = document.getElementById('queryMonth').value;
-                if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
-                    document.getElementById('calendarView').classList.add('hidden');
-                    document.getElementById('totalSummary').classList.add('hidden');
-                    document.getElementById('pdfBtn').classList.add('hidden');
-                }
-                alert('已刪除 ' + month + ' 的資料');
-            } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
     }
 
     function getMinutesDiff(start, end) {
@@ -403,6 +353,9 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
+                    if (type === 'percall' && payload.location) {
+                        updateHistory('remarks', payload.location);
+                    }
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -427,6 +380,7 @@ export const logicScript = `
                 fetchHistoryMonths();
                 
                 renderHistoryChips('location', 'history-location', 'location');
+                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { 
@@ -439,6 +393,76 @@ export const logicScript = `
             btn.innerText = '儲存記錄'; 
         }
     });
+
+    async function deleteRecord(id, date) {
+        if (!confirm('確定要刪除這筆記錄嗎？')) return;
+        const pin = document.getElementById('pin').value;
+        try {
+            const res = await fetch('/api/delete', {
+                method: 'POST',
+                body: JSON.stringify({ pin, id, date })
+            });
+            if (res.ok) { 
+                loadRecords(); 
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { 
+            alert(err.message); 
+        }
+    }
+
+    async function deleteMonth(month, btnElement) {
+        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        const pin = document.getElementById('pin').value;
+        btnElement.disabled = true; 
+        btnElement.innerText = '...';
+        try {
+            const res = await fetch('/api/delete_month', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if (res.ok) { 
+                btnElement.parentNode.remove();
+                knownMonths.delete(month);
+                const currentViewMonth = document.getElementById('queryMonth').value;
+                if (currentViewMonth === month) {
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
+                    document.getElementById('calendarView').classList.add('hidden');
+                    document.getElementById('totalSummary').classList.add('hidden');
+                    document.getElementById('pdfBtn').classList.add('hidden');
+                }
+                alert('已刪除 ' + month + ' 的資料');
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { 
+            alert(err.message); 
+            btnElement.disabled = false; 
+            btnElement.innerText = '✕'; 
+        }
+    }
+
+    async function fetchHistoryMonths() {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return;
+        managePinStorage();
+        try {
+            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
+            const data = await res.json();
+            if (!data.error) {
+                if (Array.isArray(data)) {
+                    data.forEach(m => knownMonths.add(m));
+                } else if (data.months) {
+                    data.months.forEach(m => knownMonths.add(m));
+                    sentMonths = new Set(data.sentList ||[]);
+                }
+                renderMonthButtons();
+            }
+        } catch(e) {
+            console.error("載入月份失敗:", e);
+        }
+    }
 
     function renderCalendar(year, month, records) {
         const grid = document.querySelector('.calendar-grid');
