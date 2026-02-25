@@ -9,6 +9,8 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
+    // 新增：已發送月份快取
+    let sentMonths = new Set(); 
     let isEditMode = false;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -17,8 +19,7 @@ export const logicScript = `
 
     (function init() {
         if (window.USER_NAME) {
-            const el = document.getElementById('uiUserNameDisplay');
-            if(el) el.innerText = window.USER_NAME;
+            // 已移除 HTML 名字顯示
         }
 
         if (isShareMode) {
@@ -45,12 +46,13 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
-            // 載入歷史輸入標籤 (只載入 OT 地點，移除了備註)
             renderHistoryChips('location', 'history-location', 'location');
         }
     })();
 
-    // === 歷史記錄功能 ===
+    // ... (updateHistory, removeHistory, renderHistoryChips, managePinStorage ... 保持不變) ...
+    // 為節省長度，請確保包含上述歷史記錄與 PIN 管理函式，以下是重點修改部分
+    
     function updateHistory(key, value) {
         if (!value) return;
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
@@ -69,9 +71,7 @@ export const logicScript = `
 
     function renderHistoryChips(key, containerId, inputId) {
         const container = document.getElementById(containerId);
-        // 如果找不到容器(例如備註的歷史容器)，就跳過
         if (!container) return;
-
         const history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         
         container.innerHTML = history.map(val => \`
@@ -81,7 +81,6 @@ export const logicScript = `
             </span>
         \`).join('');
     }
-    // ==================
 
     function managePinStorage() {
         if(isShareMode) return;
@@ -116,6 +115,43 @@ export const logicScript = `
         }
     }
 
+    // === 新增：切換發送狀態 ===
+    async function toggleSent(month, btnElement) {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return;
+
+        // 視覺回饋
+        const originalText = btnElement.innerText;
+        btnElement.innerText = '...';
+        btnElement.disabled = true;
+
+        try {
+            const res = await fetch('/api/toggle_sent', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                // 更新本地快取
+                if (data.list.includes(month)) {
+                    sentMonths.add(month);
+                } else {
+                    sentMonths.delete(month);
+                }
+                // 重畫按鈕以更新樣式
+                renderMonthButtons();
+            } else {
+                throw new Error('操作失敗');
+            }
+        } catch (e) {
+            alert(e.message);
+            btnElement.innerText = originalText;
+            btnElement.disabled = false;
+        }
+    }
+    // ========================
+
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
         const url = \`\${window.location.origin}\${window.location.pathname}?view=share&month=\${month}\`;
@@ -131,22 +167,163 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            badges.innerHTML = sortedMonths.map(m => \`
-                <div class="relative inline-block mb-3 mr-3">
-                    <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
-                            class="px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm">
-                        \${m}
-                    </button>
-                    <button type="button" onclick="deleteMonth('\${m}', this)" 
-                            class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">
-                        ✕
-                    </button>
-                </div>
-            \`).join('');
+            // === 修改：加入狀態判斷與狀態切換按鈕 ===
+            badges.innerHTML = sortedMonths.map(m => {
+                // 判斷是否已發送，加上 .sent 類別
+                const isSent = sentMonths.has(m);
+                const btnClass = isSent 
+                    ? "month-btn sent px-4 py-2 text-sm font-bold border rounded-full transition focus:outline-none shadow-sm" // 綠色 (在 CSS 定義)
+                    : "month-btn px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm"; // 原本的藍色
+
+                return \`
+                    <div class="relative inline-block mb-3 mr-3">
+                        <!-- 月份按鈕 -->
+                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" 
+                                class="\${btnClass}">
+                            \${m}
+                        </button>
+                        
+                        <!-- 狀態切換按鈕 (左上角，綠色/灰色切換) -->
+                        <button type="button" onclick="toggleSent('\${m}', this)" 
+                                class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" 
+                                title="\${isSent ? '取消已發送' : '標記為已發送'}">
+                            \${isSent ? '✕' : '📤'}
+                        </button>
+
+                        <!-- 刪除按鈕 (右上角，紅色) -->
+                        <button type="button" onclick="deleteMonth('\${m}', this)" 
+                                class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">
+                            ✕
+                        </button>
+                    </div>
+                \`;
+            }).join('');
+            // ======================================
         } else {
             area.classList.add('hidden');
         }
     }
+
+    // ... (setType, deleteRecord, deleteMonth, fetchHistoryMonths, getMinutesDiff, formatHours, updateDuration, switchTab, addForm, renderCalendar, loadRecords... 保持不變) ...
+    // 請保留原本的其他函式，以下僅列出 fetchHistoryMonths 的修改
+    
+    async function fetchHistoryMonths() {
+        const pin = document.getElementById('pin').value;
+        if(!pin) return;
+        managePinStorage();
+        try {
+            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
+            const data = await res.json();
+            if(!data.error) {
+                // === 修改：同時更新月份列表和狀態列表 ===
+                data.months.forEach(m => knownMonths.add(m));
+                sentMonths = new Set(data.sentList); // 更新已發送清單
+                renderMonthButtons();
+                // =================================
+            }
+        } catch(e) {}
+    }
+    
+    // 請記得補回其他的函式 (setType, deleteRecord, deleteMonth, getMinutesDiff 等等)，代碼與上一次邏輯一致，未變動部分省略。
+    // 如果需要完整代碼，請告知。
+
+    // ... (其他函式從略) ...
+    // 為確保複製貼上方便，這裡提供後續所有函式 (無變更，僅為了完整性)
+    
+    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
+
+    function getMinutesDiff(start, end) {
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60; 
+        return diff;
+    }
+    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
+
+    document.getElementById('start').addEventListener('change', updateDuration);
+    document.getElementById('end').addEventListener('change', updateDuration);
+    
+    function updateDuration() {
+        const s = document.getElementById('start').value;
+        const e = document.getElementById('end').value;
+        const mul = parseFloat(document.getElementById('multiplier').value) || 1;
+        
+        if (s && e) {
+            const mins = getMinutesDiff(s, e);
+            const effectiveMins = mins * mul;
+            const hoursStr = formatHours(mins);
+            const effHoursStr = formatHours(effectiveMins);
+            
+            if (mul === 1) {
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} 小時\`;
+            } else {
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
+            }
+        }
+    }
+
+    function switchTab(tab) {
+        document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
+        document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
+        if(tab === 'export' && document.getElementById('pin').value) fetchHistoryMonths();
+        
+        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
+        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
+        document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
+        document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
+    }
+
+    document.getElementById('addForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pin = document.getElementById('pin').value;
+        if(!pin) return alert('請先輸入 PIN 密碼');
+        const btn = document.getElementById('btn-submit-record');
+        btn.disabled = true; btn.innerText = '儲存中...';
+        managePinStorage();
+        try {
+            const type = document.getElementById('recordType').value;
+            const payload = { 
+                pin, 
+                type, 
+                date: document.getElementById('date').value,
+                multiplier: document.getElementById('multiplier').value 
+            };
+            if (type === 'hourly') {
+                payload.location = document.getElementById('location').value;
+                payload.start = document.getElementById('start').value;
+                payload.end = document.getElementById('end').value;
+                updateHistory('location', payload.location);
+            } else {
+                payload.amount = Number(document.getElementById('amount').value) || 0;
+                if (type === 'transport') {
+                    payload.location = document.getElementById('transportSelect').value;
+                } else {
+                    payload.location = document.getElementById('moneyRemarks').value || '';
+                }
+                if (type === 'oncall') {
+                    payload.endDate = document.getElementById('endDate').value;
+                }
+            }
+            const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
+            if(res.ok) {
+                document.getElementById('msg').innerText = '✅ 儲存成功';
+                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
+                document.getElementById('amount').value = '';
+                document.getElementById('location').value = '';
+                document.getElementById('moneyRemarks').value = '';
+                document.getElementById('transportSelect').selectedIndex = 0; 
+                setMultiplier(1);
+                const currentMonth = payload.date.substring(0, 7);
+                knownMonths.add(currentMonth);
+                // 這裡 fetchHistoryMonths 用來更新按鈕狀態（避免剛新增的月份沒狀態）
+                fetchHistoryMonths();
+                renderHistoryChips('location', 'history-location', 'location');
+                setTimeout(() => document.getElementById('msg').innerText = '', 2000);
+            } else { throw new Error(await res.text()); }
+        } catch(err) { alert(err.message); } 
+        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
+    });
 
     function setType(type) {
         document.getElementById('amount').value = '';
@@ -212,7 +389,7 @@ export const logicScript = `
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden'); // Call 也不顯示歷史
+                    if(historyRemarks) historyRemarks.classList.add('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -270,117 +447,6 @@ export const logicScript = `
             } else { throw new Error('刪除失敗'); }
         } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
     }
-
-    async function fetchHistoryMonths() {
-        const pin = document.getElementById('pin').value;
-        if(!pin) return;
-        managePinStorage();
-        try {
-            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
-            const months = await res.json();
-            if(!months.error) {
-                months.forEach(m => knownMonths.add(m));
-                renderMonthButtons();
-            }
-        } catch(e) {}
-    }
-    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
-
-    function getMinutesDiff(start, end) {
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
-        let diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff < 0) diff += 24 * 60; 
-        return diff;
-    }
-    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
-
-    document.getElementById('start').addEventListener('change', updateDuration);
-    document.getElementById('end').addEventListener('change', updateDuration);
-    
-    function updateDuration() {
-        const s = document.getElementById('start').value;
-        const e = document.getElementById('end').value;
-        const mul = parseFloat(document.getElementById('multiplier').value) || 1;
-        
-        if (s && e) {
-            const mins = getMinutesDiff(s, e);
-            const effectiveMins = mins * mul;
-            const hoursStr = formatHours(mins);
-            const effHoursStr = formatHours(effectiveMins);
-            
-            if (mul === 1) {
-                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} 小時\`;
-            } else {
-                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
-            }
-        }
-    }
-
-    function switchTab(tab) {
-        document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
-        document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
-        if(tab === 'export' && document.getElementById('pin').value) fetchHistoryMonths();
-        
-        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
-        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
-        document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
-        document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
-    }
-
-    document.getElementById('addForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const pin = document.getElementById('pin').value;
-        if(!pin) return alert('請先輸入 PIN 密碼');
-        const btn = document.getElementById('btn-submit-record');
-        btn.disabled = true; btn.innerText = '儲存中...';
-        managePinStorage();
-        try {
-            const type = document.getElementById('recordType').value;
-            const payload = { 
-                pin, 
-                type, 
-                date: document.getElementById('date').value,
-                multiplier: document.getElementById('multiplier').value 
-            };
-            if (type === 'hourly') {
-                payload.location = document.getElementById('location').value;
-                payload.start = document.getElementById('start').value;
-                payload.end = document.getElementById('end').value;
-                // 儲存 OT 地點到歷史
-                updateHistory('location', payload.location);
-            } else {
-                payload.amount = Number(document.getElementById('amount').value) || 0;
-                if (type === 'transport') {
-                    payload.location = document.getElementById('transportSelect').value;
-                } else {
-                    payload.location = document.getElementById('moneyRemarks').value || '';
-                    // 移除 Call 的備註歷史儲存
-                }
-                if (type === 'oncall') {
-                    payload.endDate = document.getElementById('endDate').value;
-                }
-            }
-            const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
-            if(res.ok) {
-                document.getElementById('msg').innerText = '✅ 儲存成功';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
-                document.getElementById('amount').value = '';
-                document.getElementById('location').value = '';
-                document.getElementById('moneyRemarks').value = '';
-                document.getElementById('transportSelect').selectedIndex = 0; 
-                setMultiplier(1);
-                const currentMonth = payload.date.substring(0, 7);
-                knownMonths.add(currentMonth);
-                renderMonthButtons();
-                // 儲存後只重新渲染地點標籤
-                renderHistoryChips('location', 'history-location', 'location');
-                
-                setTimeout(() => document.getElementById('msg').innerText = '', 2000);
-            } else { throw new Error(await res.text()); }
-        } catch(err) { alert(err.message); } 
-        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
-    });
 
     function renderCalendar(year, month, records) {
         const grid = document.querySelector('.calendar-grid');
