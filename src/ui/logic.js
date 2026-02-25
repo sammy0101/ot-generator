@@ -28,8 +28,11 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            document.getElementById('btn-share').classList.add('hidden');
-            document.getElementById('btn-edit').classList.add('hidden'); 
+            
+            // === 修改重點：隱藏整個查詢列 (包含月份選擇器與按鈕) ===
+            document.getElementById('queryControls').classList.add('hidden');
+            // ========================================================
+            
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
@@ -49,6 +52,7 @@ export const logicScript = `
                 fetchHistoryMonths();
             }
             renderHistoryChips('location', 'history-location', 'location');
+            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
@@ -66,6 +70,7 @@ export const logicScript = `
         history = history.filter(v => v !== value);
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
         if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
+        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
     }
 
     function renderHistoryChips(key, containerId, inputId) {
@@ -179,7 +184,6 @@ export const logicScript = `
         }
     }
 
-    // === 核心修正：防錯機制，確保讀取到資料 ===
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
         if (!pin) return;
@@ -187,9 +191,7 @@ export const logicScript = `
         try {
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const data = await res.json();
-            
             if (!data.error) {
-                // 兼容舊版 API (回傳陣列) 與新版 API (回傳物件)
                 if (Array.isArray(data)) {
                     data.forEach(m => knownMonths.add(m));
                 } else if (data.months) {
@@ -202,7 +204,6 @@ export const logicScript = `
             console.error("載入月份失敗:", e);
         }
     }
-    // ======================================
 
     document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
 
@@ -325,7 +326,7 @@ export const logicScript = `
     }
 
     function getMinutesDiff(start, end) {
-        const [sh, sm] = start.split(':').map(Number);
+        const[sh, sm] = start.split(':').map(Number);
         const [eh, em] = end.split(':').map(Number);
         let diff = (eh * 60 + em) - (sh * 60 + sm);
         if (diff < 0) diff += 24 * 60; 
