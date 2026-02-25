@@ -33,21 +33,33 @@ export const htmlContent = `
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
 
-        /* === 新增：狀態切換按鈕 === */
         .status-ui { display: none !important; }
         .edit-mode .status-ui { display: flex !important; }
 
-        /* === 新增：已發送月份的樣式 (綠色) === */
         .month-btn.sent {
-            background-color: #065f46; /* emerald-800 */
-            border-color: #059669; /* emerald-600 */
-            color: #d1fae5; /* emerald-100 */
+            background-color: #065f46;
+            border-color: #059669;
+            color: #d1fae5;
         }
-        /* 已發送時加上一個小勾勾在文字前 */
         .month-btn.sent::before {
             content: '✓ ';
             font-size: 0.8em;
         }
+
+        /* 歷史記錄標籤樣式 (原生 CSS) */
+        .history-chip {
+            display: inline-flex; align-items: center; padding: 0.25rem 0.5rem; 
+            border-radius: 9999px; font-size: 0.75rem; font-weight: 500; 
+            background-color: #374151; color: #d1d5db; border: 1px solid #4b5563; 
+            margin-right: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; 
+            user-select: none; transition: all 0.2s;
+        }
+        .history-chip:hover { background-color: #4b5563; color: white; }
+        .history-delete {
+            margin-left: 0.375rem; color: #9ca3af; font-weight: bold; 
+            padding: 0 0.25rem; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;
+        }
+        .history-delete:hover { color: #f87171; background-color: #1f2937; }
     </style>
 </head>
 <body class="min-h-screen p-4 font-sans text-gray-200">
@@ -90,11 +102,12 @@ export const htmlContent = `
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
+
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
-                        <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
+                        <div id="history-location" class="mt-2"></div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -118,6 +131,7 @@ export const htmlContent = `
                     </div>
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
+
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -130,7 +144,6 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
