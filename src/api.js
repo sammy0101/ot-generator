@@ -116,36 +116,8 @@ export async function handleListMonths(request, env) {
         .filter(m => m.match(/^\d{4}-\d{2}$/)); 
     
     months.sort().reverse();
+
     const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
 
     return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
-}
-
-// === 核心修正：Worker 背景代理下載官方字型 ===
-export async function handleGetFont(request, env) {
-    try {
-        // 使用相容性與解析度最佳的 1.1 版粉圓體，直接從官方抓
-        const fontUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v1.1/jf-openhuninn-1.1.ttf';
-        
-        // 偽裝成瀏覽器去抓，並利用 Cloudflare 邊緣快取
-        const fontRes = await fetch(fontUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-            cf: { cacheTtl: 31536000 } // 快取一年，速度飛快
-        });
-        
-        if (!fontRes.ok) {
-            return new Response("字型伺服器錯誤: " + fontRes.status, { status: 502 });
-        }
-        
-        // 將乾淨的二進位檔案原封不動回傳
-        return new Response(fontRes.body, {
-            headers: {
-                "Content-Type": "font/ttf",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
-        });
-    } catch (e) {
-        return new Response(e.message, { status: 500 });
-    }
 }
