@@ -13,7 +13,7 @@ export default {
     if (url.pathname === '/api/public/get' && request.method === 'GET') return handlePublicGet(request, env);
     if (url.pathname === '/api/list_months' && request.method === 'GET') return handleListMonths(request, env);
     
-    // === 註冊字型代理 API ===
+    // === 註冊代理字型的路由 ===
     if (url.pathname === '/api/font' && request.method === 'GET') return handleGetFont(request, env);
 
     const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
