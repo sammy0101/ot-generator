@@ -18,7 +18,7 @@ export const pdfScript = `
             // === 透過前端陣列列出多個穩定 TTF 字型來源 ===
             const fontUrls =[
                 // 1.
-                'https://github.com/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf',
+                'https://drive.usercontent.google.com/u/1/uc?id=1x_QRPT9Xl9ssoCggl094OTDtSGgGyrp1&export=download',
             ];
 
             let fontBytes = null;
