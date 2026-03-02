@@ -1,11 +1,9 @@
 name: Deploy to Cloudflare Workers
 
 on:
-  # === 修改：加入 push 事件，當 main 分支有更新時自動執行 ===
   push:
     branches:
       - main
-  # === 保留：手動觸發按鈕 ===
   workflow_dispatch:
 
 jobs:
@@ -16,24 +14,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # === 步驟 1：替換 KV ID ===
       - name: Inject KV ID
         run: |
           sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
 
-      # === 步驟 2：替換中文名字 (直接寫入檔案，避開 Secret 上傳錯誤) ===
       - name: Inject User Name
         run: |
-          # 使用 sed 將佔位符替換成 Secret 裡的中文名字
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # === 步驟 3：部署 (只上傳 PIN 碼) ===
+      # === 新增：自動下載字型檔 ===
+      - name: Download Font File
+        run: curl -L -o font.ttf https://github.com/justfont/open-huninn-font/releases/download/v1.1/jf-openhuninn-1.1.ttf
+
+      # === 新增：自動將字型檔存入您的 KV 資料庫 ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT" font.ttf --path
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # 這裡只上傳 AUTH_PIN，名字已經在步驟 2 寫入檔案了
           secrets: |
             AUTH_PIN
         env:
