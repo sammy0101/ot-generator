@@ -15,14 +15,22 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 向自己的 API 請求字型，無懼公司防火牆 ===
+            // === 修改重點：向您自己的 Worker 請求字型 ===
             const fontUrl = '/api/font'; 
 
             const fontRes = await fetch(fontUrl);
             if (!fontRes.ok) {
-                throw new Error('字型載入失敗，請確認 Worker 網路正常');
+                const errText = await fontRes.text();
+                throw new Error('字型下載失敗: ' + errText);
             }
+            
             const fontBytes = await fontRes.arrayBuffer();
+            
+            // 防呆檢查：如果下載到的其實是網頁 (HTML)，拋出明確錯誤
+            const isHtml = new TextDecoder().decode(fontBytes.slice(0, 10)).includes('<!DOC');
+            if (isHtml) throw new Error("下載到的不是字型檔，而是錯誤網頁，請檢查 API。");
+
+            // 嵌入 TTF 字型
             const chineseFont = await pdfDoc.embedFont(fontBytes);
             // ============================================
 
