@@ -22,14 +22,14 @@ jobs:
         run: |
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # === 智慧下載機制：自動找尋最新版 Release 中的 .ttf 檔案 ===
+      # === 修正重點：修復了 if 後面缺少的空格 ===
       - name: Download Latest TTF Font
         run: |
           echo "正在查詢最新版本的字型..."
-          # 使用 GitHub API 獲取 Latest Release，並用 jq 過濾出結尾是 .ttf 的檔案下載網址
           TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
           
-          if[ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+          # 這裡的 if 和 [ 之間已經補上空格了
+          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
             echo "錯誤：在最新版本中找不到 .ttf 檔案！"
             exit 1
           fi
@@ -38,7 +38,6 @@ jobs:
           echo "開始下載..."
           curl -L -o font.ttf "$TTF_URL"
 
-      # === 將下載好的乾淨 .ttf 檔案上傳到您的 KV 資料庫 ===
       - name: Upload Font to KV
         uses: cloudflare/wrangler-action@v3
         with:
@@ -46,7 +45,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT" --path font.ttf
 
-      # === 部署 Worker ===
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
