@@ -1,4 +1,4 @@
-import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
+import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent } from './api.js';
 import { getHtml } from './ui/index.js';
 
 export default {
@@ -12,9 +12,6 @@ export default {
     if (url.pathname === '/api/get' && request.method === 'GET') return handleGet(request, env);
     if (url.pathname === '/api/public/get' && request.method === 'GET') return handlePublicGet(request, env);
     if (url.pathname === '/api/list_months' && request.method === 'GET') return handleListMonths(request, env);
-    
-    // === 字型代理路由 ===
-    if (url.pathname === '/api/font' && request.method === 'GET') return handleGetFont(request, env);
 
     const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
     
