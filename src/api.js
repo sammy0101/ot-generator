@@ -117,4 +117,36 @@ export async function handleListMonths(request, env) {
     
     months.sort().reverse();
 
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 核心新增：讓 Worker 在背景去 GitHub 下載字型 ===
+export async function handleGetFont(request, env) {
+    try {
+        const fontUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v1.1/jf-openhuninn-1.1.ttf';
+        
+        // 讓 Cloudflare 去要檔案，會自動處理 Redirect (302)
+        const fontRes = await fetch(fontUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            cf: { cacheTtl: 31536000 } // Cloudflare CDN 快取一年，速度超快
+        });
+        
+        if (!fontRes.ok) {
+            return new Response("字型伺服器錯誤: " + fontRes.status, { status: 502 });
+        }
+        
+        const fontBuffer = await fontRes.arrayBuffer();
+        
+        return new Response(fontBuffer, {
+            headers: {
+                "Content-Type": "font/ttf",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
