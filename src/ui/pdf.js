@@ -4,7 +4,7 @@ export const pdfScript = `
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
         
-        btn.innerText = "下載字型與生成中... (首次需約 5-10 秒)"; 
+        btn.innerText = "正在下載字型與生成... (請稍候)"; 
         btn.disabled = true;
         
         try {
@@ -15,23 +15,22 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 依照您的要求：直接使用 GitHub 官方下載連結 ===
-            const fontUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
+            // === 修改：向自己的伺服器拿字型，繞過瀏覽器限制 ===
+            const fontUrl = '/api/font'; 
 
             let fontBytes = null;
-
             try {
                 const res = await fetch(fontUrl);
-                if (!res.ok) throw new Error(\`下載失敗，HTTP 狀態碼: \${res.status}\`);
+                if (!res.ok) throw new Error(\`伺服器回傳錯誤: \${res.status}\`);
                 fontBytes = await res.arrayBuffer();
                 
-                // 確保抓下來的不是被公司防火牆阻擋的錯誤 HTML 網頁
+                // 防呆：確認不是網頁原始碼
                 const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
                 if (headStr.includes("<!DOC") || headStr.includes("<html")) {
-                    throw new Error("下載到的不是字型檔，可能是公司網路阻擋了 GitHub 檔案下載。");
+                    throw new Error("下載到錯誤的內容。");
                 }
             } catch (e) {
-                throw new Error("字型連線失敗: " + e.message);
+                throw new Error("無法取得字型: " + e.message);
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
