@@ -117,4 +117,33 @@ export async function handleListMonths(request, env) {
     
     months.sort().reverse();
 
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 完美的字型代理 API ===
+export async function handleGetFont(request, env) {
+    try {
+        // Worker 在背景去抓取穩定的 TTF 字型
+        const fontUrl = 'https://cdn.jsdelivr.net/npm/open-huninn-font@1.1.0/jf-openhuninn-1.1.ttf';
+        const fontRes = await fetch(fontUrl);
+        
+        if (!fontRes.ok) {
+            return new Response("Font download failed from source", { status: 502 });
+        }
+        
+        const fontBuffer = await fontRes.arrayBuffer();
+        
+        // 加上 CORS 和快取，回傳給網頁
+        return new Response(fontBuffer, {
+            headers: {
+                "Content-Type": "font/ttf",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
