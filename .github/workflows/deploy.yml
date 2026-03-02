@@ -22,17 +22,17 @@ jobs:
         run: |
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # === 新增：自動下載字型檔 ===
+      # 自動下載字型檔
       - name: Download Font File
         run: curl -L -o font.ttf https://github.com/justfont/open-huninn-font/releases/download/v1.1/jf-openhuninn-1.1.ttf
 
-      # === 新增：自動將字型檔存入您的 KV 資料庫 ===
+      # === 修正重點：修復了 --path 的語法 ===
       - name: Upload Font to KV
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT" font.ttf --path
+          command: kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT" --path font.ttf
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
