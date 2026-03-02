@@ -121,3 +121,32 @@ export async function handleListMonths(request, env) {
 
     return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
 }
+
+// === 核心新增：字型代理伺服器功能 ===
+export async function handleGetFont(request, env) {
+    try {
+        const githubUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
+        
+        // 伺服器在背景去向 GitHub 要檔案，不受瀏覽器限制
+        const response = await fetch(githubUrl, {
+            headers: { 'User-Agent': 'CloudflareWorker/1.0' }
+        });
+
+        if (!response.ok) {
+            return new Response("GitHub 拒絕連線: " + response.status, { status: 502 });
+        }
+
+        // 把抓到的檔案轉發給您的網頁，並加上「允許跨網域讀取」的許可證
+        const newHeaders = new Headers(response.headers);
+        newHeaders.set('Access-Control-Allow-Origin', '*');
+        newHeaders.set('Content-Type', 'font/ttf');
+        newHeaders.set('Cache-Control', 'public, max-age=31536000'); // 快取一年
+
+        return new Response(response.body, {
+            status: response.status,
+            headers: newHeaders
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
