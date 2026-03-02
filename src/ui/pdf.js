@@ -18,11 +18,9 @@ export const pdfScript = `
             // === 透過前端陣列列出多個穩定 TTF 字型來源 ===
             const fontUrls =[
                 // 1. 最穩定的 NPM 鏡像 (jsDelivr)
-                'https://cdn.jsdelivr.net/npm/open-huninn-font@1.1.0/jf-openhuninn-1.1.ttf',
+                'https://cdn.jsdelivr.net/gh/justfont/open-huninn-font@releases/download/v2.1/jf-openhuninn-2.1.ttf',
                 // 2. 最穩定的 NPM 鏡像 (unpkg)
-                'https://unpkg.com/open-huninn-font@1.1.0/jf-openhuninn-1.1.ttf',
                 // 3. 您之前提供的第三方鏡像備用
-                'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf'
             ];
 
             let fontBytes = null;
