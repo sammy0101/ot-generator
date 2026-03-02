@@ -121,3 +121,24 @@ export async function handleListMonths(request, env) {
 
     return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
 }
+
+export async function handleGetFont(request, env) {
+    try {
+        // 以二進位格式讀取字型檔案
+        const fontBuffer = await env.OT_RECORDS.get('SYSTEM_FONT', { type: 'arrayBuffer' });
+        
+        if (!fontBuffer) {
+            return new Response("Font not found in KV", { status: 404 });
+        }
+        
+        return new Response(fontBuffer, {
+            headers: {
+                "Content-Type": "font/ttf",
+                "Cache-Control": "public, max-age=31536000, immutable", // 設定快取，讓瀏覽器只下載一次
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
