@@ -22,7 +22,6 @@ jobs:
         run: |
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # 直接部署，不再上傳字型到 KV
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
