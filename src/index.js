@@ -1,5 +1,5 @@
-// 移除了 handleGetFont
-import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent } from './api.js';
+// 記得在第一行引入 handleGetFont
+import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
 import { getHtml } from './ui/index.js';
 
 export default {
@@ -29,6 +29,12 @@ export default {
     if (url.pathname === '/api/public/get' && request.method === 'GET') {
       return handlePublicGet(request, env);
     }
+
+    // === 新增：讀取字型的專屬路由 ===
+    if (url.pathname === '/api/font' && request.method === 'GET') {
+      return handleGetFont(request, env);
+    }
+    // ============================
 
     if (url.pathname === '/api/list_months' && request.method === 'GET') {
       return handleListMonths(request, env);
