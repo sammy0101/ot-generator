@@ -15,20 +15,28 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 向自己的 API 請求字型 (繞過公司防火牆) ===
+            // === 修改重點：獲取純文字字型並還原 ===
             const fontUrl = '/api/font'; 
 
             const fontRes = await fetch(fontUrl);
             if (!fontRes.ok) {
-                throw new Error(\`伺服器回傳錯誤: \${fontRes.status}\`);
+                const errText = await fontRes.text();
+                throw new Error(\`字型載入失敗: \${errText}\`);
             }
             
-            const fontBytes = await fontRes.arrayBuffer();
+            // 拿到 Base64 純文字
+            const b64String = await fontRes.text();
             
-            // 檢查是否不小心抓到網頁原始碼
-            const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
-            if (headStr.includes("<!DOC") || headStr.includes("<html")) {
-                throw new Error("下載到的不是字型檔，請重試。");
+            if (b64String.includes("<!DOC") || b64String.includes("<html")) {
+                throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
+            }
+
+            // 在瀏覽器端將 Base64 轉換回二進位陣列
+            const binaryString = window.atob(b64String);
+            const len = binaryString.length;
+            const fontBytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                fontBytes[i] = binaryString.charCodeAt(i);
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
