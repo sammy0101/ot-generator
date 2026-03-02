@@ -22,29 +22,7 @@ jobs:
         run: |
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # === 修正重點：修復了 if 後面缺少的空格 ===
-      - name: Download Latest TTF Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          # 這裡的 if 和 [ 之間已經補上空格了
-          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          echo "開始下載..."
-          curl -L -o font.ttf "$TTF_URL"
-
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT" --path font.ttf
-
+      # 直接部署，不再上傳字型到 KV
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
