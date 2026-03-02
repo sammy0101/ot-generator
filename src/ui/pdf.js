@@ -4,7 +4,7 @@ export const pdfScript = `
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
         
-        btn.innerText = "載入字型與生成中... (首次需幾秒鐘)"; 
+        btn.innerText = "載入字型與生成中... (請稍候)"; 
         btn.disabled = true;
         
         try {
@@ -15,12 +15,12 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：完全不用 CDN，直接呼叫自己的伺服器 ===
+            // === 向自己的 API 請求字型，無懼公司防火牆 ===
             const fontUrl = '/api/font'; 
 
             const fontRes = await fetch(fontUrl);
             if (!fontRes.ok) {
-                throw new Error('字型載入失敗 (資料庫中找不到字型檔，請確認 GitHub Actions 是否部署成功)');
+                throw new Error('字型載入失敗，請確認 Worker 網路正常');
             }
             const fontBytes = await fontRes.arrayBuffer();
             const chineseFont = await pdfDoc.embedFont(fontBytes);
@@ -42,22 +42,14 @@ export const pdfScript = `
             if (window.USER_NAME) {
                 const nameText = window.USER_NAME;
                 const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
-                
-                page.drawText(nameText, { 
-                    x: width - marginX - nameWidth, 
-                    y: yPos, 
-                    size: 14, 
-                    font: chineseFont, 
-                    color: rgb(0.3, 0.3, 0.3)
-                });
+                page.drawText(nameText, { x: width - marginX - nameWidth, y: yPos, size: 14, font: chineseFont, color: rgb(0.3, 0.3, 0.3) });
             }
 
             yPos -= 40;
 
             const col = { d: 40, item: 130, detail: 350, val: 480 };
             const fontSize = 11;
-            const drawTxt = (text, x, font, color=colorBlack) => 
-                page.drawText(text, { x, y: yPos, size: fontSize, font, color });
+            const drawTxt = (text, x, font, color=colorBlack) => page.drawText(text, { x, y: yPos, size: fontSize, font, color });
 
             drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
             drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
@@ -79,15 +71,10 @@ export const pdfScript = `
                     itemStr = r.location || 'OT';
                     const mins = getMinutesDiff(r.start, r.end);
                     detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                    
                     const mul = r.multiplier || 1;
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
-                    
-                    if (mul > 1) {
-                        valStr += \` (x\${mul})\`;
-                    }
-
+                    if (mul > 1) valStr += \` (x\${mul})\`;
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
@@ -112,12 +99,9 @@ export const pdfScript = `
                 }
 
                 drawTxt(r.date, col.d, helvetica);
-                
                 const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
                 drawTxt(safeItem, col.item, chineseFont);
-                
                 drawTxt(detailStr, col.detail, detailFont);
-                
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
@@ -152,9 +136,7 @@ export const pdfScript = `
             link.href = URL.createObjectURL(blob);
             
             let filename = \`OT_Record_\${monthStr}.pdf\`;
-            if (window.USER_NAME) {
-                filename = \`OT_Record_\${monthStr}_\${window.USER_NAME}.pdf\`;
-            }
+            if (window.USER_NAME) filename = \`OT_Record_\${monthStr}_\${window.USER_NAME}.pdf\`;
             link.download = filename;
             
             link.click();
