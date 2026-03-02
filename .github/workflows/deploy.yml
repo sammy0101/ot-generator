@@ -22,28 +22,32 @@ jobs:
         run: |
           sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-      # === 1. 透過 GitHub Actions 下載最新版字型 ===
-      - name: Download Latest TTF Font
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
         run: |
           echo "正在查詢最新版本的字型..."
           TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
           
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
             echo "錯誤：在最新版本中找不到 .ttf 檔案！"
             exit 1
           fi
           
           echo "找到最新字型檔案：$TTF_URL"
           curl -L -o font.ttf "$TTF_URL"
-
-      # === 2. 將字型轉成安全的 Base64 純文字並上傳 KV ===
-      - name: Convert and Upload Font to KV
-        run: |
+          
           echo "正在轉換為 Base64 純文字以防止資料損壞..."
           base64 -w 0 font.ttf > font_b64.txt
-          echo "上傳至 KV 資料庫..."
-          npx wrangler kv:key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
 
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
+
+      # === 3. 部署 Worker ===
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
