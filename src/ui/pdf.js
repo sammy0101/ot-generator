@@ -4,7 +4,7 @@ export const pdfScript = `
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
         
-        btn.innerText = "載入字型與生成中... (請稍候)"; 
+        btn.innerText = "下載字型與生成中... (首次需約 5-10 秒)"; 
         btn.disabled = true;
         
         try {
@@ -15,21 +15,37 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 向自己的 API 請求乾淨的 TTF 字型 ===
-            const fontUrl = '/api/font'; 
+            // === 透過前端陣列列出多個穩定 TTF 字型來源 ===
+            const fontUrls =[
+                // 1. 最穩定的 NPM 鏡像 (jsDelivr)
+                'https://cdn.jsdelivr.net/npm/open-huninn-font@1.1.0/jf-openhuninn-1.1.ttf',
+                // 2. 最穩定的 NPM 鏡像 (unpkg)
+                'https://unpkg.com/open-huninn-font@1.1.0/jf-openhuninn-1.1.ttf',
+                // 3. 您之前提供的第三方鏡像備用
+                'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf'
+            ];
 
-            const fontRes = await fetch(fontUrl);
-            if (!fontRes.ok) {
-                const errText = await fontRes.text();
-                throw new Error(\`字型載入失敗: \${errText}\`);
+            let fontBytes = null;
+
+            // 輪詢測試 CDN，只要一個成功就跳出
+            for (const url of fontUrls) {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) continue; // 如果 404 就換下一個
+                    fontBytes = await res.arrayBuffer();
+                    
+                    // 確保抓下來的不是錯誤的 HTML 網頁
+                    const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
+                    if (headStr.includes("<!DOC") || headStr.includes("<html")) continue;
+                    
+                    break; // 成功！
+                } catch (e) {
+                    console.warn(\`字型來源失效 (\${url})\`);
+                }
             }
-            
-            const fontBytes = await fontRes.arrayBuffer();
-            
-            // 防呆檢查：確保下載的不是 HTML 錯誤網頁
-            const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
-            if (headStr.includes("<!DOC") || headStr.includes("<html")) {
-                throw new Error("下載到無效的字型檔案，請重試。");
+
+            if (!fontBytes) {
+                throw new Error("所有字型伺服器皆無法連線，請檢查網路。");
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
