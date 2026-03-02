@@ -4,7 +4,7 @@ export const pdfScript = `
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
         
-        btn.innerText = "正在下載字型與生成... (請稍候)"; 
+        btn.innerText = "載入字型與生成中... (請稍候)"; 
         btn.disabled = true;
         
         try {
@@ -15,22 +15,20 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改：向自己的伺服器拿字型，繞過瀏覽器限制 ===
+            // === 向自己的 API 請求字型 (繞過公司防火牆) ===
             const fontUrl = '/api/font'; 
 
-            let fontBytes = null;
-            try {
-                const res = await fetch(fontUrl);
-                if (!res.ok) throw new Error(\`伺服器回傳錯誤: \${res.status}\`);
-                fontBytes = await res.arrayBuffer();
-                
-                // 防呆：確認不是網頁原始碼
-                const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
-                if (headStr.includes("<!DOC") || headStr.includes("<html")) {
-                    throw new Error("下載到錯誤的內容。");
-                }
-            } catch (e) {
-                throw new Error("無法取得字型: " + e.message);
+            const fontRes = await fetch(fontUrl);
+            if (!fontRes.ok) {
+                throw new Error(\`伺服器回傳錯誤: \${fontRes.status}\`);
+            }
+            
+            const fontBytes = await fontRes.arrayBuffer();
+            
+            // 檢查是否不小心抓到網頁原始碼
+            const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
+            if (headStr.includes("<!DOC") || headStr.includes("<html")) {
+                throw new Error("下載到的不是字型檔，請重試。");
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
