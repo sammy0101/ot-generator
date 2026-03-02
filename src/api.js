@@ -122,22 +122,10 @@ export async function handleListMonths(request, env) {
     return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-// === 核心修正：Worker 背景代理下載官方字型 ===
 export async function handleGetFont(request, env) {
     try {
-        // 直接從 GitHub 官方下載點抓取 (Worker 端沒有 CORS 問題)
-        const fontUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v1.1/jf-openhuninn-1.1.ttf';
-        
-        const fontRes = await fetch(fontUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-            cf: { cacheTtl: 31536000 } // Cloudflare 快取一年
-        });
-        
-        if (!fontRes.ok) {
-            return new Response("字型伺服器錯誤: " + fontRes.status, { status: 502 });
-        }
-        
-        const fontBuffer = await fontRes.arrayBuffer();
+        const fontBuffer = await env.OT_RECORDS.get('SYSTEM_FONT', { type: 'arrayBuffer' });
+        if (!fontBuffer) return new Response("Font not found in KV", { status: 404 });
         
         return new Response(fontBuffer, {
             headers: {
