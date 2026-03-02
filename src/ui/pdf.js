@@ -15,33 +15,23 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 透過前端陣列列出多個穩定 TTF 字型來源 ===
-            const fontUrls =[
-                // 1.
-                'https://drive.usercontent.google.com/u/1/uc?id=1x_QRPT9Xl9ssoCggl094OTDtSGgGyrp1&export=download',
-            ];
+            // === 依照您的要求：直接使用 GitHub 官方下載連結 ===
+            const fontUrl = 'https://github.com/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
 
             let fontBytes = null;
 
-            // 輪詢測試 CDN，只要一個成功就跳出
-            for (const url of fontUrls) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) continue; // 如果 404 就換下一個
-                    fontBytes = await res.arrayBuffer();
-                    
-                    // 確保抓下來的不是錯誤的 HTML 網頁
-                    const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
-                    if (headStr.includes("<!DOC") || headStr.includes("<html")) continue;
-                    
-                    break; // 成功！
-                } catch (e) {
-                    console.warn(\`字型來源失效 (\${url})\`);
+            try {
+                const res = await fetch(fontUrl);
+                if (!res.ok) throw new Error(\`下載失敗，HTTP 狀態碼: \${res.status}\`);
+                fontBytes = await res.arrayBuffer();
+                
+                // 確保抓下來的不是被公司防火牆阻擋的錯誤 HTML 網頁
+                const headStr = new TextDecoder().decode(fontBytes.slice(0, 10));
+                if (headStr.includes("<!DOC") || headStr.includes("<html")) {
+                    throw new Error("下載到的不是字型檔，可能是公司網路阻擋了 GitHub 檔案下載。");
                 }
-            }
-
-            if (!fontBytes) {
-                throw new Error("所有字型伺服器皆無法連線，請檢查網路。");
+            } catch (e) {
+                throw new Error("字型連線失敗: " + e.message);
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
