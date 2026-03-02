@@ -4,7 +4,7 @@ export const pdfScript = `
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
         
-        btn.innerText = "下載字型與生成中... (首次需約 5-10 秒)"; 
+        btn.innerText = "載入字型與生成中... (首次需幾秒鐘)"; 
         btn.disabled = true;
         
         try {
@@ -15,12 +15,12 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：只使用您指定的 CDN 連結 ===
-            const fontUrl = 'https://gh.registry.cyou/justfont/open-huninn-font/releases/download/v2.1/jf-openhuninn-2.1.ttf';
+            // === 修改重點：完全不用 CDN，直接呼叫自己的伺服器 ===
+            const fontUrl = '/api/font'; 
 
             const fontRes = await fetch(fontUrl);
             if (!fontRes.ok) {
-                throw new Error(\`字型下載失敗: \${fontRes.status} (請檢查網路)\`);
+                throw new Error('字型載入失敗 (資料庫中找不到字型檔，請確認 GitHub Actions 是否部署成功)');
             }
             const fontBytes = await fontRes.arrayBuffer();
             const chineseFont = await pdfDoc.embedFont(fontBytes);
