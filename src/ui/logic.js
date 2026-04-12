@@ -28,19 +28,14 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            document.getElementById('queryControls').classList.add('hidden');
+            document.getElementById('btn-share').classList.add('hidden');
+            document.getElementById('btn-edit').classList.add('hidden'); 
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            
-            // === 修改重點：在分享標題加上月份 ===
-            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
-            } else {
-                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
             }
-            // ================================
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
@@ -53,11 +48,12 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
+            // === 修改：只載入 OT 地點的歷史，不再載入備註 ===
             renderHistoryChips('location', 'history-location', 'location');
-            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
+    // === 歷史記錄功能 ===
     function updateHistory(key, value) {
         if (!value) return;
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
@@ -71,8 +67,8 @@ export const logicScript = `
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         history = history.filter(v => v !== value);
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
+        // 只更新地點的顯示
         if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
-        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
     }
 
     function renderHistoryChips(key, containerId, inputId) {
@@ -216,7 +212,6 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
-        const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -247,12 +242,10 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden');
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
-                    if(historyRemarks) historyRemarks.classList.remove('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -261,7 +254,7 @@ export const logicScript = `
 
     function setMultiplier(val) {
         document.getElementById('multiplier').value = val;
-        const mulVals = [1, 1.5, 2, 3];
+        const mulVals =[1, 1.5, 2, 3];
         mulVals.forEach(v => {
             const btn = document.getElementById('mul-' + v);
             if (btn) {
@@ -346,6 +339,7 @@ export const logicScript = `
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
+                // 只更新 OT 地點
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -353,9 +347,7 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    if (type === 'percall' && payload.location) {
-                        updateHistory('remarks', payload.location);
-                    }
+                    // === 修改：不再更新 Call 的備註歷史 ===
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -379,8 +371,8 @@ export const logicScript = `
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
                 
+                // === 修改：只重新渲染地點的歷史按鈕 ===
                 renderHistoryChips('location', 'history-location', 'location');
-                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { 
@@ -440,27 +432,6 @@ export const logicScript = `
             alert(err.message); 
             btnElement.disabled = false; 
             btnElement.innerText = '✕'; 
-        }
-    }
-
-    async function fetchHistoryMonths() {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return;
-        managePinStorage();
-        try {
-            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
-            const data = await res.json();
-            if (!data.error) {
-                if (Array.isArray(data)) {
-                    data.forEach(m => knownMonths.add(m));
-                } else if (data.months) {
-                    data.months.forEach(m => knownMonths.add(m));
-                    sentMonths = new Set(data.sentList ||[]);
-                }
-                renderMonthButtons();
-            }
-        } catch(e) {
-            console.error("載入月份失敗:", e);
         }
     }
 
