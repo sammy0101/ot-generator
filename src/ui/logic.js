@@ -28,13 +28,15 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            document.getElementById('btn-share').classList.add('hidden');
-            document.getElementById('btn-edit').classList.add('hidden'); 
+            document.getElementById('queryControls').classList.add('hidden');
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+            } else {
+                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
             }
 
             if (sharedMonth) {
@@ -48,12 +50,12 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
-            // === 修改：只載入 OT 地點的歷史，不再載入備註 ===
+            // === 恢復：載入 Call 的備註歷史記錄 ===
             renderHistoryChips('location', 'history-location', 'location');
+            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
-    // === 歷史記錄功能 ===
     function updateHistory(key, value) {
         if (!value) return;
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
@@ -67,8 +69,8 @@ export const logicScript = `
         let history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         history = history.filter(v => v !== value);
         localStorage.setItem('ot_history_' + key, JSON.stringify(history));
-        // 只更新地點的顯示
         if (key === 'location') renderHistoryChips('location', 'history-location', 'location');
+        if (key === 'remarks') renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
     }
 
     function renderHistoryChips(key, containerId, inputId) {
@@ -188,12 +190,7 @@ export const logicScript = `
         document.getElementById('transportSelect').selectedIndex = 0; 
         document.getElementById('recordType').value = type;
         
-        if (type !== 'hourly') {
-            setMultiplier(1);
-        }
-
-        const btnTypes =['hourly', 'oncall', 'percall', 'transport'];
-        btnTypes.forEach(t => {
+        if (type !== 'hourly') setMultiplier(1);['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
@@ -212,6 +209,7 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
+        const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -242,10 +240,12 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
+                    if(historyRemarks) historyRemarks.classList.add('hidden');
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
+                    if(historyRemarks) historyRemarks.classList.remove('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -253,11 +253,10 @@ export const logicScript = `
     }
 
     function setMultiplier(val) {
-        document.getElementById('multiplier').value = val;
-        const mulVals =[1, 1.5, 2, 3];
-        mulVals.forEach(v => {
-            const btn = document.getElementById('mul-' + v);
-            if (btn) {
+        document.getElementById('multiplier').value = val;[1, 1.5, 2, 3].forEach(v => {
+            const btnId = 'mul-' + v; 
+            const btn = document.getElementById(btnId);
+            if(btn) {
                 if (v === val) {
                     btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
                 } else {
@@ -268,17 +267,85 @@ export const logicScript = `
         updateDuration();
     }
 
+    async function deleteRecord(id, date) {
+        if (!confirm('確定要刪除這筆記錄嗎？')) return;
+        const pin = document.getElementById('pin').value;
+        try {
+            const res = await fetch('/api/delete', {
+                method: 'POST',
+                body: JSON.stringify({ pin, id, date })
+            });
+            if (res.ok) { 
+                loadRecords(); 
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { alert(err.message); }
+    }
+
+    async function deleteMonth(month, btnElement) {
+        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        const pin = document.getElementById('pin').value;
+        btnElement.disabled = true; 
+        btnElement.innerText = '...';
+        try {
+            const res = await fetch('/api/delete_month', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if (res.ok) { 
+                btnElement.parentNode.remove();
+                knownMonths.delete(month);
+                const currentViewMonth = document.getElementById('queryMonth').value;
+                if (currentViewMonth === month) {
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
+                    document.getElementById('calendarView').classList.add('hidden');
+                    document.getElementById('totalSummary').classList.add('hidden');
+                    document.getElementById('pdfBtn').classList.add('hidden');
+                }
+                alert('已刪除 ' + month + ' 的資料');
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch(err) { 
+            alert(err.message); 
+            btnElement.disabled = false; 
+            btnElement.innerText = '✕'; 
+        }
+    }
+
+    async function fetchHistoryMonths() {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return;
+        managePinStorage();
+        try {
+            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
+            const data = await res.json();
+            if (!data.error) {
+                knownMonths.clear();
+                if (Array.isArray(data)) {
+                    data.forEach(m => knownMonths.add(m));
+                } else if (data.months) {
+                    data.months.forEach(m => knownMonths.add(m));
+                    sentMonths = new Set(data.sentList ||[]);
+                }
+                renderMonthButtons();
+            }
+        } catch(e) {
+            console.error("載入月份失敗:", e);
+        }
+    }
+
+    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
+
     function getMinutesDiff(start, end) {
-        const[sh, sm] = start.split(':').map(Number);
+        const [sh, sm] = start.split(':').map(Number);
         const [eh, em] = end.split(':').map(Number);
         let diff = (eh * 60 + em) - (sh * 60 + sm);
         if (diff < 0) diff += 24 * 60; 
         return diff;
     }
-
-    function formatHours(minutes) { 
-        return (minutes / 60).toFixed(1); 
-    }
+    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
 
     document.getElementById('start').addEventListener('change', updateDuration);
     document.getElementById('end').addEventListener('change', updateDuration);
@@ -319,13 +386,10 @@ export const logicScript = `
         e.preventDefault();
         const pin = document.getElementById('pin').value;
         if (!pin) return alert('請先輸入 PIN 密碼');
-        
         const btn = document.getElementById('btn-submit-record');
         btn.disabled = true; 
         btn.innerText = '儲存中...';
-        
         managePinStorage();
-        
         try {
             const type = document.getElementById('recordType').value;
             const payload = { 
@@ -334,12 +398,10 @@ export const logicScript = `
                 date: document.getElementById('date').value,
                 multiplier: document.getElementById('multiplier').value 
             };
-            
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
-                // 只更新 OT 地點
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -347,32 +409,31 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    // === 修改：不再更新 Call 的備註歷史 ===
+                    // === 恢復：只有 Call 才儲存備註歷史 ===
+                    if (payload.location && type === 'percall') {
+                        updateHistory('remarks', payload.location);
+                    }
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
             }
-            
             const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
-            
             if (res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
-                
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
-                
                 setMultiplier(1);
                 
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
                 
-                // === 修改：只重新渲染地點的歷史按鈕 ===
                 renderHistoryChips('location', 'history-location', 'location');
+                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { 
@@ -385,55 +446,6 @@ export const logicScript = `
             btn.innerText = '儲存記錄'; 
         }
     });
-
-    async function deleteRecord(id, date) {
-        if (!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
-        try {
-            const res = await fetch('/api/delete', {
-                method: 'POST',
-                body: JSON.stringify({ pin, id, date })
-            });
-            if (res.ok) { 
-                loadRecords(); 
-            } else { 
-                throw new Error('刪除失敗'); 
-            }
-        } catch(err) { 
-            alert(err.message); 
-        }
-    }
-
-    async function deleteMonth(month, btnElement) {
-        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; 
-        btnElement.innerText = '...';
-        try {
-            const res = await fetch('/api/delete_month', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if (res.ok) { 
-                btnElement.parentNode.remove();
-                knownMonths.delete(month);
-                const currentViewMonth = document.getElementById('queryMonth').value;
-                if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
-                    document.getElementById('calendarView').classList.add('hidden');
-                    document.getElementById('totalSummary').classList.add('hidden');
-                    document.getElementById('pdfBtn').classList.add('hidden');
-                }
-                alert('已刪除 ' + month + ' 的資料');
-            } else { 
-                throw new Error('刪除失敗'); 
-            }
-        } catch(err) { 
-            alert(err.message); 
-            btnElement.disabled = false; 
-            btnElement.innerText = '✕'; 
-        }
-    }
 
     function renderCalendar(year, month, records) {
         const grid = document.querySelector('.calendar-grid');
