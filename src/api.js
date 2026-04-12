@@ -121,14 +121,11 @@ export async function handleListMonths(request, env) {
     return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-// === 核心：從 KV 資料庫讀取純文字字型 ===
+// === 從 KV 讀取 Base64 純文字字型 ===
 export async function handleGetFont(request, env) {
     try {
         const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        
-        if (!b64) {
-            return new Response("Font not found in KV (尚未部署完成)", { status: 404 });
-        }
+        if (!b64) return new Response("Font not found in KV", { status: 404 });
         
         return new Response(b64, {
             headers: {
