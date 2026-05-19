@@ -6,7 +6,17 @@ export const htmlContent = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OT 記錄器 Pro</title>
     
+    <!-- === 新增：iOS 專屬 Web App 設定 === -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OT 記錄">
+    
+    <!-- 一般瀏覽器圖示 (Emoji) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    
+    <!-- iPhone 主畫面圖示 (必須是 PNG) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
+    <!-- ================================ -->
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -97,19 +107,16 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
-                        <div id="history-location" class="mt-2"></div>
+                        <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
-                    
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
@@ -120,7 +127,6 @@ export const htmlContent = `
                             <input type="time" id="end" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
-
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -131,10 +137,8 @@ export const htmlContent = `
                             <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
                         </div>
                     </div>
-
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
-
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -147,7 +151,6 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        <div id="history-remarks" class="mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -156,7 +159,6 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
-
                 <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
@@ -165,15 +167,12 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
-            
-            <!-- === 修改重點：加上 id="queryControls" === -->
             <div id="queryControls" class="flex gap-2 mb-4">
                 <input type="month" id="queryMonth" class="flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500">
                 <button onclick="loadRecords()" class="bg-gray-700 border border-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
                 <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
                 <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
             </div>
-            <!-- ======================================= -->
             
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2 rounded-lg border border-gray-700">
                 <div class="calendar-grid"></div>
@@ -193,6 +192,7 @@ export const htmlContent = `
                 <div class="text-gray-300">總收入: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
                 <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
                 <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 flex justify-end items-center">
+                    <span id="uiUserNameDisplay" class="text-gray-500 font-bold text-lg mr-auto"></span>
                     <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
