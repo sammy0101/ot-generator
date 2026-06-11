@@ -1,123 +1,211 @@
 # Complete Project Codebase
-Generated on: Thu Jun 11 10:05:46 UTC 2026
+Generated on: Thu Jun 11 10:10:21 UTC 2026
 
-## File: README.md
-```md
-# OT 記錄器 Pro (OT Record Generator)
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
 
-一個基於 Cloudflare Workers 與 KV 構建的輕量級加班、當更與交通費記錄工具。支援自動生成 PDF 報表、月曆視覺化顯示以及唯讀分享功能。
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
 
-![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)
-![KV Storage](https://img.shields.io/badge/Database-Workers_KV-blue?style=flat-square)
-![PDF Generation](https://img.shields.io/badge/PDF-pdf--lib-red?style=flat-square)
+permissions:
+  contents: write
 
-## ✨ 主要功能
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-*   **多種類型記錄**：
-    *   🕒 **時數 OT**：記錄加班時段，自動計算時數。
-    *   📅 **當更 (On-Call)**：記錄當更日期範圍與津貼。
-    *   📞 **Call**：記錄每次出勤津貼與備註。
-    *   🚕 **交通費**：記錄實報實銷的交通費用（支援下拉選單：停車場、隧道、維修等）。
-*   **視覺化月曆**：
-    *   以顏色區分不同類型的記錄（藍色 OT、綠色 收入、橙色 交通）。
-    *   支援**雙色/三色條紋**顯示，若同一天有多種類型記錄，格子會自動變色。
-*   **PDF 報表生成**：
-    *   前端自動生成 A4 格式 PDF。
-    *   支援**中文字型** (Noto Sans TC)。
-    *   自動計算總時數、總收入與總交通費。
-    *   檔名與內容自動帶入使用者名稱。
-*   **安全性與分享**：
-    *   **PIN 碼保護**：寫入與讀取資料需輸入密碼（支援「記住密碼」）。
-    *   **分享連結**：可生成唯讀連結，供他人查看或下載報表，無需密碼。
-*   **現代化介面**：使用 Tailwind CSS 設計，響應式佈局，手機電腦皆可用。
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-## 🛠️ 技術架構
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
 
-*   **Runtime**: Cloudflare Workers (Serverless)
-*   **Database**: Cloudflare Workers KV (Key-Value Storage)
-*   **Frontend**: Vanilla JS + Tailwind CSS (由 Worker 直接回傳 HTML)
-*   **PDF Library**: `pdf-lib` + `fontkit`
-*   **CI/CD**: GitHub Actions 自動部署
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
 
-## 🚀 部署教學
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
 
-本專案設計為使用 **GitHub Actions** 進行自動部署，您無需在本地安裝複雜環境。
+````
 
-### 1. 前置準備
-1.  擁有一個 Cloudflare 帳號。
-2.  Fork 或 Clone 此儲存庫到您的 GitHub。
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
 
-### 2. 設定 Cloudflare
-1.  登入 Cloudflare Dashboard，進入 **Workers & Pages**。
-2.  建立一個 **KV Namespace**：
-    *   名稱隨意，例如 `OT_RECORDS`。
-    *   建立後，複製該 Namespace 的 **ID**。
-3.  獲取 **Account ID** (在 Workers 首頁右側)。
-4.  建立 **API Token**：
-    *   權限選擇「Edit Cloudflare Workers」。
-    *   **重要**：確保該 Token 有權限編輯 KV Storage。
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-### 3. 設定 GitHub Secrets
-進入您的 GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**，新增以下 Repository secrets：
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-| Secret 名稱 | 說明 | 範例 |
-| :--- | :--- | :--- |
-| `CLOUDFLARE_API_TOKEN` | 您的 Cloudflare API Token | `xRw...` |
-| `CLOUDFLARE_ACCOUNT_ID` | 您的 Cloudflare Account ID | `a1b2...` |
-| `OT_KV_ID` | 步驟 2 建立的 KV Namespace ID | `4f8e...` |
-| `AUTH_PIN` | 您想設定的登入密碼 (PIN) | `123456` |
-| `USER_NAME` | 您的名字 (顯示在報表與 PDF 上) | `陳大文` |
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
 
-### 4. 開始部署
-*   只要您 `git push` 到 `main` 分支，GitHub Actions 就會自動觸發並部署到 Cloudflare Workers。
-*   您也可以在 GitHub Actions 頁面手動觸發部署 (Workflow Dispatch)。
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-## 📂 專案結構
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
 
-```text
-ot-generator/
-├── .github/workflows/
-│   └── deploy.yml      # GitHub Actions 部署腳本
-├── src/
-│   ├── index.js        # 程式入口與路由 (Router)
-│   ├── api.js          # 後端邏輯 (CRUD KV 資料庫)
-│   └── ui/             # 前端程式碼
-│       ├── index.js    # UI 組裝
-│       ├── html.js     # HTML 結構與 CSS
-│       ├── logic.js    # 前端互動邏輯 (Fetch, Calendar, UI control)
-│       └── pdf.js      # PDF 生成邏輯 (pdf-lib)
-└── wrangler.toml       # Cloudflare 設定檔模板
-```
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
 
-## 📖 使用說明
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
 
-1.  **登入**：開啟部署後的網址，輸入您在 Secrets 設定的 `AUTH_PIN`。
-2.  **新增記錄**：
-    *   選擇類型 (OT / 當更 / Call / 交通)。
-    *   填寫日期、時間或金額。
-    *   按下「儲存記錄」。
-3.  **月結報表**：
-    *   切換到「月結報表」分頁。
-    *   系統會自動列出已有記錄的月份，點擊按鈕即可載入。
-    *   點擊「下載 PDF 報表」即可匯出檔案。
-4.  **刪除資料**：
-    *   單筆刪除：點擊列表右側的垃圾桶圖示。
-    *   整月刪除：在月份按鈕旁點擊 `✕`。
-5.  **分享**：
-    *   在月結報表頁面點擊 🔗 按鈕，複製連結給他人。該連結不需要 PIN 碼即可查看。
+````
 
-## 📝 注意事項
+## File: src/index.js
+````js
+import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
+import { getHtml } from './ui/index.js';
 
-*   **資料延遲**：Cloudflare KV 具有「最終一致性」特性，刪除或新增資料後，列表更新可能會有數秒鐘的延遲，這是正常現象。本程式已在前端做了快取優化來改善體驗。
-*   **中文字型**：PDF 生成使用 Google Noto Sans TC (思源黑體) 的 CDN 資源，首次生成可能需要下載字型檔，請稍候片刻。
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
 
----
-Created with ❤️ by Cloudflare Workers
+    if (url.pathname === '/api/add' && request.method === 'POST') return handleAdd(request, env);
+    if (url.pathname === '/api/delete' && request.method === 'POST') return handleDelete(request, env);
+    if (url.pathname === '/api/delete_month' && request.method === 'POST') return handleDeleteMonth(request, env);
+    if (url.pathname === '/api/toggle_sent' && request.method === 'POST') return handleToggleSent(request, env);
+    if (url.pathname === '/api/get' && request.method === 'GET') return handleGet(request, env);
+    if (url.pathname === '/api/public/get' && request.method === 'GET') return handlePublicGet(request, env);
+    if (url.pathname === '/api/list_months' && request.method === 'GET') return handleListMonths(request, env);
+    
+    // === 註冊讀取字型的 API ===
+    if (url.pathname === '/api/font' && request.method === 'GET') return handleGetFont(request, env);
 
-```
+    const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
+    
+    return new Response(getHtml(userName), {
+      headers: { 'content-type': 'text/html;charset=UTF-8' },
+    });
+  },
+};
+
+````
+
+## File: src/ui/index.js
+````js
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
+
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
+    
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
+}
+
+````
 
 ## File: src/ui/html.js
-```js
+````js
 export const htmlContent = `
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark">
@@ -324,38 +412,10 @@ export const htmlContent = `
     </div>
 `;
 
-```
-
-## File: src/ui/index.js
-```js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
-}
-
-```
+````
 
 ## File: src/ui/pdf.js
-```js
+````js
 export const pdfScript = `
     async function generatePDF() {
         if(currentRecords.length === 0) return;
@@ -525,10 +585,10 @@ export const pdfScript = `
     }
 `;
 
-```
+````
 
 ## File: src/ui/logic.js
-```js
+````js
 export const logicScript = `
     const today = new Date();
     document.getElementById('date').valueAsDate = today;
@@ -1158,40 +1218,10 @@ export const logicScript = `
     }
 `;
 
-```
-
-## File: src/index.js
-```js
-import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
-import { getHtml } from './ui/index.js';
-
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
-    if (url.pathname === '/api/add' && request.method === 'POST') return handleAdd(request, env);
-    if (url.pathname === '/api/delete' && request.method === 'POST') return handleDelete(request, env);
-    if (url.pathname === '/api/delete_month' && request.method === 'POST') return handleDeleteMonth(request, env);
-    if (url.pathname === '/api/toggle_sent' && request.method === 'POST') return handleToggleSent(request, env);
-    if (url.pathname === '/api/get' && request.method === 'GET') return handleGet(request, env);
-    if (url.pathname === '/api/public/get' && request.method === 'GET') return handlePublicGet(request, env);
-    if (url.pathname === '/api/list_months' && request.method === 'GET') return handleListMonths(request, env);
-    
-    // === 註冊讀取字型的 API ===
-    if (url.pathname === '/api/font' && request.method === 'GET') return handleGetFont(request, env);
-
-    const userName = (env.USER_NAME && env.USER_NAME !== "REPLACE_ME_NAME") ? env.USER_NAME : "";
-    
-    return new Response(getHtml(userName), {
-      headers: { 'content-type': 'text/html;charset=UTF-8' },
-    });
-  },
-};
-
-```
+````
 
 ## File: src/api.js
-```js
+````js
 export async function handleAdd(request, env) {
     try {
         const data = await request.json();
@@ -1333,10 +1363,10 @@ export async function handleGetFont(request, env) {
     }
 }
 
-```
+````
 
 ## File: wrangler.toml
-```toml
+````toml
 name = "ot-generator"
 main = "src/index.js"
 compatibility_date = "2023-12-01"
@@ -1350,148 +1380,120 @@ id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
 [vars]
 USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
+````
+
+## File: README.md
+````md
+# OT 記錄器 Pro (OT Record Generator)
+
+一個基於 Cloudflare Workers 與 KV 構建的輕量級加班、當更與交通費記錄工具。支援自動生成 PDF 報表、月曆視覺化顯示以及唯讀分享功能。
+
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)
+![KV Storage](https://img.shields.io/badge/Database-Workers_KV-blue?style=flat-square)
+![PDF Generation](https://img.shields.io/badge/PDF-pdf--lib-red?style=flat-square)
+
+## ✨ 主要功能
+
+*   **多種類型記錄**：
+    *   🕒 **時數 OT**：記錄加班時段，自動計算時數。
+    *   📅 **當更 (On-Call)**：記錄當更日期範圍與津貼。
+    *   📞 **Call**：記錄每次出勤津貼與備註。
+    *   🚕 **交通費**：記錄實報實銷的交通費用（支援下拉選單：停車場、隧道、維修等）。
+*   **視覺化月曆**：
+    *   以顏色區分不同類型的記錄（藍色 OT、綠色 收入、橙色 交通）。
+    *   支援**雙色/三色條紋**顯示，若同一天有多種類型記錄，格子會自動變色。
+*   **PDF 報表生成**：
+    *   前端自動生成 A4 格式 PDF。
+    *   支援**中文字型** (Noto Sans TC)。
+    *   自動計算總時數、總收入與總交通費。
+    *   檔名與內容自動帶入使用者名稱。
+*   **安全性與分享**：
+    *   **PIN 碼保護**：寫入與讀取資料需輸入密碼（支援「記住密碼」）。
+    *   **分享連結**：可生成唯讀連結，供他人查看或下載報表，無需密碼。
+*   **現代化介面**：使用 Tailwind CSS 設計，響應式佈局，手機電腦皆可用。
+
+## 🛠️ 技術架構
+
+*   **Runtime**: Cloudflare Workers (Serverless)
+*   **Database**: Cloudflare Workers KV (Key-Value Storage)
+*   **Frontend**: Vanilla JS + Tailwind CSS (由 Worker 直接回傳 HTML)
+*   **PDF Library**: `pdf-lib` + `fontkit`
+*   **CI/CD**: GitHub Actions 自動部署
+
+## 🚀 部署教學
+
+本專案設計為使用 **GitHub Actions** 進行自動部署，您無需在本地安裝複雜環境。
+
+### 1. 前置準備
+1.  擁有一個 Cloudflare 帳號。
+2.  Fork 或 Clone 此儲存庫到您的 GitHub。
+
+### 2. 設定 Cloudflare
+1.  登入 Cloudflare Dashboard，進入 **Workers & Pages**。
+2.  建立一個 **KV Namespace**：
+    *   名稱隨意，例如 `OT_RECORDS`。
+    *   建立後，複製該 Namespace 的 **ID**。
+3.  獲取 **Account ID** (在 Workers 首頁右側)。
+4.  建立 **API Token**：
+    *   權限選擇「Edit Cloudflare Workers」。
+    *   **重要**：確保該 Token 有權限編輯 KV Storage。
+
+### 3. 設定 GitHub Secrets
+進入您的 GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**，新增以下 Repository secrets：
+
+| Secret 名稱 | 說明 | 範例 |
+| :--- | :--- | :--- |
+| `CLOUDFLARE_API_TOKEN` | 您的 Cloudflare API Token | `xRw...` |
+| `CLOUDFLARE_ACCOUNT_ID` | 您的 Cloudflare Account ID | `a1b2...` |
+| `OT_KV_ID` | 步驟 2 建立的 KV Namespace ID | `4f8e...` |
+| `AUTH_PIN` | 您想設定的登入密碼 (PIN) | `123456` |
+| `USER_NAME` | 您的名字 (顯示在報表與 PDF 上) | `陳大文` |
+
+### 4. 開始部署
+*   只要您 `git push` 到 `main` 分支，GitHub Actions 就會自動觸發並部署到 Cloudflare Workers。
+*   您也可以在 GitHub Actions 頁面手動觸發部署 (Workflow Dispatch)。
+
+## 📂 專案結構
+
+```text
+ot-generator/
+├── .github/workflows/
+│   └── deploy.yml      # GitHub Actions 部署腳本
+├── src/
+│   ├── index.js        # 程式入口與路由 (Router)
+│   ├── api.js          # 後端邏輯 (CRUD KV 資料庫)
+│   └── ui/             # 前端程式碼
+│       ├── index.js    # UI 組裝
+│       ├── html.js     # HTML 結構與 CSS
+│       ├── logic.js    # 前端互動邏輯 (Fetch, Calendar, UI control)
+│       └── pdf.js      # PDF 生成邏輯 (pdf-lib)
+└── wrangler.toml       # Cloudflare 設定檔模板
 ```
 
-## File: .github/workflows/deploy.yml
-```yml
-name: Deploy to Cloudflare Workers
+## 📖 使用說明
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+1.  **登入**：開啟部署後的網址，輸入您在 Secrets 設定的 `AUTH_PIN`。
+2.  **新增記錄**：
+    *   選擇類型 (OT / 當更 / Call / 交通)。
+    *   填寫日期、時間或金額。
+    *   按下「儲存記錄」。
+3.  **月結報表**：
+    *   切換到「月結報表」分頁。
+    *   系統會自動列出已有記錄的月份，點擊按鈕即可載入。
+    *   點擊「下載 PDF 報表」即可匯出檔案。
+4.  **刪除資料**：
+    *   單筆刪除：點擊列表右側的垃圾桶圖示。
+    *   整月刪除：在月份按鈕旁點擊 `✕`。
+5.  **分享**：
+    *   在月結報表頁面點擊 🔗 按鈕，複製連結給他人。該連結不需要 PIN 碼即可查看。
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+## 📝 注意事項
 
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+*   **資料延遲**：Cloudflare KV 具有「最終一致性」特性，刪除或新增資料後，列表更新可能會有數秒鐘的延遲，這是正常現象。本程式已在前端做了快取優化來改善體驗。
+*   **中文字型**：PDF 生成使用 Google Noto Sans TC (思源黑體) 的 CDN 資源，首次生成可能需要下載字型檔，請稍候片刻。
 
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+---
+Created with ❤️ by Cloudflare Workers
 
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-```
-
-## File: .github/workflows/combine-code.yml
-```yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，只排除 node_modules、.git、大鎖定檔與圖片等二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              echo "\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
-
-```
+````
 
