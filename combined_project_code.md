@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Jun 12 12:36:28 UTC 2026
+Generated on: Fri Jun 12 12:37:00 UTC 2026
 
 ## File: README.md
 ````md
@@ -563,7 +563,7 @@ export const logicScript = `
     document.getElementById('endDate').valueAsDate = today;
     document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
     
-    let currentRecords =[];
+    let currentRecords = [];
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
@@ -587,13 +587,16 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            document.getElementById('btn-share').classList.add('hidden');
-            document.getElementById('btn-edit').classList.add('hidden'); 
+            
+            document.getElementById('queryControls').classList.add('hidden');
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+            } else {
+                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
             }
 
             if (sharedMonth) {
@@ -607,7 +610,6 @@ export const logicScript = `
                 document.getElementById('rememberPin').checked = true;
                 fetchHistoryMonths();
             }
-            // === 修改：只載入 OT 地點的歷史，不再載入 Call 備註歷史 ===
             renderHistoryChips('location', 'history-location', 'location');
         }
     })();
@@ -634,9 +636,9 @@ export const logicScript = `
         const history = JSON.parse(localStorage.getItem('ot_history_' + key) || '[]');
         
         container.innerHTML = history.map(val => \`
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600 mr-2 mb-2 select-none hover:bg-gray-600 hover:text-white transition">
+            <span class="history-chip">
                 <span class="cursor-pointer" onclick="document.getElementById('\${inputId}').value='\${val}'">\${val}</span>
-                <span class="ml-2 text-gray-500 hover:text-red-400 font-bold px-1 cursor-pointer transition" onclick="removeHistory('\${key}', '\${val}')">×</span>
+                <span class="history-delete" onclick="removeHistory('\${key}', '\${val}')">×</span>
             </span>
         \`).join('');
     }
@@ -747,13 +749,17 @@ export const logicScript = `
         
         if (type !== 'hourly') {
             setMultiplier(1);
-        }['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
+        }
+
+        const btnTypes = ['hourly', 'oncall', 'percall', 'transport'];
+        btnTypes.forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
-                    btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
+                    // 加大高度至 py-2.5
+                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
                 } else {
-                    btn.className = "flex-1 py-2 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
+                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
                 }
             }
         });
@@ -766,6 +772,8 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
+        const historyLocation = document.getElementById('history-location');
+        const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
             groupHourly.classList.remove('hidden');
@@ -808,14 +816,16 @@ export const logicScript = `
 
     function setMultiplier(val) {
         document.getElementById('multiplier').value = val;
-        [1, 1.5, 2, 3].forEach(v => {
+        const mulVals = [1, 1.5, 2, 3];
+        mulVals.forEach(v => {
             const btnId = 'mul-' + v; 
             const btn = document.getElementById(btnId);
             if(btn) {
                 if (v === val) {
-                    btn.className = "flex-1 py-2 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
+                    // 加大高度至 py-2.5
+                    btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
                 } else {
-                    btn.className = "flex-1 py-2 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
+                    btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
                 }
             }
         });
@@ -823,34 +833,27 @@ export const logicScript = `
     }
 
     async function deleteRecord(id, date) {
-        if (!confirm('確定要刪除這筆記錄嗎？')) return;
+        if(!confirm('確定要刪除這筆記錄嗎？')) return;
         const pin = document.getElementById('pin').value;
         try {
             const res = await fetch('/api/delete', {
                 method: 'POST',
                 body: JSON.stringify({ pin, id, date })
             });
-            if (res.ok) { 
-                loadRecords(); 
-            } else { 
-                throw new Error('刪除失敗'); 
-            }
-        } catch(err) { 
-            alert(err.message); 
-        }
+            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); }
     }
 
     async function deleteMonth(month, btnElement) {
-        if (!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        if(!confirm('⚠️ 警告：確定要刪除[\' + month + \'] 的所有資料嗎？刪除後無法復原！')) return;
         const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; 
-        btnElement.innerText = '...';
+        btnElement.disabled = true; btnElement.innerText = '...';
         try {
             const res = await fetch('/api/delete_month', {
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
-            if (res.ok) { 
+            if(res.ok) { 
                 btnElement.parentNode.remove();
                 knownMonths.delete(month);
                 const currentViewMonth = document.getElementById('queryMonth').value;
@@ -861,24 +864,18 @@ export const logicScript = `
                     document.getElementById('pdfBtn').classList.add('hidden');
                 }
                 alert('已刪除 ' + month + ' 的資料');
-            } else { 
-                throw new Error('刪除失敗'); 
-            }
-        } catch(err) { 
-            alert(err.message); 
-            btnElement.disabled = false; 
-            btnElement.innerText = '✕'; 
-        }
+            } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
     }
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
-        if (!pin) return;
+        if(!pin) return;
         managePinStorage();
         try {
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const data = await res.json();
-            if (!data.error) {
+            if(!data.error) {
                 knownMonths.clear();
                 if (Array.isArray(data)) {
                     data.forEach(m => knownMonths.add(m));
@@ -902,10 +899,7 @@ export const logicScript = `
         if (diff < 0) diff += 24 * 60; 
         return diff;
     }
-
-    function formatHours(minutes) { 
-        return (minutes / 60).toFixed(1); 
-    }
+    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
 
     document.getElementById('start').addEventListener('change', updateDuration);
     document.getElementById('end').addEventListener('change', updateDuration);
@@ -946,13 +940,9 @@ export const logicScript = `
         e.preventDefault();
         const pin = document.getElementById('pin').value;
         if (!pin) return alert('請先輸入 PIN 密碼');
-        
         const btn = document.getElementById('btn-submit-record');
-        btn.disabled = true; 
-        btn.innerText = '儲存中...';
-        
+        btn.disabled = true; btn.innerText = '儲存中...';
         managePinStorage();
-        
         try {
             const type = document.getElementById('recordType').value;
             const payload = { 
@@ -961,12 +951,10 @@ export const logicScript = `
                 date: document.getElementById('date').value,
                 multiplier: document.getElementById('multiplier').value 
             };
-            
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
                 payload.start = document.getElementById('start').value;
                 payload.end = document.getElementById('end').value;
-                // OT 地點依然會儲存歷史
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
@@ -974,43 +962,28 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    // === 修改：不再呼叫 updateHistory('remarks', ...) ===
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
                 }
             }
-            
             const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
-            
             if (res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
                 document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
-                
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
-                
                 setMultiplier(1);
-                
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
-                
-                // 只重新渲染 OT 地點的歷史標籤
                 renderHistoryChips('location', 'history-location', 'location');
-                
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
-            } else { 
-                throw new Error(await res.text()); 
-            }
-        } catch (err) { 
-            alert(err.message); 
-        } finally { 
-            btn.disabled = false; 
-            btn.innerText = '儲存記錄'; 
-        }
+            } else { throw new Error(await res.text()); }
+        } catch(err) { alert(err.message); } 
+        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
     });
 
     function renderCalendar(year, month, records) {
@@ -1126,10 +1099,8 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
-                        
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        
                         const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
                         value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
                     } else if (r.type === 'transport') {
