@@ -12,7 +12,10 @@ export const htmlContent = `
     
     <title>OT 記錄器 Pro</title>
     
+    <!-- 一般瀏覽器圖示 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    
+    <!-- iPhone 主畫面圖示 (必須是 PNG) -->
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -87,12 +90,16 @@ export const htmlContent = `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* === 新增：解決 iOS 輸入框預設陰影、外框與暗黑模式時間顯示問題 === */
+        /* === 修正重點：排除勾選框 (Checkbox) 的樣式清除 === */
         input, select, textarea {
-            color-scheme: dark !important; /* 強制 iOS 使用暗黑系統自訂時間/日期文字顏色 */
+            color-scheme: dark !important; 
+            box-sizing: border-box;
+        }
+        
+        /* 使用 :not([type="checkbox"]) 排除勾選框，使其正常顯示「打勾」外觀 */
+        input:not([type="checkbox"]), select, textarea {
             -webkit-appearance: none;
             appearance: none;
-            box-sizing: border-box;
         }
         /* ======================================================== */
     </style>
@@ -136,17 +143,16 @@ export const htmlContent = `
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
 
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
-                    <!-- 修改：補上了邊框樣式 border border-gray-600 -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
@@ -172,7 +178,6 @@ export const htmlContent = `
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
 
-                <!-- 修改：補上了邊框樣式 border border-gray-600 -->
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
@@ -184,9 +189,9 @@ export const htmlContent = `
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
-                        <select id="transportSelect" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
                             <option value="維修">維修</option>
