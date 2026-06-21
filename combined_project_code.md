@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Jun 12 12:37:00 UTC 2026
+Generated on: Sun Jun 21 13:14:33 UTC 2026
 
 ## File: README.md
 ````md
@@ -143,13 +143,12 @@ export const htmlContent = `
         
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         
-        /* 響應式調整月曆格子高度 */
         .calendar-day { 
             text-align: center; 
             padding: 4px; 
             border-radius: 4px; 
             font-size: 0.8rem; 
-            height: 36px; /* 手機端稍微加大，方便點選與觀看 */
+            height: 36px; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
@@ -164,7 +163,7 @@ export const htmlContent = `
         /* 顏色標記 */
         .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
         .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
-        .has-transport { background-color: #f59e0b; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
+        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
         
         .has-both { background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); color: white; font-weight: bold; }
         .has-money-transport { background: linear-gradient(135deg, #10b981 50%, #f59e0b 50%); color: white; font-weight: bold; }
@@ -205,9 +204,17 @@ export const htmlContent = `
         }
         .history-delete:hover { color: #f87171; background-color: #1f2937; }
 
-        /* 隱藏手機橫向滾動條 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* === 新增：解決 iOS 輸入框預設陰影、外框與暗黑模式時間顯示問題 === */
+        input, select, textarea {
+            color-scheme: dark !important; /* 強制 iOS 使用暗黑系統自訂時間/日期文字顏色 */
+            -webkit-appearance: none;
+            appearance: none;
+            box-sizing: border-box;
+        }
+        /* ======================================================== */
     </style>
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200">
@@ -237,9 +244,8 @@ export const htmlContent = `
         </div>
 
         <div id="view-record">
-            <!-- 類型選擇：加載 no-scrollbar 與 px-1 確保手機滑動時邊緣圓滑 -->
             <div class="flex gap-2 mb-4 bg-gray-900 p-1 rounded-lg overflow-x-auto border border-gray-700 no-scrollbar px-1">
-                <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold bg-gray-700 text-white shadow whitespace-nowrap transition">🕒 OT</button>
+                <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold bg-gray-700 text-white shadow transition">🕒 OT</button>
                 <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">📅 當更</button>
                 <button type="button" onclick="setType('percall')" id="btn-percall" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">📞 Call</button>
                 <button type="button" onclick="setType('transport')" id="btn-transport" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">🚕 交通</button>
@@ -247,26 +253,31 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
+
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
+                    
+                    <!-- 修改：補上了邊框樣式 border border-gray-600 -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <input type="time" id="start" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="time" id="start" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <input type="time" id="end" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="time" id="end" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
+
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -277,22 +288,25 @@ export const htmlContent = `
                             <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
                         </div>
                     </div>
+
                     <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
+
+                <!-- 修改：補上了邊框樣式 border border-gray-600 -->
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <input type="date" id="endDate" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="date" id="endDate" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <input type="number" id="amount" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
+                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
-                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="transportSelect" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
                             <option value="維修">維修</option>
@@ -300,6 +314,7 @@ export const htmlContent = `
                         </select>
                     </div>
                 </div>
+
                 <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
             </form>
         </div>
@@ -309,17 +324,15 @@ export const htmlContent = `
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
             
-            <!-- 查詢欄位：改成 flex-col 和 sm:flex-row 解決手機端寬度不夠的問題 -->
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
                 <input type="month" id="queryMonth" class="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                 <div class="flex gap-2 w-full sm:w-auto">
-                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-5 py-2.5 rounded-md hover:bg-gray-600 transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-500 transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-500 transition" title="管理/刪除">✏️</button>
+                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2.5 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2.5 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
-            <!-- 月曆：限制最大寬度 (max-w-md)，置中 (mx-auto)，防止大螢幕被拉得太長 -->
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md mx-auto">
                 <div class="calendar-grid"></div>
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
@@ -329,7 +342,6 @@ export const htmlContent = `
                 </div>
             </div>
 
-            <!-- 列表容器：新增 overflow-x-auto，防止超寬表格在小螢幕撐破外框 -->
             <div id="recordsList" class="bg-gray-900 rounded-md border border-gray-700 p-3 sm:p-4 mb-4 max-h-80 overflow-y-auto overflow-x-auto text-sm space-y-2">
                 <p class="text-center text-gray-500">請查詢</p>
             </div>
@@ -339,6 +351,7 @@ export const htmlContent = `
                 <div class="text-gray-300">總收入: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
                 <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
                 <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 flex justify-end items-center">
+                    <span id="uiUserNameDisplay" class="text-gray-500 font-bold text-lg mr-auto"></span>
                     <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
