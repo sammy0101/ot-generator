@@ -9,7 +9,6 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
-    let sentMonths = new Set(); 
     let isEditMode = false;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -19,8 +18,14 @@ export const logicScript = `
     (function init() {
         if (window.USER_NAME) {
             const el = document.getElementById('uiUserNameDisplay');
-            if (el) el.innerText = window.USER_NAME;
+            if(el) el.innerText = window.USER_NAME;
         }
+
+        // === 關鍵修改：預設將開始時間與結束時間填入值，防止 iOS 空白 ===
+        document.getElementById('start').value = "18:00";
+        document.getElementById('end').value = "21:00";
+        updateDuration(); // 立刻計算出 3 小時
+        // ========================================================
 
         if (isShareMode) {
             document.getElementById('mainTitleArea').classList.add('hidden');
@@ -28,17 +33,12 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            
-            document.getElementById('queryControls').classList.add('hidden');
+            document.getElementById('btn-share').classList.add('hidden');
+            document.getElementById('btn-edit').classList.add('hidden'); 
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
-            if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
-            } else {
-                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
-            }
+            if(window.USER_NAME) document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
@@ -85,7 +85,7 @@ export const logicScript = `
     }
 
     function managePinStorage() {
-        if (isShareMode) return;
+        if(isShareMode) return;
         const pin = document.getElementById('pin').value;
         const remember = document.getElementById('rememberPin').checked;
         if (remember && pin) {
@@ -192,12 +192,10 @@ export const logicScript = `
             setMultiplier(1);
         }
 
-        const btnTypes = ['hourly', 'oncall', 'percall', 'transport'];
-        btnTypes.forEach(t => {
+        ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
-                    // 加大高度至 py-2.5
                     btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
                 } else {
                     btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
@@ -213,7 +211,6 @@ export const logicScript = `
         const labelRemarks = document.getElementById('label-remarks');
         const inputRemarks = document.getElementById('moneyRemarks');
         const selectTransport = document.getElementById('transportSelect');
-        const historyLocation = document.getElementById('history-location');
         const historyRemarks = document.getElementById('history-remarks');
 
         if (type === 'hourly') {
@@ -245,10 +242,12 @@ export const logicScript = `
                     labelRemarks.innerText = '行程/詳情';
                     inputRemarks.classList.add('hidden');
                     selectTransport.classList.remove('hidden');
+                    if(historyRemarks) historyRemarks.classList.add('hidden');
                 } else {
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
+                    if(historyRemarks) historyRemarks.classList.remove('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -257,13 +256,11 @@ export const logicScript = `
 
     function setMultiplier(val) {
         document.getElementById('multiplier').value = val;
-        const mulVals = [1, 1.5, 2, 3];
-        mulVals.forEach(v => {
+        [1, 1.5, 2, 3].forEach(v => {
             const btnId = 'mul-' + v; 
             const btn = document.getElementById(btnId);
             if(btn) {
                 if (v === val) {
-                    // 加大高度至 py-2.5
                     btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
                 } else {
                     btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
@@ -286,7 +283,7 @@ export const logicScript = `
     }
 
     async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除[\' + month + \'] 的所有資料嗎？刪除後無法復原！')) return;
+        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         const pin = document.getElementById('pin').value;
         btnElement.disabled = true; btnElement.innerText = '...';
         try {
