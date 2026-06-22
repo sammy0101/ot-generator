@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 09:50:03 UTC 2026
+Generated on: Mon Jun 22 10:24:04 UTC 2026
 
 ## File: README.md
 ````md
@@ -132,6 +132,7 @@ export const htmlContent = `
     
     <title>OT 記錄器 Pro</title>
     
+    <!-- 網站圖標 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
@@ -180,11 +181,10 @@ export const htmlContent = `
         .status-ui { display: none !important; }
         .edit-mode .status-ui { display: flex !important; }
 
-        /* 月份按鈕已發送樣式 (綠色) */
         .month-btn.sent {
-            background-color: #065f46 !important;
-            border-color: #059669 !important;
-            color: #d1fae5 !important;
+            background-color: #065f46;
+            border-color: #059669;
+            color: #d1fae5;
         }
         .month-btn.sent::before {
             content: '✓ ';
@@ -227,31 +227,39 @@ export const htmlContent = `
             content: attr(placeholder);
             color: #6b7280; /* gray-500 */
             position: absolute;
-            left: 10px;
+            left: 0px; 
             top: 50%;
             transform: translateY(-50%);
             pointer-events: none;
             font-size: 0.95rem;
-            z-index: 2;
+            z-index: 2; /* 確保懸浮在最上層 */
         }
         input[type="time"]:valid::before {
             content: "" !important;
             display: none !important;
         }
 
-        input[type="date"], input[type="time"] {
+        /* 
+           === 終極修正：解決 iOS Safari 內建日曆/時間/月份元件高度與寬度 Bug ===
+           1. 將高度精準限制在 22px !important (配合外層 padding 完成完美的 42px 高度)
+           2. 允許縮小 min-width: 0，防止寬度膨脹
+        */
+        input[type="date"], input[type="time"], input[type="month"] {
             display: block !important;
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
             margin: 0 !important;
             box-sizing: border-box !important;
-            height: 42px !important; 
+            height: 22px !important; /* 精準控制內部高度 */
+            line-height: 22px !important;
+            background: transparent !important;
         }
     </style>
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
     
+    <!-- 卡片最大寬度限制在 450px -->
     <div class="w-full max-w-[450px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4">
         
         <div id="mainTitleArea" class="text-center mb-6">
@@ -290,7 +298,8 @@ export const htmlContent = `
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <!-- 修改：採用外框包裝法，高低大小與地點完全一致 (py-2 px-3) -->
+                    <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                         <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
                     </div>
                 </div>
@@ -298,20 +307,22 @@ export const htmlContent = `
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <!-- 地點改為與外框法一致的高度 (py-2 px-3) -->
+                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
+                    <!-- 時間欄位：採用外框包裝法 + py-2 px-3，與地點外觀、高度百分之百一致，且帶有漂亮的 12px 間距 -->
                     <div class="flex space-x-3 w-full">
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                                 <input type="time" id="start" placeholder="開始時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                                 <input type="time" id="end" placeholder="結束時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                             </div>
                         </div>
@@ -334,19 +345,22 @@ export const htmlContent = `
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <!-- 修改：結束日期加入「外框包裝法」+ py-2 -->
+                        <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                             <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
+                        <!-- 修改：金額框高度統一 (py-2 px-3) -->
+                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        <!-- 修改：備註高度統一 (py-2 px-3) -->
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
-                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md py-2 px-3 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
                             <option value="維修">維修</option>
@@ -360,29 +374,21 @@ export const htmlContent = `
         </div>
 
         <div id="view-export" class="hidden">
-            <!-- === 修改重點 1：自訂年份與月份選擇器面板 === -->
-            <div id="customMonthPicker" class="mb-4">
-                <!-- 年份選擇列 -->
-                <div id="yearSelectorArea" class="flex items-center justify-between mb-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
-                    <button type="button" onclick="changeYear(-1)" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm font-bold transition">&lt;</button>
-                    <span id="displayYear" class="font-bold text-gray-200 text-lg">2026 年</span>
-                    <button type="button" onclick="changeYear(1)" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm font-bold transition">&gt;</button>
-                </div>
-                <!-- 12 個月網格 (阿拉伯數字) -->
-                <div id="monthGrid" class="grid grid-cols-4 gap-2 mb-4">
-                    <!-- JS 自動生成 1月 ~ 12月 -->
-                </div>
+            <div id="historyMonthsArea" class="mb-4 hidden">
+                <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
             
-            <!-- 隱藏的原始控制項，用來相容原有下載與分享邏輯 -->
-            <input type="hidden" id="queryMonth">
-            
-            <!-- 分享與管理按鈕 -->
-            <div id="queryControls" class="flex gap-2 mb-4 justify-end">
-                <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-500 transition" title="複製分享連結">🔗 分享連結</button>
-                <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-500 transition" title="管理/刪除">✏️ 管理</button>
+            <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
+                <!-- 修改：報表日期也加入「外框包裝法」+ py-2 -->
+                <div class="flex-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                </div>
             </div>
-            <!-- ======================================= -->
             
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md mx-auto">
                 <div class="calendar-grid"></div>
@@ -415,6 +421,7 @@ export const htmlContent = `
 </body>
 </html>
 `;
+
 ````
 
 ## File: src/ui/index.js
