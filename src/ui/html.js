@@ -12,10 +12,8 @@ export const htmlContent = `
     
     <title>OT 記錄器 Pro</title>
     
-    <!-- 一般瀏覽器圖示 -->
+    <!-- 您指定的圖標 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
-    
-    <!-- iPhone 主畫面圖示 (必須是 PNG) -->
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -90,18 +88,38 @@ export const htmlContent = `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* === 修正重點：排除勾選框 (Checkbox) 的樣式清除 === */
+        /* === 排除勾選框與時間日期的外觀清除 === */
         input, select, textarea {
             color-scheme: dark !important; 
             box-sizing: border-box;
         }
         
-        /* 使用 :not([type="checkbox"]) 排除勾選框，使其正常顯示「打勾」外觀 */
-        input:not([type="checkbox"]), select, textarea {
+        input:not([type="checkbox"]):not([type="time"]):not([type="date"]), select, textarea {
             -webkit-appearance: none;
             appearance: none;
         }
-        /* ======================================================== */
+
+        /* === 新增：解決 iOS 點擊「清除」後時間框變完全空白的完美方案 === */
+        input[type="time"] {
+            position: relative;
+        }
+        /* 當數值為空（無效）時，利用偽元素強制在方塊內印出灰色提示文字 */
+        input[type="time"]:invalid::before {
+            content: attr(placeholder);
+            color: #6b7280; /* gray-500 */
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            font-size: 0.95rem;
+        }
+        /* 當選取了時間（有效）時，立刻隱藏提示文字，正常顯示時間數字 */
+        input[type="time"]:valid::before {
+            content: "" !important;
+            display: none !important;
+        }
+        /* ================================================================== */
     </style>
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200">
@@ -140,12 +158,10 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
@@ -153,14 +169,15 @@ export const htmlContent = `
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
+                    <!-- 修改：加入了 required 與 placeholder 提示，配合 CSS 運作 -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <input type="time" id="start" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="time" id="start" placeholder="開始時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <input type="time" id="end" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="time" id="end" placeholder="結束時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
 
@@ -189,7 +206,7 @@ export const htmlContent = `
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-300 rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
+                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
@@ -208,13 +225,12 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
-            
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
                 <input type="month" id="queryMonth" class="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                 <div class="flex gap-2 w-full sm:w-auto">
                     <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2.5 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2.5 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
@@ -240,7 +256,7 @@ export const htmlContent = `
                     <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
-            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
+            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
                 下載 PDF 報表
             </button>
         </div>
