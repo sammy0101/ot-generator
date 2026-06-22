@@ -2,7 +2,11 @@ export const logicScript = `
     const today = new Date();
     document.getElementById('date').valueAsDate = today;
     document.getElementById('endDate').valueAsDate = today;
-    document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
+    
+    // 初始化自訂選擇器的年和月
+    let selectedYear = today.getFullYear();
+    let selectedMonth = (today.getMonth() + 1).toString().padStart(2, '0');
+    document.getElementById('queryMonth').value = \`\${selectedYear}-\${selectedMonth}\`;
     
     let currentRecords = [];
     let grandTotalMinutes = 0;
@@ -19,7 +23,7 @@ export const logicScript = `
     (function init() {
         if (window.USER_NAME) {
             const el = document.getElementById('uiUserNameDisplay');
-            if(el) el.innerText = window.USER_NAME;
+            if (el) el.innerText = window.USER_NAME;
         }
 
         // 預設將時間填入值
@@ -34,8 +38,9 @@ export const logicScript = `
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
             
+            // === 分享模式：完全隱藏年份/月份選擇器 ===
+            document.getElementById('customMonthPicker').classList.add('hidden');
             document.getElementById('queryControls').classList.add('hidden');
-            document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
             const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
@@ -59,6 +64,100 @@ export const logicScript = `
             renderHistoryChips('location', 'history-location', 'location');
         }
     })();
+
+    // === 新增：自訂年份選擇與月份網格渲染 ===
+    function changeYear(offset) {
+        selectedYear += offset;
+        document.getElementById('displayYear').innerText = selectedYear + " 年";
+        renderMonthGrid();
+    }
+
+    function selectMonth(m) {
+        selectedMonth = m.toString().padStart(2, '0');
+        document.getElementById('queryMonth').value = \`\${selectedYear}-\${selectedMonth}\`;
+        
+        // 點擊後，自動觸發載入資料！
+        loadRecords(); 
+        renderMonthGrid();
+    }
+
+    function renderMonthGrid() {
+        const grid = document.getElementById('monthGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        
+        document.getElementById('displayYear').innerText = selectedYear + " 年";
+
+        for (let m = 1; m <= 12; m++) {
+            const val = m.toString().padStart(2, '0');
+            const monthKey = \`\${selectedYear}-\${val}\`;
+            const hasData = knownMonths.has(monthKey);
+            const isSent = sentMonths.has(monthKey);
+            
+            // 判斷是否為目前點擊選中的月份
+            const currentSelected = document.getElementById('queryMonth').value;
+            const isSelected = (currentSelected === monthKey);
+
+            // 根據狀態設定按鈕樣式
+            let btnClass = "w-full h-11 flex items-center justify-center rounded-lg text-sm font-bold border transition duration-150 focus:outline-none ";
+            
+            if (isSelected) {
+                // 選中：亮藍色外框 + 陰影
+                btnClass += "bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-500/30";
+            } else if (isSent) {
+                // 已發送：綠色
+                btnClass += "month-btn sent";
+            } else if (hasData) {
+                // 有記錄：深藍色
+                btnClass += "bg-indigo-950/40 text-indigo-300 border-indigo-800 hover:bg-indigo-950/80";
+            } else {
+                // 無記錄：暗灰色
+                btnClass += "bg-gray-800/50 text-gray-500 border-transparent hover:bg-gray-800";
+            }
+
+            // 建立每個月份的外層容器
+            const container = document.createElement('div');
+            container.className = "relative";
+
+            // 月份按鈕
+            const btn = document.createElement('button');
+            btn.type = "button";
+            btn.className = btnClass;
+            btn.innerText = m + "月";
+            btn.onclick = () => selectMonth(m);
+            container.appendChild(btn);
+
+            // 如果有資料，在編輯模式下生成操作氣泡
+            if (hasData) {
+                // 1. 標記發送 (左上角)
+                const sentBtn = document.createElement('button');
+                sentBtn.type = "button";
+                sentBtn.className = "status-ui absolute -top-1 -left-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white " + (isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500') + " rounded-full shadow-md border border-gray-800 transition transform hover:scale-110";
+                sentBtn.title = isSent ? "取消已發送" : "標記為已發送";
+                sentBtn.innerText = isSent ? '✕' : '📤';
+                sentBtn.onclick = (e) => {
+                    e.stopPropagation(); // 阻止事件冒泡 (不觸發選擇月份)
+                    toggleSent(monthKey, sentBtn);
+                };
+                container.appendChild(sentBtn);
+
+                // 2. 刪除整月 (右上角)
+                const delBtn = document.createElement('button');
+                delBtn.type = "button";
+                delBtn.className = "delete-ui absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-gray-800 transition transform hover:scale-110";
+                delBtn.title = "刪除整月";
+                delBtn.innerText = "✕";
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    deleteMonth(monthKey, delBtn);
+                };
+                container.appendChild(delBtn);
+            }
+
+            grid.appendChild(container);
+        }
+    }
+    // ==========================================
 
     function updateHistory(key, value) {
         if (!value) return;
@@ -142,7 +241,7 @@ export const logicScript = `
                 } else {
                     sentMonths.delete(month);
                 }
-                renderMonthButtons();
+                renderMonthGrid(); // 修正：直接重畫網格
             } else {
                 throw new Error('操作失敗');
             }
@@ -153,142 +252,8 @@ export const logicScript = `
         }
     }
 
-    function copyShareLink() {
-        const month = document.getElementById('queryMonth').value;
-        const url = \`\${window.location.origin}\${window.location.pathname}?view=share&month=\${month}\`;
-        navigator.clipboard.writeText(url).then(() => {
-            alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
-        });
-    }
-
-    function renderMonthButtons() {
-        const area = document.getElementById('historyMonthsArea');
-        const badges = document.getElementById('historyBadges');
-        const sortedMonths = Array.from(knownMonths).sort().reverse();
-
-        if (sortedMonths.length > 0) {
-            area.classList.remove('hidden');
-            badges.innerHTML = sortedMonths.map(m => {
-                const isSent = sentMonths.has(m);
-                const btnClass = isSent 
-                    ? "month-btn sent px-4 py-2 text-sm font-bold border rounded-full transition focus:outline-none shadow-sm"
-                    : "month-btn px-4 py-2 text-sm font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm";
-
-                return \`
-                    <div class="relative inline-block mb-3 mr-3">
-                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
-                        <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
-                    </div>
-                \`;
-            }).join('');
-        } else {
-            area.classList.add('hidden');
-        }
-    }
-
-    function setType(type) {
-        document.getElementById('amount').value = '';
-        document.getElementById('moneyRemarks').value = ''; 
-        document.getElementById('transportSelect').selectedIndex = 0; 
-        document.getElementById('recordType').value = type;
-        
-        if (type !== 'hourly') {
-            setMultiplier(1);
-        }
-
-        ['hourly', 'oncall', 'percall', 'transport'].forEach(t => {
-            const btn = document.getElementById('btn-' + t);
-            if (btn) {
-                if (t === type) {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
-                } else {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
-                }
-            }
-        });
-
-        const groupHourly = document.getElementById('group-hourly');
-        const groupMoney = document.getElementById('group-money');
-        const fieldEndDate = document.getElementById('field-endDate');
-        const fieldRemarks = document.getElementById('field-remarks');
-        const labelDate = document.getElementById('label-date');
-        const labelRemarks = document.getElementById('label-remarks');
-        const inputRemarks = document.getElementById('moneyRemarks');
-        const selectTransport = document.getElementById('transportSelect');
-        const historyRemarks = document.getElementById('history-remarks');
-
-        if (type === 'hourly') {
-            groupHourly.classList.remove('hidden');
-            groupMoney.classList.add('hidden');
-            labelDate.innerText = '日期';
-            document.getElementById('start').required = true;
-            document.getElementById('end').required = true;
-            document.getElementById('amount').required = false;
-        } else {
-            groupHourly.classList.add('hidden');
-            groupMoney.classList.remove('hidden');
-            document.getElementById('start').required = false;
-            document.getElementById('end').required = false;
-            document.getElementById('amount').required = true;
-
-            if (type === 'oncall') {
-                labelDate.innerText = '開始日期';
-                fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
-                document.getElementById('endDate').required = true;
-            } else { 
-                labelDate.innerText = '日期';
-                fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); 
-                document.getElementById('endDate').required = false;
-
-                if (type === 'transport') {
-                    labelRemarks.innerText = '行程/詳情';
-                    inputRemarks.classList.add('hidden');
-                    selectTransport.classList.remove('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden');
-                } else {
-                    labelRemarks.innerText = '備註 (選填)';
-                    inputRemarks.classList.remove('hidden');
-                    selectTransport.classList.add('hidden');
-                    if(historyRemarks) historyRemarks.classList.add('hidden'); 
-                    inputRemarks.placeholder = '例如：重啟 Server';
-                }
-            }
-        }
-    }
-
-    function setMultiplier(val) {
-        document.getElementById('multiplier').value = val;
-        [1, 1.5, 2, 3].forEach(v => {
-            const btnId = 'mul-' + v; 
-            const btn = document.getElementById(btnId);
-            if(btn) {
-                if (v === val) {
-                    btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
-                } else {
-                    btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
-                }
-            }
-        });
-        updateDuration();
-    }
-
-    async function deleteRecord(id, date) {
-        if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
-        try {
-            const res = await fetch('/api/delete', {
-                method: 'POST',
-                body: JSON.stringify({ pin, id, date })
-            });
-            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
-    }
-
     async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         const pin = document.getElementById('pin').value;
         btnElement.disabled = true; btnElement.innerText = '...';
         try {
@@ -296,9 +261,13 @@ export const logicScript = `
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
-            if(res.ok) { 
-                btnElement.parentNode.remove();
+            if (res.ok) { 
                 knownMonths.delete(month);
+                sentMonths.delete(month);
+                
+                // 直接刷新網格
+                renderMonthGrid();
+
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
                     document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
@@ -313,20 +282,21 @@ export const logicScript = `
 
     async function fetchHistoryMonths() {
         const pin = document.getElementById('pin').value;
-        if(!pin) return;
+        if (!pin) return;
         managePinStorage();
         try {
             const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const data = await res.json();
-            if(!data.error) {
+            if (!data.error) {
                 knownMonths.clear();
                 if (Array.isArray(data)) {
                     data.forEach(m => knownMonths.add(m));
                 } else if (data.months) {
                     data.months.forEach(m => knownMonths.add(m));
-                    sentMonths = new Set(data.sentList ||[]);
+                    sentMonths = new Set(data.sentList || []);
                 }
-                renderMonthButtons();
+                // 渲染自訂選擇器網格
+                renderMonthGrid();
             }
         } catch(e) {
             console.error("載入月份失敗:", e);
@@ -364,7 +334,6 @@ export const logicScript = `
                 document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
             }
         } else {
-            // === 新增：如果被清除為空，時數重設為 0 ===
             document.getElementById('durationCalc').innerText = "時數: 0 小時";
         }
     }
@@ -421,18 +390,14 @@ export const logicScript = `
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
-                
-                // 儲存成功後重置回預設時間與倍數
-                document.getElementById('start').value = "18:00";
-                document.getElementById('end').value = "21:00";
                 setMultiplier(1);
-                
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
+                
+                // 重新載入月份列表並重畫自訂網格
                 fetchHistoryMonths();
                 
                 renderHistoryChips('location', 'history-location', 'location');
-                
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -552,10 +517,8 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
-                        
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        
                         const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
                         value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
                     } else if (r.type === 'transport') {
@@ -577,11 +540,14 @@ export const logicScript = `
                         value = \`$\${amount}\`;
                     }
 
+                    const [yr, mo, dy] = r.date.split('-');
+                    const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
+
                     const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
-                            <td class="py-2 text-xs md:text-sm">\${r.date.split('-')[2]}日</td>
+                            <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
                             <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
