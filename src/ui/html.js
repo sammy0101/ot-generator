@@ -61,10 +61,11 @@ export const htmlContent = `
         .status-ui { display: none !important; }
         .edit-mode .status-ui { display: flex !important; }
 
+        /* 月份按鈕已發送樣式 (綠色) */
         .month-btn.sent {
-            background-color: #065f46;
-            border-color: #059669;
-            color: #d1fae5;
+            background-color: #065f46 !important;
+            border-color: #059669 !important;
+            color: #d1fae5 !important;
         }
         .month-btn.sent::before {
             content: '✓ ';
@@ -107,7 +108,7 @@ export const htmlContent = `
             content: attr(placeholder);
             color: #6b7280; /* gray-500 */
             position: absolute;
-            left: 0px; 
+            left: 10px;
             top: 50%;
             transform: translateY(-50%);
             pointer-events: none;
@@ -119,11 +120,7 @@ export const htmlContent = `
             display: none !important;
         }
 
-        /* 
-           === 終極修正：解決 iOS Safari 內建日曆/時間/月份元件高度與寬度 Bug ===
-           1. 將高度精準限制在 22px !important (配合外層 padding 完成完美的 42px 高度)
-           2. 允許縮小 min-width: 0，防止寬度膨脹
-        */
+        /* 解決 iOS Safari 內建日曆/時間/月份元件高度與寬度 Bug */
         input[type="date"], input[type="time"], input[type="month"] {
             display: block !important;
             width: 100% !important;
@@ -139,8 +136,8 @@ export const htmlContent = `
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
     
-    <!-- 卡片最大寬度限制在 450px -->
-    <div class="w-full max-w-[450px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4">
+    <!-- === 修改重點 1：卡片寬度還原為 max-w-3xl (768px)，在電腦上就是完美的網頁！ === -->
+    <div class="w-full max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4">
         
         <div id="mainTitleArea" class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
@@ -178,8 +175,9 @@ export const htmlContent = `
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <!-- 修改：採用外框包裝法，高低大小與地點完全一致 (py-2 px-3) -->
-                    <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <!-- 修改重點 2：加上 RWD 寬度限制 (sm:max-w-[220px])。
+                         在手機上會自動撐滿(w-full)，但在電腦大螢幕上會自動縮小對齊！ -->
+                    <div class="mt-1 flex items-center w-full sm:max-w-[220px] bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                         <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
                     </div>
                 </div>
@@ -187,13 +185,13 @@ export const htmlContent = `
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <!-- 地點改為與外框法一致的高度 (py-2 px-3) -->
                         <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
-                    <!-- 時間欄位：採用外框包裝法 + py-2 px-3，與地點外觀、高度百分之百一致，且帶有漂亮的 12px 間距 -->
-                    <div class="flex space-x-3 w-full">
+                    <!-- 修改重點 3：時間的外層加上 RWD 寬度限制 (sm:max-w-[280px])。
+                         手機上會自動撐滿好按，電腦上會完美收小！ -->
+                    <div class="flex space-x-3 w-full sm:max-w-[280px]">
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
                             <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
@@ -208,7 +206,8 @@ export const htmlContent = `
                         </div>
                     </div>
 
-                    <div class="mt-4 mb-2">
+                    <!-- 修改重點 4：工數按鈕也加上 RWD 寬度限制 (sm:max-w-[280px]) -->
+                    <div class="mt-4 mb-2 w-full sm:max-w-[280px]">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
                             <input type="hidden" id="multiplier" value="1">
@@ -225,22 +224,21 @@ export const htmlContent = `
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <!-- 修改：結束日期加入「外框包裝法」+ py-2 -->
-                        <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <!-- 修改：加上 RWD 寬度限制 -->
+                        <div class="mt-1 flex items-center w-full sm:max-w-[220px] bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                             <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <!-- 修改：金額框高度統一 (py-2 px-3) -->
-                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
+                        <!-- 修改：加上 RWD 寬度限制 -->
+                        <input type="number" id="amount" class="mt-1 block w-full sm:max-w-[220px] border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <!-- 修改：備註高度統一 (py-2 px-3) -->
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
-                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md py-2 px-3 hidden focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md py-2 px-3 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
                             <option value="維修">維修</option>
@@ -254,13 +252,14 @@ export const htmlContent = `
         </div>
 
         <div id="view-export" class="hidden">
+            <!-- === 修改重點 5：還原「已有記錄月份」的膠囊按鈕容器 === -->
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
             
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
-                <!-- 修改：報表日期也加入「外框包裝法」+ py-2 -->
-                <div class="flex-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                <!-- 原生月份輸入框：同樣加上外框 RWD 限制 -->
+                <div class="flex-1 flex items-center w-full sm:max-w-[220px] bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
                     <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto">
