@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 11:07:59 UTC 2026
+Generated on: Mon Jun 22 11:08:38 UTC 2026
 
 ## File: README.md
 ````md
@@ -634,7 +634,7 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
-    // === 歷史記錄自訂儲存功能實作 ===
+    // === 歷史記錄自訂儲存與渲染功能 ===
     function updateHistory(key, value) {
         if (!value || value.trim() === '') return;
         try {
@@ -683,12 +683,7 @@ export const logicScript = `
     }
 
     (function init() {
-        if (window.USER_NAME) {
-            const el = document.getElementById('uiUserNameDisplay');
-            if(el) el.innerText = window.USER_NAME;
-        }
-
-        // 預設將時間填入值
+        // 網頁 UI 底部不顯示姓名，此處無須渲染
         document.getElementById('start').value = "18:00";
         document.getElementById('end').value = "21:00";
         updateDuration();
@@ -704,7 +699,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\&nbsp;\${sharedMonth})\` : '';
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
                 document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
             } else {
@@ -799,7 +794,7 @@ export const logicScript = `
         });
     }
 
-    // === 修改重點：將按鈕寬度改為 w-full，圓角改為 rounded-lg，配合 4 欄網格 ===
+    // === 渲染月份按鈕（修正原本 \\text 重複閉合的標記） ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -809,15 +804,14 @@ export const logicScript = `
             area.classList.remove('hidden');
             badges.innerHTML = sortedMonths.map(m => {
                 const isSent = sentMonths.has(m);
-                // 圓角改為 rounded-lg (方塊)，高度設為 h-10 (40px)，字型更緊湊不折行
                 const btnClass = isSent 
                     ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm"
                     : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm";
 
                 return \`
-                    <div class="relative w-full"> <!-- w-full 撐滿網格 -->
+                    <div class="relative w-full">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\text{\${isSent ? '✕' : '📤'}}\</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
                         <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
@@ -1215,13 +1209,14 @@ export const logicScript = `
                     const [yr, mo, dy] = r.date.split('-');
                     const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\text{\${r.id}}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
+                    // === 徹底修復樣板引號轉譯錯誤，還原為標準變數注入 ===
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
                             <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
-                            <td class="py-2 text-xs md:text-sm">\text{\${typeLabel}}</td>
-                            <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
+                            <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
+                            <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\text{\${detail}}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
                             \${deleteBtn}
                         </tr>
