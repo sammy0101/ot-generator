@@ -100,37 +100,9 @@ export const htmlContent = `
             appearance: none;
         }
 
-        /* 解決 iOS 點擊「清除」後時間框變完全空白的方案 */
-        input[type="time"] {
-            position: relative;
-        }
-        input[type="time"]:invalid::before {
-            content: attr(placeholder);
-            color: #6b7280; /* gray-500 */
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-            font-size: 0.95rem;
-            z-index: 2; 
-        }
-        input[type="time"]:valid::before {
-            content: "" !important;
-            display: none !important;
-        }
-
-        /* 解決 iOS Safari 內建日曆/時間/月份元件高度與寬度 Bug */
-        input[type="date"], input[type="time"], input[type="month"] {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            height: 22px !important; 
-            line-height: 22px !important;
-            background: transparent !important;
+        /* 解決 iOS Safari 內建日期/時間/月份元件在空值時高度縮水的 WebKit 專屬標準 Bug 修正 */
+        input::-webkit-date-and-time-value {
+            min-height: 1.5em;
         }
     </style>
 </head>
@@ -189,13 +161,13 @@ export const htmlContent = `
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
                             <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <input type="time" id="start" placeholder="開始時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                                <input type="time" id="start" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
                             <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <input type="time" id="end" placeholder="結束時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                                <input type="time" id="end" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                             </div>
                         </div>
                     </div>
