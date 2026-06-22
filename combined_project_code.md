@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 10:56:26 UTC 2026
+Generated on: Mon Jun 22 11:07:59 UTC 2026
 
 ## File: README.md
 ````md
@@ -181,7 +181,7 @@ export const htmlContent = `
         .status-ui { display: none !important; }
         .edit-mode .status-ui { display: flex !important; }
 
-        /* === 修改：月份按鈕已發送樣式 (綠色方塊 rounded-lg) === */
+        /* 月份按鈕已發送樣式 */
         .month-btn.sent {
             background-color: #065f46 !important;
             border-color: #059669 !important;
@@ -256,8 +256,8 @@ export const htmlContent = `
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
     
-    <!-- 卡片最大寬度限制在 450px -->
-    <div class="w-full max-w-[450px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4">
+    <!-- 卡片最大寬度限制：手機端最大 450px，電腦端（md）擴展至 800px 確保橫向排版舒適 -->
+    <div class="w-full max-w-[450px] md:max-w-[800px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4 transition-all duration-300">
         
         <div id="mainTitleArea" class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
@@ -364,11 +364,10 @@ export const htmlContent = `
 
         <div id="view-export" class="hidden">
             
-            <!-- === 修改重點 1：改為 grid 網格，每行 4 個 (grid-cols-4) === -->
+            <!-- 歷史月份按鈕：手機端 4 欄，電腦端（md）自動延展至 6 欄 -->
             <div id="historyMonthsArea" class="mb-4 hidden">
-                <div id="historyBadges" class="grid grid-cols-4 gap-2 mb-4"></div>
+                <div id="historyBadges" class="grid grid-cols-4 md:grid-cols-6 gap-2 mb-4"></div>
             </div>
-            <!-- ==================================================== -->
             
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
                 <div class="flex-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
@@ -381,7 +380,8 @@ export const htmlContent = `
                 </div>
             </div>
             
-            <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md mx-auto">
+            <!-- 月曆視圖：電腦端（md）最大寬度設為 lg 確保橫向拉寬後比例和諧 -->
+            <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md md:max-w-lg mx-auto">
                 <div class="calendar-grid"></div>
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
                     <span class="flex items-center"><span class="w-3 h-3 bg-indigo-500 rounded mr-1"></span>OT</span>
@@ -398,8 +398,9 @@ export const htmlContent = `
                 <div class="text-gray-300">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-xl">0</span> hr</div>
                 <div class="text-gray-300">總收入: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
                 <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
+                
+                <!-- 網頁 UI 底部移除顯示姓名欄位，使統計更簡明 -->
                 <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 flex justify-end items-center">
-                    <span id="uiUserNameDisplay" class="text-gray-500 font-bold text-lg mr-auto"></span>
                     <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
@@ -409,7 +410,6 @@ export const htmlContent = `
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
-`;
 
 ````
 
