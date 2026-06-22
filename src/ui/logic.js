@@ -16,6 +16,54 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
+    // === 歷史記錄自訂儲存功能實作 ===
+    function updateHistory(key, value) {
+        if (!value || value.trim() === '') return;
+        try {
+            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            history = history.filter(v => v !== value);
+            history.unshift(value);
+            if (history.length > 5) history.pop();
+            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderHistoryChips(key, containerId, targetInputId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        try {
+            const history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            if (history.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = history.map(val => {
+                const escapedVal = val.replace(/'/g, "\\\\'");
+                return \`
+                    <span class="history-chip" onclick="document.getElementById('\${targetInputId}').value='\${escapedVal}'; if('\${targetInputId}' === 'location' && typeof updateDuration === 'function') updateDuration();">
+                        \${val}
+                        <span class="history-delete" onclick="event.stopPropagation(); deleteHistory('\${key}', '\${escapedVal}', '\${containerId}', '\${targetInputId}')">×</span>
+                    </span>
+                \`;
+            }).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function deleteHistory(key, val, containerId, targetInputId) {
+        try {
+            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            history = history.filter(v => v !== val);
+            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
+            renderHistoryChips(key, containerId, targetInputId);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     (function init() {
         if (window.USER_NAME) {
             const el = document.getElementById('uiUserNameDisplay');
@@ -38,7 +86,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
+            const monthLabel = sharedMonth ? \` (\&nbsp;\${sharedMonth})\` : '';
             if (window.USER_NAME) {
                 document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
             } else {
@@ -57,6 +105,7 @@ export const logicScript = `
                 fetchHistoryMonths();
             }
             renderHistoryChips('location', 'history-location', 'location');
+            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     })();
 
@@ -150,7 +199,7 @@ export const logicScript = `
                 return \`
                     <div class="relative w-full"> <!-- w-full 撐滿網格 -->
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\text{\${isSent ? '✕' : '📤'}}\</button>
                         <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
@@ -214,7 +263,6 @@ export const logicScript = `
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
                 fieldRemarks.classList.remove('hidden'); 
-                document.getElementById('endDate').required = false;
 
                 if (type === 'transport') {
                     labelRemarks.innerText = '行程/詳情';
@@ -382,6 +430,9 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
+                    if (payload.location) {
+                        updateHistory('remarks', payload.location);
+                    }
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -400,6 +451,7 @@ export const logicScript = `
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
                 renderHistoryChips('location', 'history-location', 'location');
+                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -451,16 +503,14 @@ export const logicScript = `
                 div.className = 'calendar-day has-money-transport';
             } else if (hasOT && hasTransport) {
                 div.className = 'calendar-day has-ot-transport';
+            } else if (hasOT) {
+                div.className = 'calendar-day has-ot';
             } else if (hasMoney) {
                 div.className = 'calendar-day has-money';
             } else if (hasTransport) {
                 div.className = 'calendar-day has-transport';
-            } else usage = 'calendar-day no-ot';
-            
-            // 修正未定義變數問題
-            if (!div.className) {
-                if (hasOT) div.className = 'calendar-day has-ot';
-                else div.className = 'calendar-day no-ot';
+            } else {
+                div.className = 'calendar-day no-ot';
             }
             grid.appendChild(div);
         }
@@ -547,12 +597,12 @@ export const logicScript = `
                     const [yr, mo, dy] = r.date.split('-');
                     const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\text{\${r.id}}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
                             <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
-                            <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
+                            <td class="py-2 text-xs md:text-sm">\text{\${typeLabel}}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
                             \${deleteBtn}
