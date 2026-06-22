@@ -94,7 +94,8 @@ export const pdfScript = `
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
-                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    // 移除 PDF 詳情外側的括號 ()
+                    detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
                     rowColor = colorOrange;
@@ -108,7 +109,8 @@ export const pdfScript = `
                     rowColor = colorGreen;
                 } else { 
                     itemStr = 'Call';
-                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    // 移除 PDF 詳情外側的括號 ()
+                    detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont;
                     valStr = '$' + amount;
                     rowColor = colorGreen;
