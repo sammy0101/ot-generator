@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 11:26:02 UTC 2026
+Generated on: Mon Jun 22 11:26:26 UTC 2026
 
 ## File: README.md
 ````md
@@ -512,7 +512,8 @@ export const pdfScript = `
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
-                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    // 移除 PDF 詳情外側的括號 ()
+                    detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
                     rowColor = colorOrange;
@@ -526,7 +527,8 @@ export const pdfScript = `
                     rowColor = colorGreen;
                 } else { 
                     itemStr = 'Call';
-                    detailStr = r.location ? \`(\${r.location})\` : '-';
+                    // 移除 PDF 詳情外側的括號 ()
+                    detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont;
                     valStr = '$' + amount;
                     rowColor = colorGreen;
