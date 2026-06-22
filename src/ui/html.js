@@ -103,39 +103,23 @@ export const htmlContent = `
         input[type="time"] {
             position: relative;
         }
+        /* 當數值為空（無效）時，利用偽元素強制在方塊內印出灰色提示文字 */
+        /* 因為現在使用了外框，把 left 改為 0 貼緊左邊 */
         input[type="time"]:invalid::before {
             content: attr(placeholder);
             color: #6b7280; /* gray-500 */
             position: absolute;
-            left: 10px;
+            left: 0px; 
             top: 50%;
             transform: translateY(-50%);
             pointer-events: none;
             font-size: 0.95rem;
-            z-index: 2; /* 確保懸浮在最上層 */
+            z-index: 2;
         }
         input[type="time"]:valid::before {
             content: "" !important;
             display: none !important;
         }
-
-        /* 
-           === 終極修正：解決 iOS Safari 內建日曆/時間元件「寬度溢出、不理會 w-full、不留空隙」的 WebKit 結構性 Bug ===
-           我們必須強制設定：
-           1. min-width: 0 !important (允許縮小，防止 iOS 內建 UI 把寬度撐破)
-           2. width: 100% 且 max-width: 100% 
-           3. height: 42px !important (與「地點」文字框的 42px 高度完全一致，解決高度不一致問題)
-        */
-        input[type="date"], input[type="time"] {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            height: 42px !important; 
-        }
-        /* ================================================================================================== */
     </style>
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
@@ -179,7 +163,10 @@ export const htmlContent = `
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <!-- 修改：日期加入「外框包裝法」，與地點完全對齊 -->
+                    <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
+                    </div>
                 </div>
 
                 <div id="group-hourly">
@@ -189,16 +176,19 @@ export const htmlContent = `
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
-                    <!-- 100% 相容的間距與自動適配寬度 -->
+                    <!-- 修改：開始與結束時間全面改用「外框包裝法」+ space-x-3 + min-w-0，100% 解決 iOS Safari 寬度溢出與黏在一起的 Bug -->
                     <div class="flex space-x-3 w-full">
-                        <!-- 加入 min-w-0 防止 iOS 寬度膨脹溢出 -->
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <input type="time" id="start" placeholder="開始時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                                <input type="time" id="start" placeholder="開始時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                            </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <input type="time" id="end" placeholder="結束時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                                <input type="time" id="end" placeholder="結束時間" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                            </div>
                         </div>
                     </div>
 
@@ -219,7 +209,10 @@ export const htmlContent = `
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <input type="date" id="endDate" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                        <!-- 修改：結束日期加入「外框包裝法」 -->
+                        <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                            <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
@@ -248,11 +241,14 @@ export const htmlContent = `
             </div>
             
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
-                <input type="month" id="queryMonth" class="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                <!-- 修改：報表日期也加入「外框包裝法」 -->
+                <div class="flex-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                </div>
                 <div class="flex gap-2 w-full sm:w-auto">
                     <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2.5 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2.5 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
