@@ -65,7 +65,7 @@ export const logicScript = `
     }
 
     (function init() {
-        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
+        // 網頁 UI 底部不顯示姓名，僅供 PDF 使用
         // 移除了 18:00 與 21:00 的預先填值，改為完全空白
         updateDuration();
 
@@ -80,7 +80,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\&nbsp;\${sharedMonth})\` : '';
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
             if (window.USER_NAME) {
                 document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
             } else {
@@ -169,7 +169,7 @@ export const logicScript = `
 
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
-        const url = \`\${window.location.origin}\${window.location.pathname}?view=share&month=\${month}\`;
+        const url = \`\${window.location.origin}\dots\${window.location.pathname}?view=share&month=\${month}\`;
         navigator.clipboard.writeText(url).then(() => {
             alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
         });
@@ -192,7 +192,7 @@ export const logicScript = `
                 return \`
                     <div class="relative w-full">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\s{\${isSent ? '取消已發送' : '標記為已發送'}}">\${isSent ? '✕' : '📤'}</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\text{\${isSent ? '✕' : '📤'}}\</button>
                         <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
@@ -571,7 +571,8 @@ export const logicScript = `
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
-                        detail = r.location ? \`<span class="text-gray-400">(\${r.location})</span>\` : '-';
+                        // 移除外包裝的括號 ()
+                        detail = r.location ? \`<span class="text-gray-400">\${r.location}</span>\` : '-';
                         value = \`$\${amount}\`;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
@@ -583,20 +584,21 @@ export const logicScript = `
                     } else { 
                         grandTotalMoney += amount;
                         typeLabel = \`<span class="text-emerald-400 font-bold">Call</span>\`;
-                        detail = r.location ? \`<span class="text-gray-400">(\${r.location})</span>\` : '-';
+                        // 移除外包裝的括號 ()
+                        detail = r.location ? \`<span class="text-gray-400">\text{\${r.location}}</span>\` : '-';
                         value = \`$\${amount}\`;
                     }
 
                     const [yr, mo, dy] = r.date.split('-');
                     const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\text{\${r.id}}, '\text{\${r.date}}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
-                    // === 徹底校正所有變數注入轉譯格式，確保沒有 text 結構與轉譯錯誤 ===
+                    // === 校正所有變數注入轉譯格式，確保沒有任何 \`s{}\` 的殘留 ===
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
                             <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
-                            <td class="py-2 text-xs md:text-sm">\s{\${typeLabel}}</td>
+                            <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
                             \${deleteBtn}
