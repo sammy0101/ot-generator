@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 05:49:16 UTC 2026
+Generated on: Mon Jun 22 05:50:12 UTC 2026
 
 ## File: README.md
 ````md
@@ -601,6 +601,7 @@ export const logicScript = `
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
+    let sentMonths = new Set(); 
     let isEditMode = false;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -613,11 +614,10 @@ export const logicScript = `
             if(el) el.innerText = window.USER_NAME;
         }
 
-        // === 關鍵修改：預設將開始時間與結束時間填入值，防止 iOS 空白 ===
+        // 預設將時間填入值
         document.getElementById('start').value = "18:00";
         document.getElementById('end').value = "21:00";
-        updateDuration(); // 立刻計算出 3 小時
-        // ========================================================
+        updateDuration();
 
         if (isShareMode) {
             document.getElementById('mainTitleArea').classList.add('hidden');
@@ -625,12 +625,17 @@ export const logicScript = `
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            document.getElementById('btn-share').classList.add('hidden');
-            document.getElementById('btn-edit').classList.add('hidden'); 
+            
+            document.getElementById('queryControls').classList.add('hidden');
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            if(window.USER_NAME) document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄";
+            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
+            if (window.USER_NAME) {
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+            } else {
+                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
+            }
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
@@ -839,7 +844,7 @@ export const logicScript = `
                     labelRemarks.innerText = '備註 (選填)';
                     inputRemarks.classList.remove('hidden');
                     selectTransport.classList.add('hidden');
-                    if(historyRemarks) historyRemarks.classList.remove('hidden'); 
+                    if(historyRemarks) historyRemarks.classList.add('hidden'); 
                     inputRemarks.placeholder = '例如：重啟 Server';
                 }
             }
@@ -950,6 +955,9 @@ export const logicScript = `
             } else {
                 document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
             }
+        } else {
+            // === 新增：如果被清除為空，時數重設為 0 ===
+            document.getElementById('durationCalc').innerText = "時數: 0 小時";
         }
     }
 
@@ -1005,11 +1013,18 @@ export const logicScript = `
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
                 document.getElementById('transportSelect').selectedIndex = 0; 
+                
+                // 儲存成功後重置回預設時間與倍數
+                document.getElementById('start').value = "18:00";
+                document.getElementById('end').value = "21:00";
                 setMultiplier(1);
+                
                 const currentMonth = payload.date.substring(0, 7);
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
+                
                 renderHistoryChips('location', 'history-location', 'location');
+                
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -1129,8 +1144,10 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
+                        
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
+                        
                         const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
                         value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
                     } else if (r.type === 'transport') {
@@ -1186,7 +1203,6 @@ export const logicScript = `
         }
     }
 `;
-
 ````
 
 ## File: src/index.js
