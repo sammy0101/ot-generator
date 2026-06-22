@@ -88,18 +88,22 @@ export const htmlContent = `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* === 排除勾選框與時間日期的外觀清除 === */
+        /* 解決 iOS 輸入框預設陰影、外框與暗黑模式時間顯示問題 */
         input, select, textarea {
             color-scheme: dark !important; 
             box-sizing: border-box;
         }
         
+        /* 
+           1. 排除 type="checkbox" (解決記住密碼打勾顯示問題)
+           2. 排除 type="time" 和 type="date" (解決 iOS 時間日期方塊空白不顯示問題)
+        */
         input:not([type="checkbox"]):not([type="time"]):not([type="date"]), select, textarea {
             -webkit-appearance: none;
             appearance: none;
         }
 
-        /* === 新增：解決 iOS 點擊「清除」後時間框變完全空白的完美方案 === */
+        /* 解決 iOS 點擊「清除」後時間框變完全空白的完美方案 */
         input[type="time"] {
             position: relative;
         }
@@ -119,7 +123,6 @@ export const htmlContent = `
             content: "" !important;
             display: none !important;
         }
-        /* ================================================================== */
     </style>
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200">
@@ -158,19 +161,23 @@ export const htmlContent = `
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <!-- 修改：日期框寬度限制為 max-w-[220px]，讓它更緊湊 -->
+                    <input type="date" id="date" class="mt-1 block w-full max-w-[220px] bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
+
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <!-- 地點是文字輸入，維持 w-full 方便打長字 -->
+                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
-                    <!-- 修改：加入了 required 與 placeholder 提示，配合 CSS 運作 -->
-                    <div class="grid grid-cols-2 gap-4">
+                    <!-- 修改：時間框的 Grid 外層限制最大寬度為 max-w-[280px]，這樣時間方塊會縮短，且剛好與底下的倍數按鈕對齊！ -->
+                    <div class="grid grid-cols-2 gap-4 max-w-[280px]">
                         <div>
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
                             <input type="time" id="start" placeholder="開始時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
@@ -181,7 +188,8 @@ export const htmlContent = `
                         </div>
                     </div>
 
-                    <div class="mt-4 mb-2">
+                    <!-- 修改：倍數按鈕外層也改為 max-w-[280px]，與上面的時間框完美對齊 -->
+                    <div class="mt-4 mb-2 max-w-[280px]">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
                             <input type="hidden" id="multiplier" value="1">
@@ -198,14 +206,17 @@ export const htmlContent = `
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <input type="date" id="endDate" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
+                        <!-- 修改：結束日期限制寬度為 max-w-[220px] -->
+                        <input type="date" id="endDate" class="mt-1 block w-full max-w-[220px] border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
+                        <!-- 修改：金額框限制寬度為 max-w-[220px] -->
+                        <input type="number" id="amount" class="mt-1 block w-full max-w-[220px] border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
+                        <!-- 備註為文字輸入，維持 w-full -->
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
                         <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
@@ -225,12 +236,13 @@ export const htmlContent = `
             <div id="historyMonthsArea" class="mb-4 hidden">
                 <div id="historyBadges" class="flex flex-wrap gap-2"></div>
             </div>
+            
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
                 <input type="month" id="queryMonth" class="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                 <div class="flex gap-2 w-full sm:w-auto">
                     <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2.5 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2.5 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
@@ -256,7 +268,7 @@ export const htmlContent = `
                     <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
                 </div>
             </div>
-            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
+            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
                 下載 PDF 報表
             </button>
         </div>
