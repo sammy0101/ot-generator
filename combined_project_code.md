@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 10:54:25 UTC 2026
+Generated on: Mon Jun 22 10:56:26 UTC 2026
 
 ## File: README.md
 ````md
@@ -1474,9 +1474,9 @@ jobs:
       - name: Download and Convert Font
         run: |
           echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
           
-          if [ -z "$TTF_URL" ] ||[ "$TTF_URL" == "null" ]; then
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
             echo "錯誤：在最新版本中找不到 .ttf 檔案！"
             exit 1
           fi
