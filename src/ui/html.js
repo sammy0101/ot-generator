@@ -289,6 +289,4 @@ export const htmlContent = `
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
-</body>
-</html>
 `;
