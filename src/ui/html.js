@@ -260,7 +260,7 @@ export const htmlContent = `
                 </div>
             </div>
             
-            <!-- 月曆視圖：電腦端（md）最大寬度設為 lg 確保橫向拉寬後比例和諧 -->
+            <!-- 月曆視圖：電腦端（md）最大寬度設為 lg 確保整體比例平衡 -->
             <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md md:max-w-lg mx-auto">
                 <div class="calendar-grid"></div>
                 <div class="flex justify-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
@@ -290,3 +290,4 @@ export const htmlContent = `
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
+`;
