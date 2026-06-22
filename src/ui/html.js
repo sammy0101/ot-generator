@@ -12,8 +12,10 @@ export const htmlContent = `
     
     <title>OT 記錄器 Pro</title>
     
-    <!-- 網站圖標 -->
+    <!-- 一般瀏覽器圖示 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    
+    <!-- iPhone 主畫面圖示 (必須是 PNG) -->
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2535/2535556.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -123,7 +125,7 @@ export const htmlContent = `
 </head>
 <body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
     
-    <!-- === 修改重點：卡片最大寬度限制在 450px (max-w-[450px])，這在手機和電腦上比例都是最完美的 === -->
+    <!-- 卡片最大寬度限制在 450px -->
     <div class="w-full max-w-[450px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4">
         
         <div id="mainTitleArea" class="text-center mb-6">
@@ -162,30 +164,29 @@ export const htmlContent = `
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <!-- 修改：日期改回 w-full（在 450px 卡片下，能與其他方塊完美對齊） -->
                     <input type="date" id="date" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
 
                 <div id="group-hourly">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
-                    <!-- 修改：改用 flex 佈局並加上 gap-3，100% 保證 iOS 上會有 12px 的優雅空隙，且寬度 w-full 能與其他方塊對齊 -->
-                    <div class="flex gap-3">
-                        <div class="flex-1">
+                    <!-- === 修正重點 1：使用 space-x-3 100% 確保 iOS 上會有完美空隙，且能完美與其它方塊左右對齊 === -->
+                    <div class="flex space-x-3 w-full">
+                        <!-- === 修正重點 2：子元素加入 min-w-0 防止 iOS 瀏覽器寬度膨脹與溢出 === -->
+                        <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
                             <input type="time" id="start" placeholder="開始時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
-                        <div class="flex-1">
+                        <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
                             <input type="time" id="end" placeholder="結束時間" required class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
 
-                    <!-- 修改：倍數按鈕也改為 w-full 撐滿，整體感極強 -->
                     <div class="mt-4 mb-2">
                         <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
                         <div class="flex gap-2">
@@ -203,12 +204,10 @@ export const htmlContent = `
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
                         <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <!-- 修改：結束日期改為 w-full 撐滿 -->
                         <input type="date" id="endDate" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <!-- 修改：金額改為 w-full 撐滿 -->
                         <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md p-2.5 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
@@ -237,8 +236,8 @@ export const htmlContent = `
                 <input type="month" id="queryMonth" class="w-full sm:flex-1 bg-gray-700 border-gray-600 text-white rounded-md p-2.5 focus:ring-indigo-500 focus:border-indigo-500">
                 <div class="flex gap-2 w-full sm:w-auto">
                     <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2.5 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2.5 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
