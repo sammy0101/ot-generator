@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 11:11:46 UTC 2026
+Generated on: Mon Jun 22 11:17:26 UTC 2026
 
 ## File: README.md
 ````md
@@ -684,9 +684,8 @@ export const logicScript = `
     }
 
     (function init() {
-        // 網頁 UI 底部不顯示名字，僅供 PDF 使用，故此處不渲染
-        document.getElementById('start').value = "18:00";
-        document.getElementById('end').value = "21:00";
+        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
+        // 移除了 18:00 與 21:00 的預先填值，改為完全空白
         updateDuration();
 
         if (isShareMode) {
@@ -700,7 +699,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
+            const monthLabel = sharedMonth ? \` (\&nbsp;\${sharedMonth})\` : '';
             if (window.USER_NAME) {
                 document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
             } else {
@@ -812,7 +811,7 @@ export const logicScript = `
                 return \`
                     <div class="relative w-full">
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \s{\${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'}} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\s{\${isSent ? '取消已發送' : '標記為已發送'}}">\${isSent ? '✕' : '📤'}</button>
                         <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
@@ -995,9 +994,9 @@ export const logicScript = `
             const effHoursStr = formatHours(effectiveMins);
             
             if (mul === 1) {
-                document.getElementById('durationCalc').innerText = \`時數: \dots\${hoursStr} 小時\`;
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} 小時\`;
             } else {
-                document.getElementById('durationCalc').innerText = \`時數: \dots\${hoursStr} hr (x\${mul}) = \dots\${effHoursStr} 小時\`;
+                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
             }
         } else {
             document.getElementById('durationCalc').innerText = "時數: 0 小時";
@@ -1210,13 +1209,13 @@ export const logicScript = `
                     const [yr, mo, dy] = r.date.split('-');
                     const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\text{\${r.id}}, '\text{\${r.date}}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
-                    // === 校正所有變數注入轉譯格式，確保沒有 text 結構與轉譯錯誤 ===
+                    // === 徹底校正所有變數注入轉譯格式，確保沒有 text 結構與轉譯錯誤 ===
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
                             <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
-                            <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
+                            <td class="py-2 text-xs md:text-sm">\s{\${typeLabel}}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
                             \${deleteBtn}
