@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 10:39:59 UTC 2026
+Generated on: Mon Jun 22 10:40:29 UTC 2026
 
 ## File: README.md
 ````md
@@ -642,6 +642,7 @@ export const logicScript = `
             if(el) el.innerText = window.USER_NAME;
         }
 
+        // 預設將時間填入值
         document.getElementById('start').value = "18:00";
         document.getElementById('end').value = "21:00";
         updateDuration();
@@ -653,7 +654,6 @@ export const logicScript = `
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
             
-            // 分享模式下只隱藏查詢欄位
             document.getElementById('queryControls').classList.add('hidden');
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
@@ -752,7 +752,7 @@ export const logicScript = `
         });
     }
 
-    // === 修改重點：還原膠囊按鈕渲染 ===
+    // === 修改重點：將按鈕寬度改為 w-full，圓角改為 rounded-lg，配合 4 欄網格 ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -762,14 +762,15 @@ export const logicScript = `
             area.classList.remove('hidden');
             badges.innerHTML = sortedMonths.map(m => {
                 const isSent = sentMonths.has(m);
+                // 圓角改為 rounded-lg (方塊)，高度設為 h-10 (40px)，字型更緊湊不折行
                 const btnClass = isSent 
-                    ? "month-btn sent px-3 py-1.5 text-xs font-bold border rounded-full transition focus:outline-none shadow-sm"
-                    : "month-btn px-3 py-1.5 text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-full hover:bg-indigo-800 transition focus:outline-none shadow-sm";
+                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm"
+                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm";
 
                 return \`
-                    <div class="relative inline-block mb-3 mr-3">
+                    <div class="relative w-full"> <!-- w-full 撐滿網格 -->
                         <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \s\${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
+                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\${isSent ? '✕' : '📤'}</button>
                         <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
                     </div>
                 \`;
@@ -879,7 +880,7 @@ export const logicScript = `
     }
 
     async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        if(!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         const pin = document.getElementById('pin').value;
         btnElement.disabled = true; btnElement.innerText = '...';
         try {
@@ -1074,10 +1075,12 @@ export const logicScript = `
                 div.className = 'calendar-day has-money';
             } else if (hasTransport) {
                 div.className = 'calendar-day has-transport';
-            } else if (hasOT) {
-                div.className = 'calendar-day has-ot';
-            } else {
-                div.className = 'calendar-day no-ot';
+            } else usage = 'calendar-day no-ot';
+            
+            // 修正未定義變數問題
+            if (!div.className) {
+                if (hasOT) div.className = 'calendar-day has-ot';
+                else div.className = 'calendar-day no-ot';
             }
             grid.appendChild(div);
         }
@@ -1138,10 +1141,8 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
-                        
                         typeLabel = r.location || 'OT';
                         detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        
                         const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
                         value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
                     } else if (r.type === 'transport') {
@@ -1163,12 +1164,14 @@ export const logicScript = `
                         value = \`$\${amount}\`;
                     }
 
-                    // 這裡的 YYYY-MM-DD 恢復成原本簡潔的「日」格式，避免電腦版表格太長
+                    const [yr, mo, dy] = r.date.split('-');
+                    const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
+
                     const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
 
                     html += \`
                         <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
-                            <td class="py-2 text-xs md:text-sm">\${r.date.split('-')[2]}日</td>
+                            <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
                             <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
                             <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
