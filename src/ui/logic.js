@@ -16,7 +16,7 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
-    // === 歷史記錄自訂儲存與渲染功能（改用單引號拼接，避免轉譯干擾） ===
+    // === 歷史記錄自訂儲存與渲染功能 ===
     function updateHistory(key, value) {
         if (!value || value.trim() === '') return;
         try {
@@ -172,7 +172,7 @@ export const logicScript = `
         });
     }
 
-    // === 渲染月份按鈕（全面採用標準單引號拼接，杜絕數學符號解析干擾） ===
+    // === 渲染月份按鈕 ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -327,7 +327,7 @@ export const logicScript = `
         if(!pin) return;
         managePinStorage();
         try {
-            const res = await fetch('/api/list_months?pin=' + pin);
+            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
             const data = await res.json();
             if(!data.error) {
                 knownMonths.clear();
@@ -559,14 +559,14 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
-                        typeLabel = r.location || 'OT';
+                        // === OT 項目（如超一、Server Room）設定為 Aslan 的靛藍色，使其與月曆代表色一致 ===
+                        typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
                         detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
                         const mulLabel = mul > 1 ? ' <span class="text-indigo-400 font-bold">(x' + mul + ')</span>' : '';
                         value = formatHours(effectiveMins) + ' hr' + mulLabel;
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
-                        // 移除外包裝的括號 ()
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
                         value = '$' + amount;
                     } else if (r.type === 'oncall') {
@@ -579,7 +579,6 @@ export const logicScript = `
                     } else { 
                         grandTotalMoney += amount;
                         typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
-                        // 移除外包裝的括號 ()
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
                         value = '$' + amount;
                     }
@@ -589,7 +588,6 @@ export const logicScript = `
 
                     const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>';
 
-                    // === 全面更換為標準字串拼接，徹底杜絕 s{} 的殘留與干擾 ===
                     html += '<tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">' +
                         '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
                         '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
