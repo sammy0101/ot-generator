@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 11:26:26 UTC 2026
+Generated on: Mon Jun 22 11:29:38 UTC 2026
 
 ## File: README.md
 ````md
@@ -609,7 +609,7 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
-    // === 歷史記錄自訂儲存與渲染功能 ===
+    // === 歷史記錄自訂儲存與渲染功能（改用單引號拼接，避免轉譯干擾） ===
     function updateHistory(key, value) {
         if (!value || value.trim() === '') return;
         try {
@@ -634,12 +634,10 @@ export const logicScript = `
             }
             container.innerHTML = history.map(val => {
                 const escapedVal = val.replace(/'/g, "\\\\'");
-                return \`
-                    <span class="history-chip" onclick="document.getElementById('\${targetInputId}').value='\${escapedVal}'; if('\${targetInputId}' === 'location' && typeof updateDuration === 'function') updateDuration();">
-                        \${val}
-                        <span class="history-delete" onclick="event.stopPropagation(); deleteHistory('\${key}', '\${escapedVal}', '\${containerId}', '\${targetInputId}')">×</span>
-                    </span>
-                \`;
+                return '<span class="history-chip" onclick="document.getElementById(\\'' + targetInputId + '\\').value=\\'' + escapedVal + '\\'; if(\\'' + targetInputId + '\\' === \\'location\\' && typeof updateDuration === \\'function\\') updateDuration();">' +
+                    val +
+                    '<span class="history-delete" onclick="event.stopPropagation(); deleteHistory(\\'' + key + '\\', \\'' + escapedVal + '\\', \\'' + containerId + '\\', \\'' + targetInputId + '\\')">×</span>' +
+                    '</span>';
             }).join('');
         } catch (e) {
             console.error(e);
@@ -658,8 +656,7 @@ export const logicScript = `
     }
 
     (function init() {
-        // 網頁 UI 底部不顯示姓名，僅供 PDF 使用
-        // 移除了 18:00 與 21:00 的預先填值，改為完全空白
+        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
         updateDuration();
 
         if (isShareMode) {
@@ -673,7 +670,7 @@ export const logicScript = `
             document.getElementById('historyMonthsArea').classList.add('hidden');
             
             document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? \` (\${sharedMonth})\` : '';
+            const monthLabel = sharedMonth ? ' (' + sharedMonth + ')' : '';
             if (window.USER_NAME) {
                 document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
             } else {
@@ -762,13 +759,13 @@ export const logicScript = `
 
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value;
-        const url = \`\${window.location.origin}\dots\${window.location.pathname}?view=share&month=\${month}\`;
+        const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
         navigator.clipboard.writeText(url).then(() => {
             alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
         });
     }
 
-    // === 渲染月份按鈕 ===
+    // === 渲染月份按鈕（全面採用標準單引號拼接，杜絕數學符號解析干擾） ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -782,13 +779,11 @@ export const logicScript = `
                     ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm"
                     : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm";
 
-                return \`
-                    <div class="relative w-full">
-                        <button type="button" onclick="document.getElementById('queryMonth').value='\${m}';loadRecords();" class="\${btnClass}">\${m}</button>
-                        <button type="button" onclick="toggleSent('\${m}', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white \${isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500'} rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="\${isSent ? '取消已發送' : '標記為已發送'}">\text{\${isSent ? '✕' : '📤'}}\</button>
-                        <button type="button" onclick="deleteMonth('\${m}', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>
-                    </div>
-                \`;
+                return '<div class="relative w-full">' +
+                    '<button type="button" onclick="document.getElementById(\\'queryMonth\\').value=\\'' + m + '\\';loadRecords();" class="' + btnClass + '">' + m + '</button>' +
+                    '<button type="button" onclick="toggleSent(\\'' + m + '\\', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white ' + (isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500') + ' rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="' + (isSent ? '取消已發送' : '標記為已發送') + '">' + (isSent ? '✕' : '📤') + '</button>' +
+                    '<button type="button" onclick="deleteMonth(\\'' + m + '\\', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>' +
+                    '</div>';
             }).join('');
         } else {
             area.classList.add('hidden');
@@ -925,7 +920,7 @@ export const logicScript = `
         if(!pin) return;
         managePinStorage();
         try {
-            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
+            const res = await fetch('/api/list_months?pin=' + pin);
             const data = await res.json();
             if(!data.error) {
                 knownMonths.clear();
@@ -968,9 +963,9 @@ export const logicScript = `
             const effHoursStr = formatHours(effectiveMins);
             
             if (mul === 1) {
-                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} 小時\`;
+                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' 小時';
             } else {
-                document.getElementById('durationCalc').innerText = \`時數: \${hoursStr} hr (x\${mul}) = \${effHoursStr} 小時\`;
+                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' hr (x' + mul + ') = ' + effHoursStr + ' 小時';
             }
         } else {
             document.getElementById('durationCalc').innerText = "時數: 0 小時";
@@ -1118,9 +1113,9 @@ export const logicScript = `
         try {
             let url;
             if (isShareMode || forcePublic) {
-                url = \`/api/public/get?month=\${monthStr}\`;
+                url = '/api/public/get?month=' + monthStr;
             } else {
-                url = \`/api/get?month=\${monthStr}&pin=\${pin}\`;
+                url = '/api/get?month=' + monthStr + '&pin=' + pin;
             }
 
             const res = await fetch(url);
@@ -1158,45 +1153,43 @@ export const logicScript = `
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
                         typeLabel = r.location || 'OT';
-                        detail = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
-                        const mulLabel = mul > 1 ? \` <span class="text-indigo-400 font-bold">(x\${mul})</span>\` : '';
-                        value = \`\${formatHours(effectiveMins)} hr\${mulLabel}\`;
+                        detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
+                        const mulLabel = mul > 1 ? ' <span class="text-indigo-400 font-bold">(x' + mul + ')</span>' : '';
+                        value = formatHours(effectiveMins) + ' hr' + mulLabel;
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
-                        typeLabel = \`<span class="text-amber-400 font-bold">交通費</span>\`;
+                        typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
                         // 移除外包裝的括號 ()
-                        detail = r.location ? \`<span class="text-gray-400">\${r.location}</span>\` : '-';
-                        value = \`$\${amount}\`;
+                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        value = '$' + amount;
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-emerald-400 font-bold">當更</span>\`; 
+                        typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                        detail = \`\${startD}日 - \${endD}日\`; 
-                        value = \`$\${amount}\`;
+                        detail = startD + '日 - ' + endD + '日'; 
+                        value = '$' + amount;
                     } else { 
                         grandTotalMoney += amount;
-                        typeLabel = \`<span class="text-emerald-400 font-bold">Call</span>\`;
+                        typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
                         // 移除外包裝的括號 ()
-                        detail = r.location ? \`<span class="text-gray-400">\text{\${r.location}}</span>\` : '-';
-                        value = \`$\${amount}\`;
+                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        value = '$' + amount;
                     }
 
                     const [yr, mo, dy] = r.date.split('-');
-                    const formattedDate = \`\${yr}年\${parseInt(mo)}月\${parseInt(dy)}日\`;
+                    const formattedDate = yr + '年' + parseInt(mo) + '月' + parseInt(dy) + '日';
 
-                    const deleteBtn = isShareMode ? '' : \`<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(\${r.id}, '\${r.date}')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>\`;
+                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>';
 
-                    // === 校正所有變數注入轉譯格式，確保沒有任何 \`s{}\` 的殘留 ===
-                    html += \`
-                        <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">
-                            <td class="py-2 text-xs md:text-sm">\${formattedDate}</td>
-                            <td class="py-2 text-xs md:text-sm">\${typeLabel}</td>
-                            <td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">\${detail}</td>
-                            <td class="py-2 text-right text-xs md:text-sm font-bold">\${value}</td>
-                            \${deleteBtn}
-                        </tr>
-                    \`;
+                    // === 全面更換為標準字串拼接，徹底杜絕 s{} 的殘留與干擾 ===
+                    html += '<tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">' +
+                        '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
+                        '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
+                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">' + detail + '</td>' +
+                        '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
+                        deleteBtn +
+                        '</tr>';
                 });
                 
                 html += '</tbody></table>';
