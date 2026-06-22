@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Mon Jun 22 11:29:38 UTC 2026
+Generated on: Mon Jun 22 11:30:39 UTC 2026
 
 ## File: README.md
 ````md
@@ -504,11 +504,11 @@ export const pdfScript = `
                 if (r.type === 'hourly') {
                     itemStr = r.location || 'OT';
                     const mins = getMinutesDiff(r.start, r.end);
-                    detailStr = \`\${r.start.replace(':','')} - \${r.end.replace(':','')}\`;
+                    detailStr = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
                     const mul = r.multiplier || 1;
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
-                    if (mul > 1) valStr += \` (x\${mul})\`;
+                    if (mul > 1) valStr += ' (x' + mul + ')';
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
@@ -521,7 +521,7 @@ export const pdfScript = `
                     itemStr = '當更 On-Call';
                     const startD = r.date.split('-')[2];
                     const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                    detailStr = \`\${startD}日 - \${endD}日\`;
+                    detailStr = startD + '日 - ' + endD + '日';
                     detailFont = chineseFont;
                     valStr = '$' + amount;
                     rowColor = colorGreen;
@@ -571,8 +571,8 @@ export const pdfScript = `
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             
-            let filename = \`OT_Record_\${monthStr}.pdf\`;
-            if (window.USER_NAME) filename = \`OT_Record_\${monthStr}_\${window.USER_NAME}.pdf\`;
+            let filename = 'OT_Record_' + monthStr + '.pdf';
+            if (window.USER_NAME) filename = 'OT_Record_' + monthStr + '_' + window.USER_NAME + '.pdf';
             link.download = filename;
             
             link.click();
