@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Jun 25 10:00:07 UTC 2026
+Generated on: Thu Jun 25 10:01:09 UTC 2026
 
 ## File: README.md
 ````md
@@ -435,7 +435,7 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 修改重點：獲取純文字字型並還原 ===
+            // === 獲取純文字字型並還原 ===
             const fontUrl = '/api/font'; 
 
             const fontRes = await fetch(fontUrl);
@@ -470,6 +470,7 @@ export const pdfScript = `
             const colorBlack = rgb(0, 0, 0);
             const colorGreen = rgb(0, 0.5, 0);
             const colorOrange = rgb(0.85, 0.5, 0);
+            const colorBlue = rgb(0.38, 0.4, 0.94); // 藍色主題色 (對應網頁端 indigo-400)
 
             const monthStr = document.getElementById('queryMonth').value;
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
@@ -514,7 +515,6 @@ export const pdfScript = `
                     rowColor = colorBlack;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
-                    // 移除 PDF 詳情外側的括號 ()
                     detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont; 
                     valStr = '$' + amount;
@@ -529,7 +529,6 @@ export const pdfScript = `
                     rowColor = colorGreen;
                 } else { 
                     itemStr = 'Call';
-                    // 移除 PDF 詳情外側的括號 ()
                     detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont;
                     valStr = '$' + amount;
@@ -552,22 +551,32 @@ export const pdfScript = `
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            drawTxt("總時數: ", 350, chineseFont);
-            drawTxt(formatHours(grandTotalMinutes) + " hr", 410, helveticaBold);
-            yPos -= 20;
-
-            drawTxt("總收入: ", 350, chineseFont);
-            drawTxt("$" + grandTotalMoney, 410, helveticaBold, colorGreen);
-            yPos -= 20;
-
-            drawTxt("總交通: ", 350, chineseFont);
-            drawTxt("$" + grandTotalTransport, 410, helveticaBold, colorOrange);
-            yPos -= 20;
-
-            const totalAll = grandTotalMoney + grandTotalTransport;
-            drawTxt("總計:", 350, chineseFont); 
-            drawTxt("$" + totalAll, 410, helveticaBold, colorBlack); 
+            // === 依據您的指定，重新安排 PDF 底部統計區塊的輸出順序 ===
             
+            // 1. 總當更/Call
+            drawTxt("總當更/Call: ", 350, chineseFont);
+            drawTxt("$" + grandTotalMoney, 440, helveticaBold, colorGreen);
+            yPos -= 20;
+
+            // 2. 總交通
+            drawTxt("總交通: ", 350, chineseFont);
+            drawTxt("$" + grandTotalTransport, 440, helveticaBold, colorOrange);
+            yPos -= 15;
+
+            // 3. 統計小分隔線
+            page.drawLine({ start: { x: 350, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 0.5, color: rgb(0.7,0.7,0.7) });
+            yPos -= 20;
+
+            // 4. 總計 (含交通)
+            drawTxt("總計 (含交通): ", 350, chineseFont); 
+            const totalAll = grandTotalMoney + grandTotalTransport;
+            drawTxt("$" + totalAll, 440, helveticaBold, colorBlack); 
+            yPos -= 20;
+
+            // 5. 總時數
+            drawTxt("總時數: ", 350, chineseFont);
+            drawTxt(formatHours(grandTotalMinutes) + " hr", 440, helveticaBold, colorBlue);
+
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
