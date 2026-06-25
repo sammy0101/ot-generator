@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Jun 25 10:07:05 UTC 2026
+Generated on: Thu Jun 25 10:13:11 UTC 2026
 
 ## File: README.md
 ````md
@@ -514,7 +514,7 @@ export const pdfScript = `
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
                     if (mul > 1) valStr += ' (x' + mul + ')';
-                    rowColor = colorBlack;
+                    rowColor = colorBlue; // === 已調整：時數數值同步改為與系統一致的藍色 ===
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
                     detailStr = r.location ? r.location : '-';
