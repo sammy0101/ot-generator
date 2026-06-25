@@ -542,10 +542,11 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
+                // === 網頁表頭修改：與 PDF 報表完全一致（日期、項目/地點、時間/詳情、時數/金額） ===
+                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
                 
                 if (isShareMode) {
-                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目</th><th class="text-right">詳情</th><th class="text-right">數值</th></tr></thead><tbody>';
+                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
                 }
 
                 data.forEach(r => {
@@ -559,28 +560,43 @@ export const logicScript = `
                         const mul = r.multiplier || 1;
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
-                        // === OT 項目（如超一、Server Room）設定為 Aslan 的靛藍色，使其與月曆代表色一致 ===
+                        
+                        // 1. 項目/地點：藍色
                         typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
                         detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
-                        const mulLabel = mul > 1 ? ' <span class="text-indigo-400 font-bold">(x' + mul + ')</span>' : '';
-                        value = formatHours(effectiveMins) + ' hr' + mulLabel;
+                        const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
+                        
+                        // 2. 時數/金額：同步上色（藍色）
+                        value = '<span class="text-indigo-400 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
+                        
+                        // 1. 項目/地點：橙色
                         typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
-                        value = '$' + amount;
+                        
+                        // 2. 時數/金額：同步上色（橙色）
+                        value = '<span class="text-amber-400 font-bold">$' + amount + '</span>';
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
+                        
+                        // 1. 項目/地點：綠色
                         typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = startD + '日 - ' + endD + '日'; 
-                        value = '$' + amount;
+                        
+                        // 2. 時數/金額：同步上色（綠色）
+                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
                     } else { 
                         grandTotalMoney += amount;
+                        
+                        // 1. 項目/地點：綠色
                         typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
-                        value = '$' + amount;
+                        
+                        // 2. 時數/金額：同步上色（綠色）
+                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
                     }
 
                     const [yr, mo, dy] = r.date.split('-');
