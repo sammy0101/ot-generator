@@ -246,16 +246,18 @@ export const htmlContent = `
                 <p class="text-center text-gray-500">請查詢</p>
             </div>
 
+            <!-- 總結數據欄位（依使用者指定順序重新編排） -->
             <div id="totalSummary" class="text-right border-t border-gray-700 pt-4 space-y-1 hidden text-sm sm:text-base">
-                <div class="text-gray-300">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-xl">0</span> hr</div>
-                <div class="text-gray-300">總收入: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
+                <div class="text-gray-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
                 <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
                 
-                <!-- 網頁 UI 底部移除顯示姓名欄位，使統計更簡明 -->
-                <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 flex justify-end items-center">
-                    <span>總計 (含交通): <span id="sumAll" class="font-bold text-xl">$0</span></span>
+                <!-- 底部隔線及統計，將總時數移至最底端 -->
+                <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 space-y-1">
+                    <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-gray-100 font-bold">$0</span></div>
+                    <div class="text-gray-300 text-xs sm:text-sm">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-base">0</span> hr</div>
                 </div>
             </div>
+            
             <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
                 下載 PDF 報表
             </button>
