@@ -92,7 +92,7 @@ export const pdfScript = `
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
                     if (mul > 1) valStr += ' (x' + mul + ')';
-                    rowColor = colorBlue; // === 已調整：時數數值同步改為與系統一致的藍色 ===
+                    rowColor = colorBlue;
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
                     detailStr = r.location ? r.location : '-';
@@ -117,7 +117,10 @@ export const pdfScript = `
 
                 drawTxt(r.date, col.d, helvetica);
                 const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
-                drawTxt(safeItem, col.item, chineseFont);
+                
+                // === 已優化調整：將項目欄位（safeItem）也帶入與金額相同的 rowColor，實現統一上色 ===
+                drawTxt(safeItem, col.item, chineseFont, rowColor);
+                
                 drawTxt(detailStr, col.detail, detailFont);
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
 
