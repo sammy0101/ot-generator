@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Jun 25 10:01:09 UTC 2026
+Generated on: Thu Jun 25 10:07:05 UTC 2026
 
 ## File: README.md
 ````md
@@ -366,15 +366,15 @@ export const htmlContent = `
                 <p class="text-center text-gray-500">請查詢</p>
             </div>
 
-            <!-- 總結數據欄位（依使用者指定順序重新編排） -->
+            <!-- 總結數據欄位（校正總時數至與其他行相同的 text-xl 比例大小） -->
             <div id="totalSummary" class="text-right border-t border-gray-700 pt-4 space-y-1 hidden text-sm sm:text-base">
                 <div class="text-gray-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
                 <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
                 
-                <!-- 底部隔線及統計，將總時數移至最底端 -->
+                <!-- 底部隔線及統計：將總時數的大小比例調校一致 -->
                 <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 space-y-1">
                     <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-gray-100 font-bold">$0</span></div>
-                    <div class="text-gray-300 text-xs sm:text-sm">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-base">0</span> hr</div>
+                    <div class="text-gray-300">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-xl">0</span> hr</div>
                 </div>
             </div>
             
@@ -384,6 +384,8 @@ export const htmlContent = `
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
+</body>
+</html>
 `;
 
 ````
