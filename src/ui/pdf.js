@@ -92,7 +92,7 @@ export const pdfScript = `
                     const effectiveMins = mins * mul;
                     valStr = formatHours(effectiveMins) + ' hr';
                     if (mul > 1) valStr += ' (x' + mul + ')';
-                    rowColor = colorBlack;
+                    rowColor = colorBlue; // === 已調整：時數數值同步改為與系統一致的藍色 ===
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
                     detailStr = r.location ? r.location : '-';
