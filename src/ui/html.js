@@ -72,6 +72,11 @@ export const htmlContent = `
             font-size: 0.8em;
         }
 
+        /* 編輯模式下，月份按鈕呈現輕微 wiggling 以示警告（可选） */
+        .edit-mode .month-btn {
+            border-color: #ef4444 !important;
+        }
+
         .history-chip {
             display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; 
             border-radius: 9999px; font-size: 0.75rem; font-weight: 500; 
@@ -263,6 +268,28 @@ export const htmlContent = `
             </button>
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
+    </div>
+
+    <!-- === 新增：管理月份的 Action Sheet / 彈出式底部選單（徹底阻斷误觸） === -->
+    <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <!-- 點擊內部區塊時防止因冒泡事件關閉視窗 -->
+        <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
+            <div class="text-center">
+                <h3 id="modalMonthTitle" class="text-lg font-bold text-gray-100 font-mono">管理月份</h3>
+                <p class="text-xs text-gray-400 mt-1">請選擇要對該月份執行的安全操作</p>
+            </div>
+            <div class="flex flex-col gap-2.5 pt-2">
+                <button type="button" id="modalToggleSentBtn" class="w-full py-3.5 px-4 text-sm font-bold text-emerald-200 bg-emerald-950/80 border border-emerald-800 rounded-xl hover:bg-emerald-900 transition flex items-center justify-center gap-2">
+                    <span id="modalToggleSentIcon">📤</span> <span id="modalToggleSentText">標記為已提交</span>
+                </button>
+                <button type="button" id="modalDeleteBtn" class="w-full py-3.5 px-4 text-sm font-bold text-red-200 bg-red-950/80 border border-red-900 rounded-xl hover:bg-red-900 transition flex items-center justify-center gap-2">
+                    🗑️ 刪除整月資料
+                </button>
+                <button type="button" onclick="closeMonthModal()" class="w-full py-3.5 px-4 text-sm font-bold text-gray-300 bg-gray-700/60 border border-gray-600 rounded-xl hover:bg-gray-600 transition">
+                    取消
+                </button>
+            </div>
+        </div>
     </div>
 </body>
 </html>
