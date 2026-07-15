@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Jun 25 10:23:04 UTC 2026
+Generated on: Wed Jul 15 10:32:36 UTC 2026
 
 ## File: README.md
 ````md
@@ -671,7 +671,9 @@ export const logicScript = `
         }
     }
 
-    (function init() {
+    (init)();
+
+    function init() {
         // 網頁 UI 底部不顯示名字，僅供 PDF 使用
         updateDuration();
 
@@ -707,7 +709,7 @@ export const logicScript = `
             renderHistoryChips('location', 'history-location', 'location');
             renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
-    })();
+    }
 
     function managePinStorage() {
         if(isShareMode) return;
@@ -740,6 +742,8 @@ export const logicScript = `
             btn.innerText = '✏️';
             container.classList.remove('edit-mode');
         }
+        // === 模式切換時，立即重新繪製月份按鈕/管理清單 ===
+        renderMonthButtons();
     }
 
     async function toggleSent(month, btnElement) {
@@ -781,7 +785,7 @@ export const logicScript = `
         });
     }
 
-    // === 渲染月份按鈕 ===
+    // === 重新設計的月份按鈕 / 管理清單渲染（徹底杜絕行動端誤觸） ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -789,18 +793,38 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            badges.innerHTML = sortedMonths.map(m => {
-                const isSent = sentMonths.has(m);
-                const btnClass = isSent 
-                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm"
-                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm";
+            
+            if (isEditMode) {
+                // 1. 編輯模式：改為垂直安全清單，按鈕分離且放大，適合手機拇指安全操作
+                badges.className = "flex flex-col gap-2 mb-4 max-h-60 overflow-y-auto no-scrollbar border border-gray-700 bg-gray-900/40 p-2 rounded-lg";
+                badges.innerHTML = sortedMonths.map(m => {
+                    const isSent = sentMonths.has(m);
+                    const statusBtnClass = isSent
+                        ? "flex-1 py-1.5 px-2 text-xs font-bold text-emerald-200 bg-emerald-950 border border-emerald-800 rounded-md transition hover:bg-emerald-900"
+                        : "flex-1 py-1.5 px-2 text-xs font-bold text-gray-300 bg-gray-700 border border-gray-600 rounded-md transition hover:bg-gray-600";
+                    
+                    return '<div class="flex items-center justify-between bg-gray-800/80 border border-gray-700/60 p-2 rounded-lg gap-3">' +
+                        '<span class="text-sm font-mono font-bold text-indigo-300 ml-1">' + (isSent ? '✓ ' : '') + m + '</span>' +
+                        '<div class="flex items-center gap-2 flex-1 justify-end max-w-[200px]">' +
+                            '<button type="button" onclick="toggleSent(\\'' + m + '\\', this)" class="' + statusBtnClass + '">' + (isSent ? '已提交' : '標記提交') + '</button>' +
+                            '<button type="button" onclick="deleteMonth(\\'' + m + '\\', this)" class="py-1.5 px-3 text-xs font-bold text-white bg-red-600/90 border border-red-700 rounded-md hover:bg-red-500 transition">刪除</button>' +
+                        '</div>' +
+                        '</div>';
+                }).join('');
+            } else {
+                // 2. 正常檢視模式：維持緊湊美觀的格狀按鈕，無多餘懸浮圓點
+                badges.className = "grid grid-cols-4 md:grid-cols-6 gap-2 mb-4";
+                badges.innerHTML = sortedMonths.map(m => {
+                    const isSent = sentMonths.has(m);
+                    const btnClass = isSent 
+                        ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm"
+                        : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm";
 
-                return '<div class="relative w-full">' +
-                    '<button type="button" onclick="document.getElementById(\\'queryMonth\\').value=\\'' + m + '\\';loadRecords();" class="' + btnClass + '">' + m + '</button>' +
-                    '<button type="button" onclick="toggleSent(\\'' + m + '\\', this)" class="status-ui absolute -top-1 -left-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white ' + (isSent ? 'bg-gray-500 hover:bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-500') + ' rounded-full shadow-md border border-white dark:border-gray-800 transition transform hover:scale-110" title="' + (isSent ? '取消已發送' : '標記為已發送') + '">' + (isSent ? '✕' : '📤') + '</button>' +
-                    '<button type="button" onclick="deleteMonth(\\'' + m + '\\', this)" class="delete-ui absolute -top-1 -right-1 w-5 h-5 items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full shadow-md hover:bg-red-500 border border-white dark:border-gray-800 transition transform hover:scale-110" title="刪除整月">✕</button>' +
-                    '</div>';
-            }).join('');
+                    return '<div class="relative w-full">' +
+                        '<button type="button" onclick="document.getElementById(\\'queryMonth\\').value=\\'' + m + '\\';loadRecords();" class="' + btnClass + '">' + m + '</button>' +
+                        '</div>';
+                }).join('');
+            }
         } else {
             area.classList.add('hidden');
         }
@@ -914,10 +938,9 @@ export const logicScript = `
                 body: JSON.stringify({ pin, month })
             });
             if(res.ok) { 
-                btnElement.parentNode.remove();
                 knownMonths.delete(month);
                 sentMonths.delete(month);
-                renderMonthButtons(); // 直接更新按鈕
+                renderMonthButtons(); // 動態刷新列表
 
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
@@ -928,7 +951,7 @@ export const logicScript = `
                 }
                 alert('已刪除 ' + month + ' 的資料');
             } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '✕'; }
+        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '刪除'; }
     }
 
     async function fetchHistoryMonths() {
