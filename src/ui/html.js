@@ -72,7 +72,7 @@ export const htmlContent = `
             font-size: 0.8em;
         }
 
-        /* 編輯模式下，月份按鈕呈現輕微 wiggling 以示警告（可选） */
+        /* 編輯模式下，月份按鈕呈現醒目框線 */
         .edit-mode .month-btn {
             border-color: #ef4444 !important;
         }
@@ -205,7 +205,6 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -270,9 +269,8 @@ export const htmlContent = `
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 
-    <!-- === 新增：管理月份的 Action Sheet / 彈出式底部選單（徹底阻斷误觸） === -->
+    <!-- 管理月份的 Action Sheet / 彈出式底部選單 -->
     <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <!-- 點擊內部區塊時防止因冒泡事件關閉視窗 -->
         <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
             <div class="text-center">
                 <h3 id="modalMonthTitle" class="text-lg font-bold text-gray-100 font-mono">管理月份</h3>
