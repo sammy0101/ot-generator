@@ -1,118 +1,310 @@
 # Complete Project Codebase
-Generated on: Wed Jul 15 10:39:21 UTC 2026
+Generated on: Tue Aug 11 10:52:38 UTC 2026
 
-## File: README.md
-````md
-# OT 記錄器 Pro (OT Record Generator)
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
 
-一個基於 Cloudflare Workers 與 KV 構建的輕量級加班、當更與交通費記錄工具。支援自動生成 PDF 報表、月曆視覺化顯示以及唯讀分享功能。
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
 
-![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)
-![KV Storage](https://img.shields.io/badge/Database-Workers_KV-blue?style=flat-square)
-![PDF Generation](https://img.shields.io/badge/PDF-pdf--lib-red?style=flat-square)
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
-## ✨ 主要功能
+````
 
-*   **多種類型記錄**：
-    *   🕒 **時數 OT**：記錄加班時段，自動計算時數。
-    *   📅 **當更 (On-Call)**：記錄當更日期範圍與津貼。
-    *   📞 **Call**：記錄每次出勤津貼與備註。
-    *   🚕 **交通費**：記錄實報實銷的交通費用（支援下拉選單：停車場、隧道、維修等）。
-*   **視覺化月曆**：
-    *   以顏色區分不同類型的記錄（藍色 OT、綠色 收入、橙色 交通）。
-    *   支援**雙色/三色條紋**顯示，若同一天有多種類型記錄，格子會自動變色。
-*   **PDF 報表生成**：
-    *   前端自動生成 A4 格式 PDF。
-    *   支援**中文字型** (Noto Sans TC)。
-    *   自動計算總時數、總收入與總交通費。
-    *   檔名與內容自動帶入使用者名稱。
-*   **安全性與分享**：
-    *   **PIN 碼保護**：寫入與讀取資料需輸入密碼（支援「記住密碼」）。
-    *   **分享連結**：可生成唯讀連結，供他人查看或下載報表，無需密碼。
-*   **現代化介面**：使用 Tailwind CSS 設計，響應式佈局，手機電腦皆可用。
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
 
-## 🛠️ 技術架構
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
 
-*   **Runtime**: Cloudflare Workers (Serverless)
-*   **Database**: Cloudflare Workers KV (Key-Value Storage)
-*   **Frontend**: Vanilla JS + Tailwind CSS (由 Worker 直接回傳 HTML)
-*   **PDF Library**: `pdf-lib` + `fontkit`
-*   **CI/CD**: GitHub Actions 自動部署
+permissions:
+  contents: write
 
-## 🚀 部署教學
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-本專案設計為使用 **GitHub Actions** 進行自動部署，您無需在本地安裝複雜環境。
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-### 1. 前置準備
-1.  擁有一個 Cloudflare 帳號。
-2.  Fork 或 Clone 此儲存庫到您的 GitHub。
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
 
-### 2. 設定 Cloudflare
-1.  登入 Cloudflare Dashboard，進入 **Workers & Pages**。
-2.  建立一個 **KV Namespace**：
-    *   名稱隨意，例如 `OT_RECORDS`。
-    *   建立後，複製該 Namespace 的 **ID**。
-3.  獲取 **Account ID** (在 Workers 首頁右側)。
-4.  建立 **API Token**：
-    *   權限選擇「Edit Cloudflare Workers」。
-    *   **重要**：確保該 Token 有權限編輯 KV Storage。
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
 
-### 3. 設定 GitHub Secrets
-進入您的 GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**，新增以下 Repository secrets：
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
 
-| Secret 名稱 | 說明 | 範例 |
-| :--- | :--- | :--- |
-| `CLOUDFLARE_API_TOKEN` | 您的 Cloudflare API Token | `xRw...` |
-| `CLOUDFLARE_ACCOUNT_ID` | 您的 Cloudflare Account ID | `a1b2...` |
-| `OT_KV_ID` | 步驟 2 建立的 KV Namespace ID | `4f8e...` |
-| `AUTH_PIN` | 您想設定的登入密碼 (PIN) | `123456` |
-| `USER_NAME` | 您的名字 (顯示在報表與 PDF 上) | `陳大文` |
+````
 
-### 4. 開始部署
-*   只要您 `git push` 到 `main` 分支，GitHub Actions 就會自動觸發並部署到 Cloudflare Workers。
-*   您也可以在 GitHub Actions 頁面手動觸發部署 (Workflow Dispatch)。
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
 
-## 📂 專案結構
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-```text
-ot-generator/
-├── .github/workflows/
-│   └── deploy.yml      # GitHub Actions 部署腳本
-├── src/
-│   ├── index.js        # 程式入口與路由 (Router)
-│   ├── api.js          # 後端邏輯 (CRUD KV 資料庫)
-│   └── ui/             # 前端程式碼
-│       ├── index.js    # UI 組裝
-│       ├── html.js     # HTML 結構與 CSS
-│       ├── logic.js    # 前端互動邏輯 (Fetch, Calendar, UI control)
-│       └── pdf.js      # PDF 生成邏輯 (pdf-lib)
-└── wrangler.toml       # Cloudflare 設定檔模板
-```
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-## 📖 使用說明
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
 
-1.  **登入**：開啟部署後的網址，輸入您在 Secrets 設定的 `AUTH_PIN`。
-2.  **新增記錄**：
-    *   選擇類型 (OT / 當更 / Call / 交通)。
-    *   填寫日期、時間或金額。
-    *   按下「儲存記錄」。
-3.  **月結報表**：
-    *   切換到「月結報表」分頁。
-    *   系統會自動列出已有記錄的月份，點擊按鈕即可載入。
-    *   點擊「下載 PDF 報表」即可匯出檔案。
-4.  **刪除資料**：
-    *   單筆刪除：點擊列表右側的垃圾桶圖示。
-    *   整月刪除：在月份按鈕旁點擊 `✕`。
-5.  **分享**：
-    *   在月結報表頁面點擊 🔗 按鈕，複製連結給他人。該連結不需要 PIN 碼即可查看。
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
 
-## 📝 注意事項
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
 
-*   **資料延遲**：Cloudflare KV 具有「最終一致性」特性，刪除或新增資料後，列表更新可能會有數秒鐘的延遲，這是正常現象。本程式已在前端做了快取優化來改善體驗。
-*   **中文字型**：PDF 生成使用 Google Noto Sans TC (思源黑體) 的 CDN 資源，首次生成可能需要下載字型檔，請稍候片刻。
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
 
----
-Created with ❤️ by Cloudflare Workers
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: src/api.js
+````js
+export async function handleAdd(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) records =[];
+
+        records.push({
+            id: Date.now(),
+            type: data.type || 'hourly',
+            date: data.date,
+            endDate: data.endDate,
+            location: data.location,
+            start: data.start,
+            end: data.end,
+            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
+            amount: data.amount ? parseInt(data.amount) : 0,
+            timestamp: new Date().toISOString()
+        });
+
+        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDelete(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+
+        const newRecords = records.filter(r => r.id !== data.id);
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDeleteMonth(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        const monthKey = `OT_${data.month}`;
+        await env.OT_RECORDS.delete(monthKey);
+        
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleToggleSent(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+        } else {
+            sentList.push(data.month);
+        }
+        
+        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+
+        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handlePublicGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleListMonths(request, env) {
+    const url = new URL(request.url);
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    
+    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
+    const months = list.keys
+        .map(k => k.name.replace('OT_', ''))
+        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
+    
+    months.sort().reverse();
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 從 KV 讀取 Base64 純文字字型 ===
+export async function handleGetFont(request, env) {
+    try {
+        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
+        if (!b64) return new Response("Font not found in KV", { status: 404 });
+        
+        return new Response(b64, {
+            headers: {
+                "Content-Type": "text/plain",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
 
 ````
 
@@ -192,7 +384,7 @@ export const htmlContent = `
             font-size: 0.8em;
         }
 
-        /* 編輯模式下，月份按鈕呈現輕微 wiggling 以示警告（可选） */
+        /* 編輯模式下，月份按鈕呈現醒目框線 */
         .edit-mode .month-btn {
             border-color: #ef4444 !important;
         }
@@ -325,7 +517,6 @@ export const htmlContent = `
                     <div id="field-remarks">
                         <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
                         <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        <div id="history-remarks" class="flex flex-wrap gap-2 mt-2"></div>
                         <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="停車場">停車場</option>
                             <option value="隧道">隧道</option>
@@ -390,9 +581,8 @@ export const htmlContent = `
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 
-    <!-- === 新增：管理月份的 Action Sheet / 彈出式底部選單（徹底阻斷误觸） === -->
+    <!-- 管理月份的 Action Sheet / 彈出式底部選單 -->
     <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <!-- 點擊內部區塊時防止因冒泡事件關閉視窗 -->
         <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
             <div class="text-center">
                 <h3 id="modalMonthTitle" class="text-lg font-bold text-gray-100 font-mono">管理月份</h3>
@@ -1360,310 +1550,118 @@ export default {
 
 ````
 
-## File: src/api.js
-````js
-export async function handleAdd(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+## File: README.md
+````md
+# OT 記錄器 Pro (OT Record Generator)
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) records =[];
+一個基於 Cloudflare Workers 與 KV 構建的輕量級加班、當更與交通費記錄工具。支援自動生成 PDF 報表、月曆視覺化顯示以及唯讀分享功能。
 
-        records.push({
-            id: Date.now(),
-            type: data.type || 'hourly',
-            date: data.date,
-            endDate: data.endDate,
-            location: data.location,
-            start: data.start,
-            end: data.end,
-            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
-            amount: data.amount ? parseInt(data.amount) : 0,
-            timestamp: new Date().toISOString()
-        });
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)
+![KV Storage](https://img.shields.io/badge/Database-Workers_KV-blue?style=flat-square)
+![PDF Generation](https://img.shields.io/badge/PDF-pdf--lib-red?style=flat-square)
 
-        records.sort((a, b) => new Date(a.date) - new Date(b.date));
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
+## ✨ 主要功能
 
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
+*   **多種類型記錄**：
+    *   🕒 **時數 OT**：記錄加班時段，自動計算時數。
+    *   📅 **當更 (On-Call)**：記錄當更日期範圍與津貼。
+    *   📞 **Call**：記錄每次出勤津貼與備註。
+    *   🚕 **交通費**：記錄實報實銷的交通費用（支援下拉選單：停車場、隧道、維修等）。
+*   **視覺化月曆**：
+    *   以顏色區分不同類型的記錄（藍色 OT、綠色 收入、橙色 交通）。
+    *   支援**雙色/三色條紋**顯示，若同一天有多種類型記錄，格子會自動變色。
+*   **PDF 報表生成**：
+    *   前端自動生成 A4 格式 PDF。
+    *   支援**中文字型** (Noto Sans TC)。
+    *   自動計算總時數、總收入與總交通費。
+    *   檔名與內容自動帶入使用者名稱。
+*   **安全性與分享**：
+    *   **PIN 碼保護**：寫入與讀取資料需輸入密碼（支援「記住密碼」）。
+    *   **分享連結**：可生成唯讀連結，供他人查看或下載報表，無需密碼。
+*   **現代化介面**：使用 Tailwind CSS 設計，響應式佈局，手機電腦皆可用。
 
-export async function handleDelete(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+## 🛠️ 技術架構
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+*   **Runtime**: Cloudflare Workers (Serverless)
+*   **Database**: Cloudflare Workers KV (Key-Value Storage)
+*   **Frontend**: Vanilla JS + Tailwind CSS (由 Worker 直接回傳 HTML)
+*   **PDF Library**: `pdf-lib` + `fontkit`
+*   **CI/CD**: GitHub Actions 自動部署
 
-        const newRecords = records.filter(r => r.id !== data.id);
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+## 🚀 部署教學
 
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
+本專案設計為使用 **GitHub Actions** 進行自動部署，您無需在本地安裝複雜環境。
 
-export async function handleDeleteMonth(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-        const monthKey = `OT_${data.month}`;
-        await env.OT_RECORDS.delete(monthKey);
-        
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-        }
+### 1. 前置準備
+1.  擁有一個 Cloudflare 帳號。
+2.  Fork 或 Clone 此儲存庫到您的 GitHub。
 
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
+### 2. 設定 Cloudflare
+1.  登入 Cloudflare Dashboard，進入 **Workers & Pages**。
+2.  建立一個 **KV Namespace**：
+    *   名稱隨意，例如 `OT_RECORDS`。
+    *   建立後，複製該 Namespace 的 **ID**。
+3.  獲取 **Account ID** (在 Workers 首頁右側)。
+4.  建立 **API Token**：
+    *   權限選擇「Edit Cloudflare Workers」。
+    *   **重要**：確保該 Token 有權限編輯 KV Storage。
 
-export async function handleToggleSent(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+### 3. 設定 GitHub Secrets
+進入您的 GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**，新增以下 Repository secrets：
 
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-        } else {
-            sentList.push(data.month);
-        }
-        
-        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+| Secret 名稱 | 說明 | 範例 |
+| :--- | :--- | :--- |
+| `CLOUDFLARE_API_TOKEN` | 您的 Cloudflare API Token | `xRw...` |
+| `CLOUDFLARE_ACCOUNT_ID` | 您的 Cloudflare Account ID | `a1b2...` |
+| `OT_KV_ID` | 步驟 2 建立的 KV Namespace ID | `4f8e...` |
+| `AUTH_PIN` | 您想設定的登入密碼 (PIN) | `123456` |
+| `USER_NAME` | 您的名字 (顯示在報表與 PDF 上) | `陳大文` |
 
-        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
+### 4. 開始部署
+*   只要您 `git push` 到 `main` 分支，GitHub Actions 就會自動觸發並部署到 Cloudflare Workers。
+*   您也可以在 GitHub Actions 頁面手動觸發部署 (Workflow Dispatch)。
 
-export async function handleGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
+## 📂 專案結構
 
-export async function handlePublicGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
+```text
+ot-generator/
+├── .github/workflows/
+│   └── deploy.yml      # GitHub Actions 部署腳本
+├── src/
+│   ├── index.js        # 程式入口與路由 (Router)
+│   ├── api.js          # 後端邏輯 (CRUD KV 資料庫)
+│   └── ui/             # 前端程式碼
+│       ├── index.js    # UI 組裝
+│       ├── html.js     # HTML 結構與 CSS
+│       ├── logic.js    # 前端互動邏輯 (Fetch, Calendar, UI control)
+│       └── pdf.js      # PDF 生成邏輯 (pdf-lib)
+└── wrangler.toml       # Cloudflare 設定檔模板
+```
 
-export async function handleListMonths(request, env) {
-    const url = new URL(request.url);
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    
-    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
-    const months = list.keys
-        .map(k => k.name.replace('OT_', ''))
-        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
-    
-    months.sort().reverse();
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+## 📖 使用說明
 
-    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
-}
+1.  **登入**：開啟部署後的網址，輸入您在 Secrets 設定的 `AUTH_PIN`。
+2.  **新增記錄**：
+    *   選擇類型 (OT / 當更 / Call / 交通)。
+    *   填寫日期、時間或金額。
+    *   按下「儲存記錄」。
+3.  **月結報表**：
+    *   切換到「月結報表」分頁。
+    *   系統會自動列出已有記錄的月份，點擊按鈕即可載入。
+    *   點擊「下載 PDF 報表」即可匯出檔案。
+4.  **刪除資料**：
+    *   單筆刪除：點擊列表右側的垃圾桶圖示。
+    *   整月刪除：在月份按鈕旁點擊 `✕`。
+5.  **分享**：
+    *   在月結報表頁面點擊 🔗 按鈕，複製連結給他人。該連結不需要 PIN 碼即可查看。
 
-// === 從 KV 讀取 Base64 純文字字型 ===
-export async function handleGetFont(request, env) {
-    try {
-        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        if (!b64) return new Response("Font not found in KV", { status: 404 });
-        
-        return new Response(b64, {
-            headers: {
-                "Content-Type": "text/plain",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
-        });
-    } catch (e) {
-        return new Response(e.message, { status: 500 });
-    }
-}
+## 📝 注意事項
 
-````
+*   **資料延遲**：Cloudflare KV 具有「最終一致性」特性，刪除或新增資料後，列表更新可能會有數秒鐘的延遲，這是正常現象。本程式已在前端做了快取優化來改善體驗。
+*   **中文字型**：PDF 生成使用 Google Noto Sans TC (思源黑體) 的 CDN 資源，首次生成可能需要下載字型檔，請稍候片刻。
 
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
-
-````
-
-## File: .github/workflows/deploy.yml
-````yml
-name: Deploy to Cloudflare Workers
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
-
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: .github/workflows/combine-code.yml
-````yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              # 寫入檔案標題
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
-              echo "\`\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
+---
+Created with ❤️ by Cloudflare Workers
 
 ````
 
