@@ -98,7 +98,6 @@ export const logicScript = `
                 fetchHistoryMonths();
             }
             renderHistoryChips('location', 'history-location', 'location');
-            renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
         }
     }
 
@@ -135,19 +134,19 @@ export const logicScript = `
         }
     }
 
-    // === 點擊月份按鈕時的路由分流控制（解決 misclick 的核心） ===
+    // === 點擊月份按鈕時的分流控制 ===
     function handleMonthClick(m) {
         if (isEditMode) {
             // 編輯模式：彈出管理彈出視窗
             openMonthModal(m);
         } else {
-            // 正常模式：直接載入歷史資料
+            // 正常模式：載入歷史資料
             document.getElementById('queryMonth').value = m;
             loadRecords();
         }
     }
 
-    // === 月份管理彈出視窗控制（Action Sheet 觸發動畫與動態綁定） ===
+    // === 月份管理彈出視窗控制（支持平滑動畫與相容按鈕事件） ===
     function openMonthModal(month) {
         const isSent = sentMonths.has(month);
         
@@ -155,14 +154,12 @@ export const logicScript = `
         document.getElementById('modalToggleSentText').innerText = isSent ? '取消提交狀態' : '標記為已提交';
         document.getElementById('modalToggleSentIcon').innerText = isSent ? '✕' : '📤';
         
-        // 動態綁定 Toggle 提交按鈕動作
         document.getElementById('modalToggleSentBtn').onclick = async () => {
             const btn = document.getElementById('modalToggleSentBtn');
             await toggleSent(month, btn);
             closeMonthModal();
         };
         
-        // 動態綁定 刪除 按鈕動作
         document.getElementById('modalDeleteBtn').onclick = async () => {
             const btn = document.getElementById('modalDeleteBtn');
             await deleteMonth(month, btn);
@@ -197,6 +194,39 @@ export const logicScript = `
         setTimeout(() => {
             modal.classList.add('hidden');
         }, 300);
+    }
+
+    // === 增強版的複製分享連結功能（含向後相容備用機制，解決非 HTTPS 或安全限制下的複製失敗） ===
+    function copyShareLink() {
+        const month = document.getElementById('queryMonth').value || today.toISOString().slice(0, 7);
+        const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
+            }).catch(() => {
+                fallbackCopyText(url);
+            });
+        } else {
+            fallbackCopyText(url);
+        }
+    }
+
+    function fallbackCopyText(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + text);
+        } catch (err) {
+            prompt('請手動複製分享連結：', text);
+        }
+        document.body.removeChild(textarea);
     }
 
     async function toggleSent(month, btnElement) {
@@ -242,7 +272,7 @@ export const logicScript = `
             if(res.ok) { 
                 knownMonths.delete(month);
                 sentMonths.delete(month);
-                renderMonthButtons(); // 動態更新按鈕狀態
+                renderMonthButtons();
 
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
@@ -256,7 +286,7 @@ export const logicScript = `
         } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '刪除整月資料'; }
     }
 
-    // === 正常狀態下的格狀月份按鈕渲染 ===
+    // === 月份按鈕渲染 ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -271,7 +301,6 @@ export const logicScript = `
                     ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm cursor-pointer"
                     : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm cursor-pointer";
 
-                // 將 onclick 導向統一分流處理函式 handleMonthClick
                 return '<div class="relative w-full">' +
                     '<button type="button" onclick="handleMonthClick(\\'' + m + '\\')" class="' + btnClass + '">' + m + '</button>' +
                     '</div>';
@@ -384,7 +413,7 @@ export const logicScript = `
         if(!pin) return;
         managePinStorage();
         try {
-            const res = await fetch(\`/api/list_months?pin=\${pin}\`);
+            const res = await fetch('/api/list_months?pin=' + pin);
             const data = await res.json();
             if(!data.error) {
                 knownMonths.clear();
@@ -475,9 +504,7 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    if (payload.location) {
-                        updateHistory('remarks', payload.location);
-                    }
+                    // 已移除 Call 頁面備註存入歷史紀錄的邏輯
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
@@ -496,7 +523,6 @@ export const logicScript = `
                 knownMonths.add(currentMonth);
                 fetchHistoryMonths();
                 renderHistoryChips('location', 'history-location', 'location');
-                renderHistoryChips('remarks', 'history-remarks', 'moneyRemarks');
                 setTimeout(() => document.getElementById('msg').innerText = '', 2000);
             } else { throw new Error(await res.text()); }
         } catch(err) { alert(err.message); } 
@@ -599,7 +625,6 @@ export const logicScript = `
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                // === 網頁表頭修改：與 PDF 報表完全一致（日期、項目/地點、時間/詳情、時數/金額） ===
                 let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
                 
                 if (isShareMode) {
@@ -618,41 +643,33 @@ export const logicScript = `
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
                         
-                        // 1. 項目/地點：藍色
                         typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
                         detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
                         const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
                         
-                        // 2. 時數/金額：同步上色（藍色）
                         value = '<span class="text-indigo-400 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         
-                        // 1. 項目/地點：橙色
                         typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
                         
-                        // 2. 時數/金額：同步上色（橙色）
                         value = '<span class="text-amber-400 font-bold">$' + amount + '</span>';
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
                         
-                        // 1. 項目/地點：綠色
                         typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = startD + '日 - ' + endD + '日'; 
                         
-                        // 2. 時數/金額：同步上色（綠色）
                         value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
                     } else { 
                         grandTotalMoney += amount;
                         
-                        // 1. 項目/地點：綠色
                         typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
                         detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
                         
-                        // 2. 時數/金額：同步上色（綠色）
                         value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
                     }
 
