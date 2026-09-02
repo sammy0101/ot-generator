@@ -1,167 +1,5 @@
 # Complete Project Codebase
-Generated on: Tue Aug 11 10:53:03 UTC 2026
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
-
-````
-
-## File: .github/workflows/combine-code.yml
-````yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              # 寫入檔案標題
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
-              echo "\`\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
-
-````
-
-## File: .github/workflows/deploy.yml
-````yml
-name: Deploy to Cloudflare Workers
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
-
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
+Generated on: Wed Sep  2 05:07:14 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -305,6 +143,936 @@ export async function handleGetFont(request, env) {
         return new Response(e.message, { status: 500 });
     }
 }
+
+````
+
+## File: src/ui/logic.js
+````js
+export const logicScript = `
+    const today = new Date();
+    document.getElementById('date').valueAsDate = today;
+    document.getElementById('endDate').valueAsDate = today;
+    document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
+    
+    let currentRecords = [];
+    let grandTotalMinutes = 0;
+    let grandTotalMoney = 0;
+    let grandTotalTransport = 0;
+    let knownMonths = new Set();
+    let sentMonths = new Set(); 
+    let isEditMode = false;
+    let modalCloseTimer = null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isShareMode = urlParams.get('view') === 'share';
+    const sharedMonth = urlParams.get('month');
+
+    // === 歷史記錄自訂儲存與渲染功能 ===
+    function updateHistory(key, value) {
+        if (!value || value.trim() === '') return;
+        try {
+            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            history = history.filter(v => v !== value);
+            history.unshift(value);
+            if (history.length > 5) history.pop();
+            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderHistoryChips(key, containerId, targetInputId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        try {
+            const history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            if (history.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = history.map(val => {
+                const escapedVal = val.replace(/'/g, "\\\\'");
+                return '<span class="history-chip" onclick="document.getElementById(\\'' + targetInputId + '\\').value=\\'' + escapedVal + '\\'; if(\\'' + targetInputId + '\\' === \\'location\\' && typeof updateDuration === \\'function\\') updateDuration();">' +
+                    val +
+                    '<span class="history-delete" onclick="event.stopPropagation(); deleteHistory(\\'' + key + '\\', \\'' + escapedVal + '\\', \\'' + containerId + '\\', \\'' + targetInputId + '\\')">×</span>' +
+                    '</span>';
+            }).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function deleteHistory(key, val, containerId, targetInputId) {
+        try {
+            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
+            history = history.filter(v => v !== val);
+            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
+            renderHistoryChips(key, containerId, targetInputId);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    (init)();
+
+    function init() {
+        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
+        updateDuration();
+
+        if (isShareMode) {
+            document.getElementById('mainTitleArea').classList.add('hidden');
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('tabContainer').classList.add('hidden');
+            document.getElementById('view-record').classList.add('hidden');
+            document.getElementById('view-export').classList.remove('hidden');
+            
+            document.getElementById('queryControls').classList.add('hidden');
+            document.getElementById('historyMonthsArea').classList.add('hidden');
+            
+            document.getElementById('shareHeader').classList.remove('hidden');
+            const monthLabel = sharedMonth ? ' (' + sharedMonth + ')' : '';
+            if (window.USER_NAME) {
+                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+            } else {
+                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
+            }
+
+            if (sharedMonth) {
+                document.getElementById('queryMonth').value = sharedMonth;
+                loadRecords(true); 
+            }
+        } else {
+            const savedPin = localStorage.getItem('ot_pin');
+            if (savedPin) {
+                document.getElementById('pin').value = savedPin;
+                document.getElementById('rememberPin').checked = true;
+                fetchHistoryMonths();
+            }
+            renderHistoryChips('location', 'history-location', 'location');
+        }
+    }
+
+    function managePinStorage() {
+        if(isShareMode) return;
+        const pin = document.getElementById('pin').value;
+        const remember = document.getElementById('rememberPin').checked;
+        if (remember && pin) {
+            localStorage.setItem('ot_pin', pin);
+        } else {
+            localStorage.removeItem('ot_pin');
+        }
+    }
+
+    function toggleEditMode() {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return alert('請先輸入 PIN 密碼才能進入管理模式');
+        
+        isEditMode = !isEditMode;
+        
+        const btn = document.getElementById('btn-edit');
+        const container = document.getElementById('view-export');
+        
+        if (isEditMode) {
+            btn.classList.add('bg-red-600', 'hover:bg-red-500');
+            btn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
+            btn.innerText = '完成';
+            container.classList.add('edit-mode'); 
+        } else {
+            btn.classList.add('bg-gray-600', 'hover:bg-gray-500');
+            btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+            btn.innerText = '✏️';
+            container.classList.remove('edit-mode');
+        }
+    }
+
+    // === 點擊月份按鈕時的分流控制 ===
+    function handleMonthClick(m) {
+        if (isEditMode) {
+            // 編輯模式：彈出管理彈出視窗
+            openMonthModal(m);
+        } else {
+            // 正常模式：載入歷史資料
+            document.getElementById('queryMonth').value = m;
+            loadRecords();
+        }
+    }
+
+    // === 月份管理彈出視窗控制（徹底解決連續點擊無反應問題） ===
+    function openMonthModal(month) {
+        if (modalCloseTimer) {
+            clearTimeout(modalCloseTimer);
+            modalCloseTimer = null;
+        }
+
+        const isSent = sentMonths.has(month);
+        
+        const titleEl = document.getElementById('modalMonthTitle');
+        if (titleEl) titleEl.innerText = '管理 ' + month;
+        
+        const textEl = document.getElementById('modalToggleSentText');
+        if (textEl) textEl.innerText = isSent ? '取消提交狀態' : '標記為已提交';
+        
+        const iconEl = document.getElementById('modalToggleSentIcon');
+        if (iconEl) iconEl.innerText = isSent ? '✕' : '📤';
+        
+        const toggleBtn = document.getElementById('modalToggleSentBtn');
+        if (toggleBtn) {
+            toggleBtn.disabled = false;
+            toggleBtn.onclick = async () => {
+                await toggleSent(month, toggleBtn);
+                closeMonthModal();
+            };
+        }
+        
+        const deleteBtn = document.getElementById('modalDeleteBtn');
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.onclick = async () => {
+                await deleteMonth(month, deleteBtn);
+                closeMonthModal();
+            };
+        }
+        
+        const modal = document.getElementById('monthActionModal');
+        const sheet = document.getElementById('monthActionSheet');
+        if (!modal || !sheet) return;
+        
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.classList.remove('opacity-0');
+            sheet.classList.remove('translate-y-full');
+            sheet.classList.add('translate-y-0');
+            sheet.classList.remove('sm:scale-95');
+            sheet.classList.add('sm:scale-100');
+        }, 10);
+    }
+
+    function closeMonthModal() {
+        const modal = document.getElementById('monthActionModal');
+        const sheet = document.getElementById('monthActionSheet');
+        if (!modal || !sheet) return;
+        
+        modal.classList.add('opacity-0');
+        modal.classList.remove('opacity-100');
+        sheet.classList.add('translate-y-full');
+        sheet.classList.remove('translate-y-0');
+        sheet.classList.add('sm:scale-95');
+        sheet.classList.remove('sm:scale-100');
+        
+        if (modalCloseTimer) clearTimeout(modalCloseTimer);
+        modalCloseTimer = setTimeout(() => {
+            modal.classList.add('hidden');
+            modalCloseTimer = null;
+        }, 300);
+    }
+
+    // === 複製分享連結功能 ===
+    function copyShareLink() {
+        const month = document.getElementById('queryMonth').value || today.toISOString().slice(0, 7);
+        const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
+            }).catch(() => {
+                fallbackCopyText(url);
+            });
+        } else {
+            fallbackCopyText(url);
+        }
+    }
+
+    function fallbackCopyText(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + text);
+        } catch (err) {
+            prompt('請手動複製分享連結：', text);
+        }
+        document.body.removeChild(textarea);
+    }
+
+    async function toggleSent(month, btnElement) {
+        const pin = document.getElementById('pin').value;
+        if (!pin) return;
+        
+        if (btnElement) btnElement.disabled = true;
+        const textSpan = document.getElementById('modalToggleSentText');
+        if (textSpan) textSpan.innerText = '處理中...';
+        
+        try {
+            const res = await fetch('/api/toggle_sent', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.list && data.list.includes(month)) {
+                    sentMonths.add(month);
+                } else {
+                    sentMonths.delete(month);
+                }
+                renderMonthButtons();
+            } else {
+                throw new Error('操作失敗');
+            }
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            if (btnElement) btnElement.disabled = false;
+        }
+    }
+
+    async function deleteMonth(month, btnElement) {
+        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        const pin = document.getElementById('pin').value;
+        if (!pin) return;
+        
+        if (btnElement) btnElement.disabled = true;
+        
+        try {
+            const res = await fetch('/api/delete_month', {
+                method: 'POST',
+                body: JSON.stringify({ pin, month })
+            });
+            if (res.ok) { 
+                knownMonths.delete(month);
+                sentMonths.delete(month);
+                renderMonthButtons();
+
+                const currentViewMonth = document.getElementById('queryMonth').value;
+                if (currentViewMonth === month) {
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
+                    document.getElementById('calendarView').classList.add('hidden');
+                    document.getElementById('totalSummary').classList.add('hidden');
+                    document.getElementById('pdfBtn').classList.add('hidden');
+                }
+                alert('已刪除 ' + month + ' 的資料');
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch (err) { 
+            alert(err.message); 
+        } finally {
+            if (btnElement) btnElement.disabled = false;
+        }
+    }
+
+    // === 月份按鈕渲染 ===
+    function renderMonthButtons() {
+        const area = document.getElementById('historyMonthsArea');
+        const badges = document.getElementById('historyBadges');
+        const sortedMonths = Array.from(knownMonths).sort().reverse();
+
+        if (sortedMonths.length > 0) {
+            area.classList.remove('hidden');
+            badges.className = "grid grid-cols-4 md:grid-cols-6 gap-2 mb-4";
+            badges.innerHTML = sortedMonths.map(m => {
+                const isSent = sentMonths.has(m);
+                const btnClass = isSent 
+                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm cursor-pointer"
+                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm cursor-pointer";
+
+                return '<div class="relative w-full">' +
+                    '<button type="button" onclick="handleMonthClick(\\'' + m + '\\')" class="' + btnClass + '">' + m + '</button>' +
+                    '</div>';
+            }).join('');
+        } else {
+            area.classList.add('hidden');
+        }
+    }
+
+    function setType(type) {
+        document.getElementById('amount').value = '';
+        document.getElementById('moneyRemarks').value = ''; 
+        document.getElementById('transportSelect').selectedIndex = 0; 
+        document.getElementById('recordType').value = type;
+        
+        if (type !== 'hourly') {
+            setMultiplier(1);
+        }
+
+        const btnTypes = ['hourly', 'oncall', 'percall', 'transport'];
+        btnTypes.forEach(t => {
+            const btn = document.getElementById('btn-' + t);
+            if (btn) {
+                if (t === type) {
+                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
+                } else {
+                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
+                }
+            }
+        });
+
+        const groupHourly = document.getElementById('group-hourly');
+        const groupMoney = document.getElementById('group-money');
+        const fieldEndDate = document.getElementById('field-endDate');
+        const fieldRemarks = document.getElementById('field-remarks');
+        const labelDate = document.getElementById('label-date');
+        const labelRemarks = document.getElementById('label-remarks');
+        const inputRemarks = document.getElementById('moneyRemarks');
+        const selectTransport = document.getElementById('transportSelect');
+
+        if (type === 'hourly') {
+            groupHourly.classList.remove('hidden');
+            groupMoney.classList.add('hidden');
+            labelDate.innerText = '日期';
+            document.getElementById('start').required = true;
+            document.getElementById('end').required = true;
+            document.getElementById('amount').required = false;
+        } else {
+            groupHourly.classList.add('hidden');
+            groupMoney.classList.remove('hidden');
+            document.getElementById('start').required = false;
+            document.getElementById('end').required = false;
+            document.getElementById('amount').required = true;
+
+            if (type === 'oncall') {
+                labelDate.innerText = '開始日期';
+                fieldEndDate.classList.remove('hidden');
+                fieldRemarks.classList.add('hidden'); 
+                document.getElementById('endDate').required = true;
+            } else { 
+                labelDate.innerText = '日期';
+                fieldEndDate.classList.add('hidden');
+                fieldRemarks.classList.remove('hidden'); 
+
+                if (type === 'transport') {
+                    labelRemarks.innerText = '行程/詳情';
+                    inputRemarks.classList.add('hidden');
+                    selectTransport.classList.remove('hidden');
+                } else {
+                    labelRemarks.innerText = '備註 (選填)';
+                    inputRemarks.classList.remove('hidden');
+                    selectTransport.classList.add('hidden');
+                    inputRemarks.placeholder = '例如：重啟 Server';
+                }
+            }
+        }
+    }
+
+    function setMultiplier(val) {
+        document.getElementById('multiplier').value = val;
+        const mulVals = [1, 1.5, 2, 3];
+        mulVals.forEach(v => {
+            const btnId = 'mul-' + v; 
+            const btn = document.getElementById(btnId);
+            if(btn) {
+                if (v === val) {
+                    btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
+                } else {
+                    btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
+                }
+            }
+        });
+        updateDuration();
+    }
+
+    async function deleteRecord(id, date) {
+        if(!confirm('確定要刪除這筆記錄嗎？')) return;
+        const pin = document.getElementById('pin').value;
+        try {
+            const res = await fetch('/api/delete', {
+                method: 'POST',
+                body: JSON.stringify({ pin, id, date })
+            });
+            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
+        } catch(err) { alert(err.message); }
+    }
+
+    async function fetchHistoryMonths() {
+        const pin = document.getElementById('pin').value;
+        if(!pin) return;
+        managePinStorage();
+        try {
+            const res = await fetch('/api/list_months?pin=' + pin);
+            const data = await res.json();
+            if(!data.error) {
+                knownMonths.clear();
+                if (Array.isArray(data)) {
+                    data.forEach(m => knownMonths.add(m));
+                } else if (data.months) {
+                    data.months.forEach(m => knownMonths.add(m));
+                    sentMonths = new Set(data.sentList || []);
+                }
+                renderMonthButtons();
+            }
+        } catch(e) {
+            console.error("載入月份失敗:", e);
+        }
+    }
+
+    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
+
+    function getMinutesDiff(start, end) {
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60; 
+        return diff;
+    }
+    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
+
+    document.getElementById('start').addEventListener('change', updateDuration);
+    document.getElementById('end').addEventListener('change', updateDuration);
+    
+    function updateDuration() {
+        const s = document.getElementById('start').value;
+        const e = document.getElementById('end').value;
+        const mul = parseFloat(document.getElementById('multiplier').value) || 1;
+        
+        if (s && e) {
+            const mins = getMinutesDiff(s, e);
+            const effectiveMins = mins * mul;
+            const hoursStr = formatHours(mins);
+            const effHoursStr = formatHours(effectiveMins);
+            
+            if (mul === 1) {
+                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' 小時';
+            } else {
+                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' hr (x' + mul + ') = ' + effHoursStr + ' 小時';
+            }
+        } else {
+            document.getElementById('durationCalc').innerText = "時數: 0 小時";
+        }
+    }
+
+    function switchTab(tab) {
+        document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
+        document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
+        if (tab === 'export' && document.getElementById('pin').value) {
+            fetchHistoryMonths();
+        }
+        
+        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
+        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
+        document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
+        document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
+    }
+
+    document.getElementById('addForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pin = document.getElementById('pin').value;
+        if (!pin) return alert('請先輸入 PIN 密碼');
+        const btn = document.getElementById('btn-submit-record');
+        btn.disabled = true; btn.innerText = '儲存中...';
+        managePinStorage();
+        try {
+            const type = document.getElementById('recordType').value;
+            const payload = { 
+                pin, 
+                type, 
+                date: document.getElementById('date').value,
+                multiplier: document.getElementById('multiplier').value 
+            };
+            if (type === 'hourly') {
+                payload.location = document.getElementById('location').value;
+                payload.start = document.getElementById('start').value;
+                payload.end = document.getElementById('end').value;
+                updateHistory('location', payload.location);
+            } else {
+                payload.amount = Number(document.getElementById('amount').value) || 0;
+                if (type === 'transport') {
+                    payload.location = document.getElementById('transportSelect').value;
+                } else {
+                    payload.location = document.getElementById('moneyRemarks').value || '';
+                }
+                if (type === 'oncall') {
+                    payload.endDate = document.getElementById('endDate').value;
+                }
+            }
+            const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
+            if (res.ok) {
+                document.getElementById('msg').innerText = '✅ 儲存成功';
+                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
+                document.getElementById('amount').value = '';
+                document.getElementById('location').value = '';
+                document.getElementById('moneyRemarks').value = '';
+                document.getElementById('transportSelect').selectedIndex = 0; 
+                setMultiplier(1);
+                const currentMonth = payload.date.substring(0, 7);
+                knownMonths.add(currentMonth);
+                fetchHistoryMonths();
+                renderHistoryChips('location', 'history-location', 'location');
+                setTimeout(() => document.getElementById('msg').innerText = '', 2000);
+            } else { throw new Error(await res.text()); }
+        } catch(err) { alert(err.message); } 
+        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
+    });
+
+    function renderCalendar(year, month, records) {
+        const grid = document.querySelector('.calendar-grid');
+        grid.innerHTML = '';
+        
+        const otDays = new Set();
+        const moneyDays = new Set();
+        const transportDays = new Set();
+
+        records.forEach(r => {
+            const d = parseInt(r.date.split('-')[2]);
+            if (r.type === 'hourly') otDays.add(d);
+            else if (r.type === 'transport') transportDays.add(d);
+            else {
+                moneyDays.add(d);
+                if (r.type === 'oncall' && r.endDate) {
+                    const start = new Date(r.date);
+                    const end = new Date(r.endDate);
+                    for (let dt = start; dt <= end; dt.setDate(dt.getDate() + 1)) {
+                        if (dt.getMonth() + 1 === month) moneyDays.add(dt.getDate());
+                    }
+                }
+            }
+        });
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const firstDay = new Date(year, month - 1, 1).getDay();
+
+        for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+        
+        for (let d = 1; d <= daysInMonth; d++) {
+            const div = document.createElement('div');
+            div.innerText = d;
+            
+            const hasOT = otDays.has(d);
+            const hasMoney = moneyDays.has(d);
+            const hasTransport = transportDays.has(d);
+
+            if (hasOT && hasMoney && hasTransport) {
+                div.className = 'calendar-day has-triple';
+            } else if (hasOT && hasMoney) {
+                div.className = 'calendar-day has-both';
+            } else if (hasMoney && hasTransport) {
+                div.className = 'calendar-day has-money-transport';
+            } else if (hasOT && hasTransport) {
+                div.className = 'calendar-day has-ot-transport';
+            } else if (hasOT) {
+                div.className = 'calendar-day has-ot';
+            } else if (hasMoney) {
+                div.className = 'calendar-day has-money';
+            } else if (hasTransport) {
+                div.className = 'calendar-day has-transport';
+            } else {
+                div.className = 'calendar-day no-ot';
+            }
+            grid.appendChild(div);
+        }
+        document.getElementById('calendarView').classList.remove('hidden');
+    }
+
+    async function loadRecords(forcePublic = false) {
+        const pin = document.getElementById('pin').value;
+        const monthStr = document.getElementById('queryMonth').value; 
+        
+        if (!isShareMode && !pin) return alert('請先輸入 PIN 密碼');
+        if (!isShareMode) managePinStorage();
+
+        const listEl = document.getElementById('recordsList');
+        const summaryEl = document.getElementById('totalSummary');
+        
+        listEl.innerHTML = '<p class="text-center text-gray-400">載入中...</p>';
+        
+        try {
+            let url;
+            if (isShareMode || forcePublic) {
+                url = '/api/public/get?month=' + monthStr;
+            } else {
+                url = '/api/get?month=' + monthStr + '&pin=' + pin;
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            
+            currentRecords = data;
+            grandTotalMinutes = 0;
+            grandTotalMoney = 0;
+            grandTotalTransport = 0;
+            
+            const [y, m] = monthStr.split('-').map(Number);
+            renderCalendar(y, m, data);
+
+            if (data.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-500">無記錄</p>';
+                summaryEl.classList.add('hidden');
+                document.getElementById('pdfBtn').classList.add('hidden');
+            } else {
+                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
+                
+                if (isShareMode) {
+                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
+                }
+
+                data.forEach(r => {
+                    const amount = Number(r.amount) || 0; 
+                    if (r.type !== 'hourly' && amount === 0) return;
+
+                    let detail = '', value = '', typeLabel = '';
+                    
+                    if (r.type === 'hourly') {
+                        const mins = getMinutesDiff(r.start, r.end);
+                        const mul = r.multiplier || 1;
+                        const effectiveMins = mins * mul;
+                        grandTotalMinutes += effectiveMins;
+                        
+                        typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
+                        detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
+                        const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
+                        
+                        value = '<span class="text-indigo-400 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
+                    } else if (r.type === 'transport') {
+                        grandTotalTransport += amount;
+                        
+                        typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
+                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        
+                        value = '<span class="text-amber-400 font-bold">$' + amount + '</span>';
+                    } else if (r.type === 'oncall') {
+                        grandTotalMoney += amount;
+                        
+                        typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
+                        const startD = r.date.split('-')[2];
+                        const endD = r.endDate ? r.endDate.split('-')[2] : '';
+                        detail = startD + '日 - ' + endD + '日'; 
+                        
+                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
+                    } else { 
+                        grandTotalMoney += amount;
+                        
+                        typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
+                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        
+                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
+                    }
+
+                    const [yr, mo, dy] = r.date.split('-');
+                    const formattedDate = yr + '年' + parseInt(mo) + '月' + parseInt(dy) + '日';
+
+                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>';
+
+                    html += '<tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">' +
+                        '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
+                        '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
+                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">' + detail + '</td>' +
+                        '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
+                        deleteBtn +
+                        '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+
+                const totalAll = grandTotalMoney + grandTotalTransport;
+                document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
+                document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
+                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
+                document.getElementById('sumAll').innerText = '$' + totalAll; 
+                
+                summaryEl.classList.remove('hidden');
+                document.getElementById('pdfBtn').classList.remove('hidden');
+                
+                if (isEditMode) {
+                    document.getElementById('view-export').classList.add('edit-mode');
+                }
+            }
+        } catch (err) { 
+            alert(err.message); 
+        }
+    }
+`;
+````
+
+## File: src/ui/pdf.js
+````js
+export const pdfScript = `
+    async function generatePDF() {
+        if(currentRecords.length === 0) return;
+        const btn = document.getElementById('pdfBtn');
+        const originalText = btn.innerText;
+        
+        btn.innerText = "載入字型與生成中... (請稍候)"; 
+        btn.disabled = true;
+        
+        try {
+            const { PDFDocument, rgb, StandardFonts } = PDFLib;
+            const pdfDoc = await PDFDocument.create();
+            pdfDoc.registerFontkit(fontkit);
+            
+            const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+            const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            
+            // === 獲取純文字字型並還原 ===
+            const fontUrl = '/api/font'; 
+
+            const fontRes = await fetch(fontUrl);
+            if (!fontRes.ok) {
+                const errText = await fontRes.text();
+                throw new Error(\`字型載入失敗: \${errText}\`);
+            }
+            
+            // 拿到 Base64 純文字
+            const b64String = await fontRes.text();
+            
+            if (b64String.includes("<!DOC") || b64String.includes("<html")) {
+                throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
+            }
+
+            // 在瀏覽器端將 Base64 轉換回二進位陣列
+            const binaryString = window.atob(b64String);
+            const len = binaryString.length;
+            const fontBytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                fontBytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const chineseFont = await pdfDoc.embedFont(fontBytes);
+            // ============================================
+
+            const page = pdfDoc.addPage([595.28, 841.89]);
+            const { width, height } = page.getSize();
+            let yPos = height - 60;
+            const marginX = 40;
+
+            const colorBlack = rgb(0, 0, 0);
+            const colorGreen = rgb(0, 0.5, 0);
+            const colorOrange = rgb(0.85, 0.5, 0);
+            const colorBlue = rgb(0.38, 0.4, 0.94); // 藍色主題色 (對應網頁端 indigo-400)
+
+            const monthStr = document.getElementById('queryMonth').value;
+            page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
+            page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
+            
+            if (window.USER_NAME) {
+                const nameText = window.USER_NAME;
+                const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
+                page.drawText(nameText, { x: width - marginX - nameWidth, y: yPos, size: 14, font: chineseFont, color: rgb(0.3, 0.3, 0.3) });
+            }
+
+            yPos -= 40;
+
+            const col = { d: 40, item: 130, detail: 350, val: 480 };
+            const fontSize = 11;
+            const drawTxt = (text, x, font, color=colorBlack) => page.drawText(text, { x, y: yPos, size: fontSize, font, color });
+
+            drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
+            drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
+            drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
+            drawTxt('時數/金額', col.val, chineseFont, rgb(0.5,0.5,0.5));
+            
+            page.drawLine({ start: { x: marginX, y: yPos-5 }, end: { x: width-marginX, y: yPos-5 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+            yPos -= 25;
+
+            for (const r of currentRecords) {
+                const amount = Number(r.amount) || 0; 
+                if (r.type !== 'hourly' && amount === 0) continue;
+
+                let itemStr = '', detailStr = '', valStr = '';
+                let detailFont = helvetica; 
+                let rowColor = colorBlack;
+
+                if (r.type === 'hourly') {
+                    itemStr = r.location || 'OT';
+                    const mins = getMinutesDiff(r.start, r.end);
+                    detailStr = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
+                    const mul = r.multiplier || 1;
+                    const effectiveMins = mins * mul;
+                    valStr = formatHours(effectiveMins) + ' hr';
+                    if (mul > 1) valStr += ' (x' + mul + ')';
+                    rowColor = colorBlue;
+                } else if (r.type === 'transport') {
+                    itemStr = '交通費';
+                    detailStr = r.location ? r.location : '-';
+                    detailFont = chineseFont; 
+                    valStr = '$' + amount;
+                    rowColor = colorOrange;
+                } else if (r.type === 'oncall') {
+                    itemStr = '當更 On-Call';
+                    const startD = r.date.split('-')[2];
+                    const endD = r.endDate ? r.endDate.split('-')[2] : '';
+                    detailStr = startD + '日 - ' + endD + '日';
+                    detailFont = chineseFont;
+                    valStr = '$' + amount;
+                    rowColor = colorGreen;
+                } else { 
+                    itemStr = 'Call';
+                    detailStr = r.location ? r.location : '-';
+                    detailFont = chineseFont;
+                    valStr = '$' + amount;
+                    rowColor = colorGreen;
+                }
+
+                drawTxt(r.date, col.d, helvetica);
+                const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
+                
+                // === 已優化調整：將項目欄位（safeItem）也帶入與金額相同的 rowColor，實現統一上色 ===
+                drawTxt(safeItem, col.item, chineseFont, rowColor);
+                
+                drawTxt(detailStr, col.detail, detailFont);
+                drawTxt(valStr, col.val, helveticaBold, rowColor);
+
+                page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
+                yPos -= 25;
+                
+                if (yPos < 50) { pdfDoc.addPage([595.28, 841.89]); yPos = height - 50; }
+            }
+
+            yPos -= 10;
+            page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
+            yPos -= 25;
+
+            // === 依據您的指定，重新安排 PDF 底部統計區塊的輸出順序 ===
+            
+            // 1. 總當更/Call
+            drawTxt("總當更/Call: ", 350, chineseFont);
+            drawTxt("$" + grandTotalMoney, 440, helveticaBold, colorGreen);
+            yPos -= 20;
+
+            // 2. 總交通
+            drawTxt("總交通: ", 350, chineseFont);
+            drawTxt("$" + grandTotalTransport, 440, helveticaBold, colorOrange);
+            yPos -= 15;
+
+            // 3. 統計小分隔線
+            page.drawLine({ start: { x: 350, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 0.5, color: rgb(0.7,0.7,0.7) });
+            yPos -= 20;
+
+            // 4. 總計 (含交通)
+            drawTxt("總計 (含交通): ", 350, chineseFont); 
+            const totalAll = grandTotalMoney + grandTotalTransport;
+            drawTxt("$" + totalAll, 440, helveticaBold, colorBlack); 
+            yPos -= 20;
+
+            // 5. 總時數
+            drawTxt("總時數: ", 350, chineseFont);
+            drawTxt(formatHours(grandTotalMinutes) + " hr", 440, helveticaBold, colorBlue);
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            
+            let filename = 'OT_Record_' + monthStr + '.pdf';
+            if (window.USER_NAME) filename = 'OT_Record_' + monthStr + '_' + window.USER_NAME + '.pdf';
+            link.download = filename;
+            
+            link.click();
+
+        } catch(err) { 
+            console.error(err); 
+            alert("生成失敗: " + err.message); 
+        } finally { 
+            btn.disabled = false; 
+            btn.innerText = originalText; 
+        }
+    }
+`;
 
 ````
 
@@ -635,908 +1403,6 @@ export function getHtml(userName = '') {
 
 ````
 
-## File: src/ui/pdf.js
-````js
-export const pdfScript = `
-    async function generatePDF() {
-        if(currentRecords.length === 0) return;
-        const btn = document.getElementById('pdfBtn');
-        const originalText = btn.innerText;
-        
-        btn.innerText = "載入字型與生成中... (請稍候)"; 
-        btn.disabled = true;
-        
-        try {
-            const { PDFDocument, rgb, StandardFonts } = PDFLib;
-            const pdfDoc = await PDFDocument.create();
-            pdfDoc.registerFontkit(fontkit);
-            
-            const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-            const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            
-            // === 獲取純文字字型並還原 ===
-            const fontUrl = '/api/font'; 
-
-            const fontRes = await fetch(fontUrl);
-            if (!fontRes.ok) {
-                const errText = await fontRes.text();
-                throw new Error(\`字型載入失敗: \${errText}\`);
-            }
-            
-            // 拿到 Base64 純文字
-            const b64String = await fontRes.text();
-            
-            if (b64String.includes("<!DOC") || b64String.includes("<html")) {
-                throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
-            }
-
-            // 在瀏覽器端將 Base64 轉換回二進位陣列
-            const binaryString = window.atob(b64String);
-            const len = binaryString.length;
-            const fontBytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                fontBytes[i] = binaryString.charCodeAt(i);
-            }
-
-            const chineseFont = await pdfDoc.embedFont(fontBytes);
-            // ============================================
-
-            const page = pdfDoc.addPage([595.28, 841.89]);
-            const { width, height } = page.getSize();
-            let yPos = height - 60;
-            const marginX = 40;
-
-            const colorBlack = rgb(0, 0, 0);
-            const colorGreen = rgb(0, 0.5, 0);
-            const colorOrange = rgb(0.85, 0.5, 0);
-            const colorBlue = rgb(0.38, 0.4, 0.94); // 藍色主題色 (對應網頁端 indigo-400)
-
-            const monthStr = document.getElementById('queryMonth').value;
-            page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
-            page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
-            
-            if (window.USER_NAME) {
-                const nameText = window.USER_NAME;
-                const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
-                page.drawText(nameText, { x: width - marginX - nameWidth, y: yPos, size: 14, font: chineseFont, color: rgb(0.3, 0.3, 0.3) });
-            }
-
-            yPos -= 40;
-
-            const col = { d: 40, item: 130, detail: 350, val: 480 };
-            const fontSize = 11;
-            const drawTxt = (text, x, font, color=colorBlack) => page.drawText(text, { x, y: yPos, size: fontSize, font, color });
-
-            drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('時數/金額', col.val, chineseFont, rgb(0.5,0.5,0.5));
-            
-            page.drawLine({ start: { x: marginX, y: yPos-5 }, end: { x: width-marginX, y: yPos-5 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
-            yPos -= 25;
-
-            for (const r of currentRecords) {
-                const amount = Number(r.amount) || 0; 
-                if (r.type !== 'hourly' && amount === 0) continue;
-
-                let itemStr = '', detailStr = '', valStr = '';
-                let detailFont = helvetica; 
-                let rowColor = colorBlack;
-
-                if (r.type === 'hourly') {
-                    itemStr = r.location || 'OT';
-                    const mins = getMinutesDiff(r.start, r.end);
-                    detailStr = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
-                    const mul = r.multiplier || 1;
-                    const effectiveMins = mins * mul;
-                    valStr = formatHours(effectiveMins) + ' hr';
-                    if (mul > 1) valStr += ' (x' + mul + ')';
-                    rowColor = colorBlue;
-                } else if (r.type === 'transport') {
-                    itemStr = '交通費';
-                    detailStr = r.location ? r.location : '-';
-                    detailFont = chineseFont; 
-                    valStr = '$' + amount;
-                    rowColor = colorOrange;
-                } else if (r.type === 'oncall') {
-                    itemStr = '當更 On-Call';
-                    const startD = r.date.split('-')[2];
-                    const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                    detailStr = startD + '日 - ' + endD + '日';
-                    detailFont = chineseFont;
-                    valStr = '$' + amount;
-                    rowColor = colorGreen;
-                } else { 
-                    itemStr = 'Call';
-                    detailStr = r.location ? r.location : '-';
-                    detailFont = chineseFont;
-                    valStr = '$' + amount;
-                    rowColor = colorGreen;
-                }
-
-                drawTxt(r.date, col.d, helvetica);
-                const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
-                
-                // === 已優化調整：將項目欄位（safeItem）也帶入與金額相同的 rowColor，實現統一上色 ===
-                drawTxt(safeItem, col.item, chineseFont, rowColor);
-                
-                drawTxt(detailStr, col.detail, detailFont);
-                drawTxt(valStr, col.val, helveticaBold, rowColor);
-
-                page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
-                yPos -= 25;
-                
-                if (yPos < 50) { pdfDoc.addPage([595.28, 841.89]); yPos = height - 50; }
-            }
-
-            yPos -= 10;
-            page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
-            yPos -= 25;
-
-            // === 依據您的指定，重新安排 PDF 底部統計區塊的輸出順序 ===
-            
-            // 1. 總當更/Call
-            drawTxt("總當更/Call: ", 350, chineseFont);
-            drawTxt("$" + grandTotalMoney, 440, helveticaBold, colorGreen);
-            yPos -= 20;
-
-            // 2. 總交通
-            drawTxt("總交通: ", 350, chineseFont);
-            drawTxt("$" + grandTotalTransport, 440, helveticaBold, colorOrange);
-            yPos -= 15;
-
-            // 3. 統計小分隔線
-            page.drawLine({ start: { x: 350, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 0.5, color: rgb(0.7,0.7,0.7) });
-            yPos -= 20;
-
-            // 4. 總計 (含交通)
-            drawTxt("總計 (含交通): ", 350, chineseFont); 
-            const totalAll = grandTotalMoney + grandTotalTransport;
-            drawTxt("$" + totalAll, 440, helveticaBold, colorBlack); 
-            yPos -= 20;
-
-            // 5. 總時數
-            drawTxt("總時數: ", 350, chineseFont);
-            drawTxt(formatHours(grandTotalMinutes) + " hr", 440, helveticaBold, colorBlue);
-
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            
-            let filename = 'OT_Record_' + monthStr + '.pdf';
-            if (window.USER_NAME) filename = 'OT_Record_' + monthStr + '_' + window.USER_NAME + '.pdf';
-            link.download = filename;
-            
-            link.click();
-
-        } catch(err) { 
-            console.error(err); 
-            alert("生成失敗: " + err.message); 
-        } finally { 
-            btn.disabled = false; 
-            btn.innerText = originalText; 
-        }
-    }
-`;
-
-````
-
-## File: src/ui/logic.js
-````js
-export const logicScript = `
-    const today = new Date();
-    document.getElementById('date').valueAsDate = today;
-    document.getElementById('endDate').valueAsDate = today;
-    document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
-    
-    let currentRecords = [];
-    let grandTotalMinutes = 0;
-    let grandTotalMoney = 0;
-    let grandTotalTransport = 0;
-    let knownMonths = new Set();
-    let sentMonths = new Set(); 
-    let isEditMode = false;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const isShareMode = urlParams.get('view') === 'share';
-    const sharedMonth = urlParams.get('month');
-
-    // === 歷史記錄自訂儲存與渲染功能 ===
-    function updateHistory(key, value) {
-        if (!value || value.trim() === '') return;
-        try {
-            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
-            history = history.filter(v => v !== value);
-            history.unshift(value);
-            if (history.length > 5) history.pop();
-            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    function renderHistoryChips(key, containerId, targetInputId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        try {
-            const history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
-            if (history.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            container.innerHTML = history.map(val => {
-                const escapedVal = val.replace(/'/g, "\\\\'");
-                return '<span class="history-chip" onclick="document.getElementById(\\'' + targetInputId + '\\').value=\\'' + escapedVal + '\\'; if(\\'' + targetInputId + '\\' === \\'location\\' && typeof updateDuration === \\'function\\') updateDuration();">' +
-                    val +
-                    '<span class="history-delete" onclick="event.stopPropagation(); deleteHistory(\\'' + key + '\\', \\'' + escapedVal + '\\', \\'' + containerId + '\\', \\'' + targetInputId + '\\')">×</span>' +
-                    '</span>';
-            }).join('');
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    function deleteHistory(key, val, containerId, targetInputId) {
-        try {
-            let history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
-            history = history.filter(v => v !== val);
-            localStorage.setItem('ot_hist_' + key, JSON.stringify(history));
-            renderHistoryChips(key, containerId, targetInputId);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    (init)();
-
-    function init() {
-        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
-        updateDuration();
-
-        if (isShareMode) {
-            document.getElementById('mainTitleArea').classList.add('hidden');
-            document.getElementById('authSection').classList.add('hidden');
-            document.getElementById('tabContainer').classList.add('hidden');
-            document.getElementById('view-record').classList.add('hidden');
-            document.getElementById('view-export').classList.remove('hidden');
-            
-            document.getElementById('queryControls').classList.add('hidden');
-            document.getElementById('historyMonthsArea').classList.add('hidden');
-            
-            document.getElementById('shareHeader').classList.remove('hidden');
-            const monthLabel = sharedMonth ? ' (' + sharedMonth + ')' : '';
-            if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
-            } else {
-                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
-            }
-
-            if (sharedMonth) {
-                document.getElementById('queryMonth').value = sharedMonth;
-                loadRecords(true); 
-            }
-        } else {
-            const savedPin = localStorage.getItem('ot_pin');
-            if (savedPin) {
-                document.getElementById('pin').value = savedPin;
-                document.getElementById('rememberPin').checked = true;
-                fetchHistoryMonths();
-            }
-            renderHistoryChips('location', 'history-location', 'location');
-        }
-    }
-
-    function managePinStorage() {
-        if(isShareMode) return;
-        const pin = document.getElementById('pin').value;
-        const remember = document.getElementById('rememberPin').checked;
-        if (remember && pin) {
-            localStorage.setItem('ot_pin', pin);
-        } else {
-            localStorage.removeItem('ot_pin');
-        }
-    }
-
-    function toggleEditMode() {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return alert('請先輸入 PIN 密碼才能進入管理模式');
-        
-        isEditMode = !isEditMode;
-        
-        const btn = document.getElementById('btn-edit');
-        const container = document.getElementById('view-export');
-        
-        if (isEditMode) {
-            btn.classList.add('bg-red-600', 'hover:bg-red-500');
-            btn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
-            btn.innerText = '完成';
-            container.classList.add('edit-mode'); 
-        } else {
-            btn.classList.add('bg-gray-600', 'hover:bg-gray-500');
-            btn.classList.remove('bg-red-600', 'hover:bg-red-500');
-            btn.innerText = '✏️';
-            container.classList.remove('edit-mode');
-        }
-    }
-
-    // === 點擊月份按鈕時的分流控制 ===
-    function handleMonthClick(m) {
-        if (isEditMode) {
-            // 編輯模式：彈出管理彈出視窗
-            openMonthModal(m);
-        } else {
-            // 正常模式：載入歷史資料
-            document.getElementById('queryMonth').value = m;
-            loadRecords();
-        }
-    }
-
-    // === 月份管理彈出視窗控制（支持平滑動畫與相容按鈕事件） ===
-    function openMonthModal(month) {
-        const isSent = sentMonths.has(month);
-        
-        document.getElementById('modalMonthTitle').innerText = '管理 ' + month;
-        document.getElementById('modalToggleSentText').innerText = isSent ? '取消提交狀態' : '標記為已提交';
-        document.getElementById('modalToggleSentIcon').innerText = isSent ? '✕' : '📤';
-        
-        document.getElementById('modalToggleSentBtn').onclick = async () => {
-            const btn = document.getElementById('modalToggleSentBtn');
-            await toggleSent(month, btn);
-            closeMonthModal();
-        };
-        
-        document.getElementById('modalDeleteBtn').onclick = async () => {
-            const btn = document.getElementById('modalDeleteBtn');
-            await deleteMonth(month, btn);
-            closeMonthModal();
-        };
-        
-        const modal = document.getElementById('monthActionModal');
-        const sheet = document.getElementById('monthActionSheet');
-        
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            modal.classList.add('opacity-100');
-            modal.classList.remove('opacity-0');
-            sheet.classList.remove('translate-y-full');
-            sheet.classList.add('translate-y-0');
-            sheet.classList.remove('sm:scale-95');
-            sheet.classList.add('sm:scale-100');
-        }, 10);
-    }
-
-    function closeMonthModal() {
-        const modal = document.getElementById('monthActionModal');
-        const sheet = document.getElementById('monthActionSheet');
-        
-        modal.classList.add('opacity-0');
-        modal.classList.remove('opacity-100');
-        sheet.classList.add('translate-y-full');
-        sheet.classList.remove('translate-y-0');
-        sheet.classList.add('sm:scale-95');
-        sheet.classList.remove('sm:scale-100');
-        
-        setTimeout(() => {
-            modal.classList.add('hidden');
-        }, 300);
-    }
-
-    // === 增強版的複製分享連結功能（含向後相容備用機制，解決非 HTTPS 或安全限制下的複製失敗） ===
-    function copyShareLink() {
-        const month = document.getElementById('queryMonth').value || today.toISOString().slice(0, 7);
-        const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(() => {
-                alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
-            }).catch(() => {
-                fallbackCopyText(url);
-            });
-        } else {
-            fallbackCopyText(url);
-        }
-    }
-
-    function fallbackCopyText(text) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        try {
-            document.execCommand('copy');
-            alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + text);
-        } catch (err) {
-            prompt('請手動複製分享連結：', text);
-        }
-        document.body.removeChild(textarea);
-    }
-
-    async function toggleSent(month, btnElement) {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return;
-        
-        const originalText = btnElement.innerText;
-        btnElement.innerText = '...';
-        btnElement.disabled = true;
-        
-        try {
-            const res = await fetch('/api/toggle_sent', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.list.includes(month)) {
-                    sentMonths.add(month);
-                } else {
-                    sentMonths.delete(month);
-                }
-                renderMonthButtons();
-            } else {
-                throw new Error('操作失敗');
-            }
-        } catch (e) {
-            alert(e.message);
-            btnElement.innerText = originalText;
-            btnElement.disabled = false;
-        }
-    }
-
-    async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; btnElement.innerText = '...';
-        try {
-            const res = await fetch('/api/delete_month', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if(res.ok) { 
-                knownMonths.delete(month);
-                sentMonths.delete(month);
-                renderMonthButtons();
-
-                const currentViewMonth = document.getElementById('queryMonth').value;
-                if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
-                    document.getElementById('calendarView').classList.add('hidden');
-                    document.getElementById('totalSummary').classList.add('hidden');
-                    document.getElementById('pdfBtn').classList.add('hidden');
-                }
-                alert('已刪除 ' + month + ' 的資料');
-            } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '刪除整月資料'; }
-    }
-
-    // === 月份按鈕渲染 ===
-    function renderMonthButtons() {
-        const area = document.getElementById('historyMonthsArea');
-        const badges = document.getElementById('historyBadges');
-        const sortedMonths = Array.from(knownMonths).sort().reverse();
-
-        if (sortedMonths.length > 0) {
-            area.classList.remove('hidden');
-            badges.className = "grid grid-cols-4 md:grid-cols-6 gap-2 mb-4";
-            badges.innerHTML = sortedMonths.map(m => {
-                const isSent = sentMonths.has(m);
-                const btnClass = isSent 
-                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm cursor-pointer"
-                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm cursor-pointer";
-
-                return '<div class="relative w-full">' +
-                    '<button type="button" onclick="handleMonthClick(\\'' + m + '\\')" class="' + btnClass + '">' + m + '</button>' +
-                    '</div>';
-            }).join('');
-        } else {
-            area.classList.add('hidden');
-        }
-    }
-
-    function setType(type) {
-        document.getElementById('amount').value = '';
-        document.getElementById('moneyRemarks').value = ''; 
-        document.getElementById('transportSelect').selectedIndex = 0; 
-        document.getElementById('recordType').value = type;
-        
-        if (type !== 'hourly') {
-            setMultiplier(1);
-        }
-
-        const btnTypes = ['hourly', 'oncall', 'percall', 'transport'];
-        btnTypes.forEach(t => {
-            const btn = document.getElementById('btn-' + t);
-            if (btn) {
-                if (t === type) {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
-                } else {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
-                }
-            }
-        });
-
-        const groupHourly = document.getElementById('group-hourly');
-        const groupMoney = document.getElementById('group-money');
-        const fieldEndDate = document.getElementById('field-endDate');
-        const fieldRemarks = document.getElementById('field-remarks');
-        const labelDate = document.getElementById('label-date');
-        const labelRemarks = document.getElementById('label-remarks');
-        const inputRemarks = document.getElementById('moneyRemarks');
-        const selectTransport = document.getElementById('transportSelect');
-
-        if (type === 'hourly') {
-            groupHourly.classList.remove('hidden');
-            groupMoney.classList.add('hidden');
-            labelDate.innerText = '日期';
-            document.getElementById('start').required = true;
-            document.getElementById('end').required = true;
-            document.getElementById('amount').required = false;
-        } else {
-            groupHourly.classList.add('hidden');
-            groupMoney.classList.remove('hidden');
-            document.getElementById('start').required = false;
-            document.getElementById('end').required = false;
-            document.getElementById('amount').required = true;
-
-            if (type === 'oncall') {
-                labelDate.innerText = '開始日期';
-                fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
-                document.getElementById('endDate').required = true;
-            } else { 
-                labelDate.innerText = '日期';
-                fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); 
-
-                if (type === 'transport') {
-                    labelRemarks.innerText = '行程/詳情';
-                    inputRemarks.classList.add('hidden');
-                    selectTransport.classList.remove('hidden');
-                } else {
-                    labelRemarks.innerText = '備註 (選填)';
-                    inputRemarks.classList.remove('hidden');
-                    selectTransport.classList.add('hidden');
-                    inputRemarks.placeholder = '例如：重啟 Server';
-                }
-            }
-        }
-    }
-
-    function setMultiplier(val) {
-        document.getElementById('multiplier').value = val;
-        const mulVals = [1, 1.5, 2, 3];
-        mulVals.forEach(v => {
-            const btnId = 'mul-' + v; 
-            const btn = document.getElementById(btnId);
-            if(btn) {
-                if (v === val) {
-                    btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
-                } else {
-                    btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
-                }
-            }
-        });
-        updateDuration();
-    }
-
-    async function deleteRecord(id, date) {
-        if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
-        try {
-            const res = await fetch('/api/delete', {
-                method: 'POST',
-                body: JSON.stringify({ pin, id, date })
-            });
-            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
-    }
-
-    async function fetchHistoryMonths() {
-        const pin = document.getElementById('pin').value;
-        if(!pin) return;
-        managePinStorage();
-        try {
-            const res = await fetch('/api/list_months?pin=' + pin);
-            const data = await res.json();
-            if(!data.error) {
-                knownMonths.clear();
-                if (Array.isArray(data)) {
-                    data.forEach(m => knownMonths.add(m));
-                } else if (data.months) {
-                    data.months.forEach(m => knownMonths.add(m));
-                    sentMonths = new Set(data.sentList || []);
-                }
-                renderMonthButtons();
-            }
-        } catch(e) {
-            console.error("載入月份失敗:", e);
-        }
-    }
-
-    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
-
-    function getMinutesDiff(start, end) {
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
-        let diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff < 0) diff += 24 * 60; 
-        return diff;
-    }
-    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
-
-    document.getElementById('start').addEventListener('change', updateDuration);
-    document.getElementById('end').addEventListener('change', updateDuration);
-    
-    function updateDuration() {
-        const s = document.getElementById('start').value;
-        const e = document.getElementById('end').value;
-        const mul = parseFloat(document.getElementById('multiplier').value) || 1;
-        
-        if (s && e) {
-            const mins = getMinutesDiff(s, e);
-            const effectiveMins = mins * mul;
-            const hoursStr = formatHours(mins);
-            const effHoursStr = formatHours(effectiveMins);
-            
-            if (mul === 1) {
-                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' 小時';
-            } else {
-                document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' hr (x' + mul + ') = ' + effHoursStr + ' 小時';
-            }
-        } else {
-            document.getElementById('durationCalc').innerText = "時數: 0 小時";
-        }
-    }
-
-    function switchTab(tab) {
-        document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
-        document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
-        if (tab === 'export' && document.getElementById('pin').value) {
-            fetchHistoryMonths();
-        }
-        
-        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
-        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
-        document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
-        document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
-    }
-
-    document.getElementById('addForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const pin = document.getElementById('pin').value;
-        if (!pin) return alert('請先輸入 PIN 密碼');
-        const btn = document.getElementById('btn-submit-record');
-        btn.disabled = true; btn.innerText = '儲存中...';
-        managePinStorage();
-        try {
-            const type = document.getElementById('recordType').value;
-            const payload = { 
-                pin, 
-                type, 
-                date: document.getElementById('date').value,
-                multiplier: document.getElementById('multiplier').value 
-            };
-            if (type === 'hourly') {
-                payload.location = document.getElementById('location').value;
-                payload.start = document.getElementById('start').value;
-                payload.end = document.getElementById('end').value;
-                updateHistory('location', payload.location);
-            } else {
-                payload.amount = Number(document.getElementById('amount').value) || 0;
-                if (type === 'transport') {
-                    payload.location = document.getElementById('transportSelect').value;
-                } else {
-                    payload.location = document.getElementById('moneyRemarks').value || '';
-                    // 已移除 Call 頁面備註存入歷史紀錄的邏輯
-                }
-                if (type === 'oncall') {
-                    payload.endDate = document.getElementById('endDate').value;
-                }
-            }
-            const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
-            if (res.ok) {
-                document.getElementById('msg').innerText = '✅ 儲存成功';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
-                document.getElementById('amount').value = '';
-                document.getElementById('location').value = '';
-                document.getElementById('moneyRemarks').value = '';
-                document.getElementById('transportSelect').selectedIndex = 0; 
-                setMultiplier(1);
-                const currentMonth = payload.date.substring(0, 7);
-                knownMonths.add(currentMonth);
-                fetchHistoryMonths();
-                renderHistoryChips('location', 'history-location', 'location');
-                setTimeout(() => document.getElementById('msg').innerText = '', 2000);
-            } else { throw new Error(await res.text()); }
-        } catch(err) { alert(err.message); } 
-        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
-    });
-
-    function renderCalendar(year, month, records) {
-        const grid = document.querySelector('.calendar-grid');
-        grid.innerHTML = '';
-        
-        const otDays = new Set();
-        const moneyDays = new Set();
-        const transportDays = new Set();
-
-        records.forEach(r => {
-            const d = parseInt(r.date.split('-')[2]);
-            if (r.type === 'hourly') otDays.add(d);
-            else if (r.type === 'transport') transportDays.add(d);
-            else {
-                moneyDays.add(d);
-                if (r.type === 'oncall' && r.endDate) {
-                    const start = new Date(r.date);
-                    const end = new Date(r.endDate);
-                    for (let dt = start; dt <= end; dt.setDate(dt.getDate() + 1)) {
-                        if (dt.getMonth() + 1 === month) moneyDays.add(dt.getDate());
-                    }
-                }
-            }
-        });
-
-        const daysInMonth = new Date(year, month, 0).getDate();
-        const firstDay = new Date(year, month - 1, 1).getDay();
-
-        for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
-        
-        for (let d = 1; d <= daysInMonth; d++) {
-            const div = document.createElement('div');
-            div.innerText = d;
-            
-            const hasOT = otDays.has(d);
-            const hasMoney = moneyDays.has(d);
-            const hasTransport = transportDays.has(d);
-
-            if (hasOT && hasMoney && hasTransport) {
-                div.className = 'calendar-day has-triple';
-            } else if (hasOT && hasMoney) {
-                div.className = 'calendar-day has-both';
-            } else if (hasMoney && hasTransport) {
-                div.className = 'calendar-day has-money-transport';
-            } else if (hasOT && hasTransport) {
-                div.className = 'calendar-day has-ot-transport';
-            } else if (hasOT) {
-                div.className = 'calendar-day has-ot';
-            } else if (hasMoney) {
-                div.className = 'calendar-day has-money';
-            } else if (hasTransport) {
-                div.className = 'calendar-day has-transport';
-            } else {
-                div.className = 'calendar-day no-ot';
-            }
-            grid.appendChild(div);
-        }
-        document.getElementById('calendarView').classList.remove('hidden');
-    }
-
-    async function loadRecords(forcePublic = false) {
-        const pin = document.getElementById('pin').value;
-        const monthStr = document.getElementById('queryMonth').value; 
-        
-        if (!isShareMode && !pin) return alert('請先輸入 PIN 密碼');
-        if (!isShareMode) managePinStorage();
-
-        const listEl = document.getElementById('recordsList');
-        const summaryEl = document.getElementById('totalSummary');
-        
-        listEl.innerHTML = '<p class="text-center text-gray-400">載入中...</p>';
-        
-        try {
-            let url;
-            if (isShareMode || forcePublic) {
-                url = '/api/public/get?month=' + monthStr;
-            } else {
-                url = '/api/get?month=' + monthStr + '&pin=' + pin;
-            }
-
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            
-            currentRecords = data;
-            grandTotalMinutes = 0;
-            grandTotalMoney = 0;
-            grandTotalTransport = 0;
-            
-            const [y, m] = monthStr.split('-').map(Number);
-            renderCalendar(y, m, data);
-
-            if (data.length === 0) {
-                listEl.innerHTML = '<p class="text-center text-gray-500">無記錄</p>';
-                summaryEl.classList.add('hidden');
-                document.getElementById('pdfBtn').classList.add('hidden');
-            } else {
-                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
-                
-                if (isShareMode) {
-                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
-                }
-
-                data.forEach(r => {
-                    const amount = Number(r.amount) || 0; 
-                    if (r.type !== 'hourly' && amount === 0) return;
-
-                    let detail = '', value = '', typeLabel = '';
-                    
-                    if (r.type === 'hourly') {
-                        const mins = getMinutesDiff(r.start, r.end);
-                        const mul = r.multiplier || 1;
-                        const effectiveMins = mins * mul;
-                        grandTotalMinutes += effectiveMins;
-                        
-                        typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
-                        detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
-                        const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
-                        
-                        value = '<span class="text-indigo-400 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
-                    } else if (r.type === 'transport') {
-                        grandTotalTransport += amount;
-                        
-                        typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
-                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
-                        
-                        value = '<span class="text-amber-400 font-bold">$' + amount + '</span>';
-                    } else if (r.type === 'oncall') {
-                        grandTotalMoney += amount;
-                        
-                        typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
-                        const startD = r.date.split('-')[2];
-                        const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                        detail = startD + '日 - ' + endD + '日'; 
-                        
-                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
-                    } else { 
-                        grandTotalMoney += amount;
-                        
-                        typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
-                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
-                        
-                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
-                    }
-
-                    const [yr, mo, dy] = r.date.split('-');
-                    const formattedDate = yr + '年' + parseInt(mo) + '月' + parseInt(dy) + '日';
-
-                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>';
-
-                    html += '<tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">' +
-                        '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
-                        '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
-                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">' + detail + '</td>' +
-                        '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
-                        deleteBtn +
-                        '</tr>';
-                });
-                
-                html += '</tbody></table>';
-                listEl.innerHTML = html;
-
-                const totalAll = grandTotalMoney + grandTotalTransport;
-                document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
-                document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
-                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
-                document.getElementById('sumAll').innerText = '$' + totalAll; 
-                
-                summaryEl.classList.remove('hidden');
-                document.getElementById('pdfBtn').classList.remove('hidden');
-                
-                if (isEditMode) {
-                    document.getElementById('view-export').classList.add('edit-mode');
-                }
-            }
-        } catch (err) { 
-            alert(err.message); 
-        }
-    }
-`;
-
-````
-
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -1564,6 +1430,151 @@ export default {
     });
   },
 };
+
+````
+
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
+
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
+
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
+
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
 
 ````
 
@@ -1679,6 +1690,23 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
