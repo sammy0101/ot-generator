@@ -11,6 +11,7 @@ export const logicScript = `
     let knownMonths = new Set();
     let sentMonths = new Set(); 
     let isEditMode = false;
+    let modalCloseTimer = null;
 
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
@@ -146,28 +147,45 @@ export const logicScript = `
         }
     }
 
-    // === 月份管理彈出視窗控制（支持平滑動畫與相容按鈕事件） ===
+    // === 月份管理彈出視窗控制（徹底解決連續點擊無反應問題） ===
     function openMonthModal(month) {
+        if (modalCloseTimer) {
+            clearTimeout(modalCloseTimer);
+            modalCloseTimer = null;
+        }
+
         const isSent = sentMonths.has(month);
         
-        document.getElementById('modalMonthTitle').innerText = '管理 ' + month;
-        document.getElementById('modalToggleSentText').innerText = isSent ? '取消提交狀態' : '標記為已提交';
-        document.getElementById('modalToggleSentIcon').innerText = isSent ? '✕' : '📤';
+        const titleEl = document.getElementById('modalMonthTitle');
+        if (titleEl) titleEl.innerText = '管理 ' + month;
         
-        document.getElementById('modalToggleSentBtn').onclick = async () => {
-            const btn = document.getElementById('modalToggleSentBtn');
-            await toggleSent(month, btn);
-            closeMonthModal();
-        };
+        const textEl = document.getElementById('modalToggleSentText');
+        if (textEl) textEl.innerText = isSent ? '取消提交狀態' : '標記為已提交';
         
-        document.getElementById('modalDeleteBtn').onclick = async () => {
-            const btn = document.getElementById('modalDeleteBtn');
-            await deleteMonth(month, btn);
-            closeMonthModal();
-        };
+        const iconEl = document.getElementById('modalToggleSentIcon');
+        if (iconEl) iconEl.innerText = isSent ? '✕' : '📤';
+        
+        const toggleBtn = document.getElementById('modalToggleSentBtn');
+        if (toggleBtn) {
+            toggleBtn.disabled = false;
+            toggleBtn.onclick = async () => {
+                await toggleSent(month, toggleBtn);
+                closeMonthModal();
+            };
+        }
+        
+        const deleteBtn = document.getElementById('modalDeleteBtn');
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.onclick = async () => {
+                await deleteMonth(month, deleteBtn);
+                closeMonthModal();
+            };
+        }
         
         const modal = document.getElementById('monthActionModal');
         const sheet = document.getElementById('monthActionSheet');
+        if (!modal || !sheet) return;
         
         modal.classList.remove('hidden');
         setTimeout(() => {
@@ -183,6 +201,7 @@ export const logicScript = `
     function closeMonthModal() {
         const modal = document.getElementById('monthActionModal');
         const sheet = document.getElementById('monthActionSheet');
+        if (!modal || !sheet) return;
         
         modal.classList.add('opacity-0');
         modal.classList.remove('opacity-100');
@@ -191,12 +210,14 @@ export const logicScript = `
         sheet.classList.add('sm:scale-95');
         sheet.classList.remove('sm:scale-100');
         
-        setTimeout(() => {
+        if (modalCloseTimer) clearTimeout(modalCloseTimer);
+        modalCloseTimer = setTimeout(() => {
             modal.classList.add('hidden');
+            modalCloseTimer = null;
         }, 300);
     }
 
-    // === 增強版的複製分享連結功能（含向後相容備用機制，解決非 HTTPS 或安全限制下的複製失敗） ===
+    // === 複製分享連結功能 ===
     function copyShareLink() {
         const month = document.getElementById('queryMonth').value || today.toISOString().slice(0, 7);
         const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
@@ -233,9 +254,9 @@ export const logicScript = `
         const pin = document.getElementById('pin').value;
         if (!pin) return;
         
-        const originalText = btnElement.innerText;
-        btnElement.innerText = '...';
-        btnElement.disabled = true;
+        if (btnElement) btnElement.disabled = true;
+        const textSpan = document.getElementById('modalToggleSentText');
+        if (textSpan) textSpan.innerText = '處理中...';
         
         try {
             const res = await fetch('/api/toggle_sent', {
@@ -244,7 +265,7 @@ export const logicScript = `
             });
             if (res.ok) {
                 const data = await res.json();
-                if (data.list.includes(month)) {
+                if (data.list && data.list.includes(month)) {
                     sentMonths.add(month);
                 } else {
                     sentMonths.delete(month);
@@ -255,21 +276,24 @@ export const logicScript = `
             }
         } catch (e) {
             alert(e.message);
-            btnElement.innerText = originalText;
-            btnElement.disabled = false;
+        } finally {
+            if (btnElement) btnElement.disabled = false;
         }
     }
 
     async function deleteMonth(month, btnElement) {
-        if(!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
+        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         const pin = document.getElementById('pin').value;
-        btnElement.disabled = true; btnElement.innerText = '...';
+        if (!pin) return;
+        
+        if (btnElement) btnElement.disabled = true;
+        
         try {
             const res = await fetch('/api/delete_month', {
                 method: 'POST',
                 body: JSON.stringify({ pin, month })
             });
-            if(res.ok) { 
+            if (res.ok) { 
                 knownMonths.delete(month);
                 sentMonths.delete(month);
                 renderMonthButtons();
@@ -282,8 +306,14 @@ export const logicScript = `
                     document.getElementById('pdfBtn').classList.add('hidden');
                 }
                 alert('已刪除 ' + month + ' 的資料');
-            } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); btnElement.disabled = false; btnElement.innerText = '刪除整月資料'; }
+            } else { 
+                throw new Error('刪除失敗'); 
+            }
+        } catch (err) { 
+            alert(err.message); 
+        } finally {
+            if (btnElement) btnElement.disabled = false;
+        }
     }
 
     // === 月份按鈕渲染 ===
@@ -504,7 +534,6 @@ export const logicScript = `
                     payload.location = document.getElementById('transportSelect').value;
                 } else {
                     payload.location = document.getElementById('moneyRemarks').value || '';
-                    // 已移除 Call 頁面備註存入歷史紀錄的邏輯
                 }
                 if (type === 'oncall') {
                     payload.endDate = document.getElementById('endDate').value;
