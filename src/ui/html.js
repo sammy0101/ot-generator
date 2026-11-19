@@ -94,10 +94,14 @@ export const htmlContent = `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 時間滾輪慣性滑動與貼齊 */
+        /* 時間滾輪：鎖定僅允許垂直滑動，禁止左右偏移與鏈式捲動外層網頁 */
         .time-wheel-scroll {
+            overflow-y: auto;
+            overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             scroll-snap-type: y mandatory;
+            touch-action: pan-y;
+            overscroll-behavior: contain;
         }
         .time-wheel-item {
             scroll-snap-align: center;
@@ -292,55 +296,56 @@ export const htmlContent = `
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 
-    <!-- 時間選擇滾輪彈出視窗（手機可上下滑動，分鐘僅 00 與 30） -->
-    <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
+    <!-- 時間選擇滾輪彈出視窗（仿 iPhone 計時器體驗：左右滿版分區、僅允許垂直滑動、鎖定背景網頁） -->
+    <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300 touch-none overscroll-none">
+        <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl touch-none overscroll-none">
             <div class="flex items-center justify-between border-b border-gray-700 pb-3">
                 <button type="button" onclick="clearTimeWheel()" class="text-sm font-bold text-gray-400 hover:text-red-400 px-2 py-1 transition">清除</button>
                 <h3 id="timeWheelTitle" class="text-base font-bold text-gray-100">選擇時間</h3>
                 <button type="button" onclick="confirmTimeWheel()" class="text-sm font-bold text-indigo-400 hover:text-indigo-300 px-2 py-1 transition">確定</button>
             </div>
-            <div class="relative flex items-center justify-center gap-4 h-[200px] bg-gray-900/70 rounded-xl border border-gray-700 overflow-hidden select-none">
-                <div class="pointer-events-none absolute top-[80px] left-3 right-3 h-[40px] bg-indigo-600/20 border-y border-indigo-500/60 rounded-lg z-0"></div>
-                <div class="pointer-events-none absolute top-0 left-0 right-0 h-[76px] bg-gradient-to-b from-gray-900/90 to-transparent z-20"></div>
-                <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-[76px] bg-gradient-to-t from-gray-900/90 to-transparent z-20"></div>
-
-                <div id="wheelHour" class="relative z-10 w-24 h-[200px] overflow-y-auto no-scrollbar time-wheel-scroll">
-                    <div class="h-[80px] shrink-0"></div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 0)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">00</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 1)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">01</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 2)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">02</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 3)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">03</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 4)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">04</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 5)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">05</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 6)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">06</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 7)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">07</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 8)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">08</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 9)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">09</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 10)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">10</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 11)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">11</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 12)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">12</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 13)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">13</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 14)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">14</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 15)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">15</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 16)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">16</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 17)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">17</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 18)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">18</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 19)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">19</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 20)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">20</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 21)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">21</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 22)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">22</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 23)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">23</div>
-                    <div class="h-[80px] shrink-0"></div>
+            <div class="relative flex items-stretch h-[220px] bg-gray-900/80 rounded-xl border border-gray-700 overflow-hidden select-none">
+                <div class="pointer-events-none absolute top-[88px] left-3 right-3 h-[44px] bg-gray-700/60 border border-gray-600/60 rounded-xl z-0"></div>
+                <div class="pointer-events-none absolute top-0 left-0 right-0 h-[84px] bg-gradient-to-b from-gray-900/95 to-transparent z-20"></div>
+                <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-[84px] bg-gradient-to-t from-gray-900/95 to-transparent z-20"></div>
+                <div class="pointer-events-none absolute left-1/2 top-[88px] h-[44px] -translate-x-1/2 flex items-center justify-center z-20">
+                    <span class="text-2xl font-bold text-gray-300 pb-0.5">:</span>
                 </div>
 
-                <span class="relative z-10 text-2xl font-bold text-gray-400 pb-0.5">:</span>
+                <div id="wheelHour" class="relative z-10 flex-1 h-[220px] no-scrollbar time-wheel-scroll">
+                    <div class="h-[88px] shrink-0"></div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 0)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 1)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">01</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 2)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">02</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 3)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">03</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 4)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">04</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 5)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">05</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 6)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">06</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 7)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">07</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 8)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">08</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 9)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">09</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 10)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">10</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 11)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">11</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 12)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">12</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 13)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">13</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 14)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">14</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 15)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">15</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 16)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">16</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 17)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">17</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 18)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">18</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 19)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">19</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 20)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">20</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 21)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">21</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 22)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">22</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 23)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">23</div>
+                    <div class="h-[88px] shrink-0"></div>
+                </div>
 
-                <div id="wheelMin" class="relative z-10 w-24 h-[200px] overflow-y-auto no-scrollbar time-wheel-scroll">
-                    <div class="h-[80px] shrink-0"></div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 0)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">00</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 1)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">30</div>
-                    <div class="h-[80px] shrink-0"></div>
+                <div id="wheelMin" class="relative z-10 flex-1 h-[220px] no-scrollbar time-wheel-scroll">
+                    <div class="h-[88px] shrink-0"></div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 0)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 1)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">30</div>
+                    <div class="h-[88px] shrink-0"></div>
                 </div>
             </div>
         </div>
