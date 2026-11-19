@@ -94,6 +94,15 @@ export const htmlContent = `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* 時間滾輪慣性滑動與貼齊 */
+        .time-wheel-scroll {
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: y mandatory;
+        }
+        .time-wheel-item {
+            scroll-snap-align: center;
+        }
+
         /* 排除勾選框、時間、日期的外觀清除 */
         input, select, textarea {
             color-scheme: dark !important; 
@@ -165,84 +174,28 @@ export const htmlContent = `
                     <div class="flex space-x-3 w-full">
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <div class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <div class="flex items-center space-x-1">
-                                    <select id="startHour" aria-label="開始小時" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
-                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
-                                        <option value="00" class="bg-gray-800 text-white">00</option>
-                                        <option value="01" class="bg-gray-800 text-white">01</option>
-                                        <option value="02" class="bg-gray-800 text-white">02</option>
-                                        <option value="03" class="bg-gray-800 text-white">03</option>
-                                        <option value="04" class="bg-gray-800 text-white">04</option>
-                                        <option value="05" class="bg-gray-800 text-white">05</option>
-                                        <option value="06" class="bg-gray-800 text-white">06</option>
-                                        <option value="07" class="bg-gray-800 text-white">07</option>
-                                        <option value="08" class="bg-gray-800 text-white">08</option>
-                                        <option value="09" class="bg-gray-800 text-white">09</option>
-                                        <option value="10" class="bg-gray-800 text-white">10</option>
-                                        <option value="11" class="bg-gray-800 text-white">11</option>
-                                        <option value="12" class="bg-gray-800 text-white">12</option>
-                                        <option value="13" class="bg-gray-800 text-white">13</option>
-                                        <option value="14" class="bg-gray-800 text-white">14</option>
-                                        <option value="15" class="bg-gray-800 text-white">15</option>
-                                        <option value="16" class="bg-gray-800 text-white">16</option>
-                                        <option value="17" class="bg-gray-800 text-white">17</option>
-                                        <option value="18" class="bg-gray-800 text-white">18</option>
-                                        <option value="19" class="bg-gray-800 text-white">19</option>
-                                        <option value="20" class="bg-gray-800 text-white">20</option>
-                                        <option value="21" class="bg-gray-800 text-white">21</option>
-                                        <option value="22" class="bg-gray-800 text-white">22</option>
-                                        <option value="23" class="bg-gray-800 text-white">23</option>
-                                    </select>
-                                    <span class="text-gray-400 font-bold">:</span>
-                                    <select id="startMin" aria-label="開始分鐘" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
-                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
-                                        <option value="00" class="bg-gray-800 text-white">00</option>
-                                        <option value="30" class="bg-gray-800 text-white">30</option>
-                                    </select>
+                            <div onclick="handleTimeBoxClick('start', event)" class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer">
+                                <div class="flex items-center">
+                                    <input type="text" id="startHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
+                                    <span class="text-gray-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                    <input type="text" id="startMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
                                 </div>
-                                <svg class="w-4 h-4 text-gray-400 pointer-events-none shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('start');" aria-label="選擇開始時間" class="text-gray-400 hover:text-white p-0.5 focus:outline-none">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </button>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <div class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <div class="flex items-center space-x-1">
-                                    <select id="endHour" aria-label="結束小時" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
-                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
-                                        <option value="00" class="bg-gray-800 text-white">00</option>
-                                        <option value="01" class="bg-gray-800 text-white">01</option>
-                                        <option value="02" class="bg-gray-800 text-white">02</option>
-                                        <option value="03" class="bg-gray-800 text-white">03</option>
-                                        <option value="04" class="bg-gray-800 text-white">04</option>
-                                        <option value="05" class="bg-gray-800 text-white">05</option>
-                                        <option value="06" class="bg-gray-800 text-white">06</option>
-                                        <option value="07" class="bg-gray-800 text-white">07</option>
-                                        <option value="08" class="bg-gray-800 text-white">08</option>
-                                        <option value="09" class="bg-gray-800 text-white">09</option>
-                                        <option value="10" class="bg-gray-800 text-white">10</option>
-                                        <option value="11" class="bg-gray-800 text-white">11</option>
-                                        <option value="12" class="bg-gray-800 text-white">12</option>
-                                        <option value="13" class="bg-gray-800 text-white">13</option>
-                                        <option value="14" class="bg-gray-800 text-white">14</option>
-                                        <option value="15" class="bg-gray-800 text-white">15</option>
-                                        <option value="16" class="bg-gray-800 text-white">16</option>
-                                        <option value="17" class="bg-gray-800 text-white">17</option>
-                                        <option value="18" class="bg-gray-800 text-white">18</option>
-                                        <option value="19" class="bg-gray-800 text-white">19</option>
-                                        <option value="20" class="bg-gray-800 text-white">20</option>
-                                        <option value="21" class="bg-gray-800 text-white">21</option>
-                                        <option value="22" class="bg-gray-800 text-white">22</option>
-                                        <option value="23" class="bg-gray-800 text-white">23</option>
-                                    </select>
-                                    <span class="text-gray-400 font-bold">:</span>
-                                    <select id="endMin" aria-label="結束分鐘" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
-                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
-                                        <option value="00" class="bg-gray-800 text-white">00</option>
-                                        <option value="30" class="bg-gray-800 text-white">30</option>
-                                    </select>
+                            <div onclick="handleTimeBoxClick('end', event)" class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer">
+                                <div class="flex items-center">
+                                    <input type="text" id="endHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
+                                    <span class="text-gray-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                    <input type="text" id="endMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
                                 </div>
-                                <svg class="w-4 h-4 text-gray-400 pointer-events-none shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('end');" aria-label="選擇結束時間" class="text-gray-400 hover:text-white p-0.5 focus:outline-none">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -337,6 +290,60 @@ export const htmlContent = `
             </button>
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
+    </div>
+
+    <!-- 時間選擇滾輪彈出視窗（手機可上下滑動，分鐘僅 00 與 30） -->
+    <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-700 pb-3">
+                <button type="button" onclick="clearTimeWheel()" class="text-sm font-bold text-gray-400 hover:text-red-400 px-2 py-1 transition">清除</button>
+                <h3 id="timeWheelTitle" class="text-base font-bold text-gray-100">選擇時間</h3>
+                <button type="button" onclick="confirmTimeWheel()" class="text-sm font-bold text-indigo-400 hover:text-indigo-300 px-2 py-1 transition">確定</button>
+            </div>
+            <div class="relative flex items-center justify-center gap-4 h-[200px] bg-gray-900/70 rounded-xl border border-gray-700 overflow-hidden select-none">
+                <div class="pointer-events-none absolute top-[80px] left-3 right-3 h-[40px] bg-indigo-600/20 border-y border-indigo-500/60 rounded-lg z-0"></div>
+                <div class="pointer-events-none absolute top-0 left-0 right-0 h-[76px] bg-gradient-to-b from-gray-900/90 to-transparent z-20"></div>
+                <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-[76px] bg-gradient-to-t from-gray-900/90 to-transparent z-20"></div>
+
+                <div id="wheelHour" class="relative z-10 w-24 h-[200px] overflow-y-auto no-scrollbar time-wheel-scroll">
+                    <div class="h-[80px] shrink-0"></div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 0)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 1)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">01</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 2)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">02</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 3)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">03</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 4)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">04</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 5)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">05</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 6)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">06</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 7)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">07</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 8)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">08</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 9)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">09</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 10)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">10</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 11)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">11</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 12)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">12</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 13)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">13</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 14)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">14</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 15)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">15</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 16)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">16</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 17)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">17</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 18)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">18</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 19)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">19</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 20)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">20</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 21)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">21</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 22)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">22</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 23)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">23</div>
+                    <div class="h-[80px] shrink-0"></div>
+                </div>
+
+                <span class="relative z-10 text-2xl font-bold text-gray-400 pb-0.5">:</span>
+
+                <div id="wheelMin" class="relative z-10 w-24 h-[200px] overflow-y-auto no-scrollbar time-wheel-scroll">
+                    <div class="h-[80px] shrink-0"></div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 0)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 1)" class="h-[40px] flex items-center justify-center text-xl font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-all">30</div>
+                    <div class="h-[80px] shrink-0"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 管理月份的 Action Sheet / 彈出式底部選單 -->
