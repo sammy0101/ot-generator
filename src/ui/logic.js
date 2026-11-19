@@ -14,6 +14,7 @@ export const logicScript = `
     let modalCloseTimer = null;
     let timeWheelTimer = null;
     let activeTimePrefix = null;
+    const TIME_ROW_HEIGHT = 44;
 
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
@@ -172,11 +173,11 @@ export const logicScript = `
         const items = wheel.querySelectorAll('[data-wheel-item]');
         items.forEach((el, idx) => {
             if (idx === activeIndex) {
-                el.classList.add('text-white', 'scale-110');
-                el.classList.remove('text-gray-500');
+                el.classList.add('text-white', 'text-2xl');
+                el.classList.remove('text-gray-500', 'text-lg');
             } else {
-                el.classList.add('text-gray-500');
-                el.classList.remove('text-white', 'scale-110');
+                el.classList.add('text-gray-500', 'text-lg');
+                el.classList.remove('text-white', 'text-2xl');
             }
         });
     }
@@ -184,7 +185,7 @@ export const logicScript = `
     function selectWheelItem(wheelId, index) {
         const wheel = document.getElementById(wheelId);
         if (!wheel) return;
-        wheel.scrollTo({ top: index * 40, behavior: 'smooth' });
+        wheel.scrollTo({ top: index * TIME_ROW_HEIGHT, behavior: 'smooth' });
     }
 
     function openTimeWheel(prefix) {
@@ -211,11 +212,14 @@ export const logicScript = `
         const minWheel = document.getElementById('wheelMin');
         if (!modal || !sheet || !hourWheel || !minWheel) return;
 
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
         modal.classList.remove('hidden');
         hourWheel.style.scrollBehavior = 'auto';
         minWheel.style.scrollBehavior = 'auto';
-        hourWheel.scrollTop = hIdx * 40;
-        minWheel.scrollTop = curM * 40;
+        hourWheel.scrollTop = hIdx * TIME_ROW_HEIGHT;
+        minWheel.scrollTop = curM * TIME_ROW_HEIGHT;
         updateWheelHighlight('wheelHour', hIdx);
         updateWheelHighlight('wheelMin', curM);
 
@@ -226,8 +230,8 @@ export const logicScript = `
             sheet.classList.add('translate-y-0');
             sheet.classList.remove('sm:scale-95');
             sheet.classList.add('sm:scale-100');
-            hourWheel.scrollTop = hIdx * 40;
-            minWheel.scrollTop = curM * 40;
+            hourWheel.scrollTop = hIdx * TIME_ROW_HEIGHT;
+            minWheel.scrollTop = curM * TIME_ROW_HEIGHT;
         }, 10);
     }
 
@@ -235,6 +239,9 @@ export const logicScript = `
         const modal = document.getElementById('timeWheelModal');
         const sheet = document.getElementById('timeWheelSheet');
         if (!modal || !sheet) return;
+
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
 
         modal.classList.add('opacity-0');
         modal.classList.remove('opacity-100');
@@ -254,8 +261,8 @@ export const logicScript = `
         if (!activeTimePrefix) return;
         const hourWheel = document.getElementById('wheelHour');
         const minWheel = document.getElementById('wheelMin');
-        const hIdx = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / 40)));
-        const mIdx = Math.max(0, Math.min(1, Math.round(minWheel.scrollTop / 40)));
+        const hIdx = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / TIME_ROW_HEIGHT)));
+        const mIdx = Math.max(0, Math.min(1, Math.round(minWheel.scrollTop / TIME_ROW_HEIGHT)));
         const hStr = hIdx < 10 ? '0' + hIdx : '' + hIdx;
         const mStr = mIdx === 1 ? '30' : '00';
         document.getElementById(activeTimePrefix + 'Hour').value = hStr;
@@ -299,15 +306,24 @@ export const logicScript = `
         const wheelMin = document.getElementById('wheelMin');
         if (wheelHour) {
             wheelHour.addEventListener('scroll', function() {
-                const idx = Math.max(0, Math.min(23, Math.round(this.scrollTop / 40)));
+                const idx = Math.max(0, Math.min(23, Math.round(this.scrollTop / TIME_ROW_HEIGHT)));
                 updateWheelHighlight('wheelHour', idx);
             });
         }
         if (wheelMin) {
             wheelMin.addEventListener('scroll', function() {
-                const idx = Math.max(0, Math.min(1, Math.round(this.scrollTop / 40)));
+                const idx = Math.max(0, Math.min(1, Math.round(this.scrollTop / TIME_ROW_HEIGHT)));
                 updateWheelHighlight('wheelMin', idx);
             });
+        }
+
+        const timeModal = document.getElementById('timeWheelModal');
+        if (timeModal) {
+            timeModal.addEventListener('touchmove', function(e) {
+                if (!e.target.closest('#wheelHour, #wheelMin')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
         }
     }
 
