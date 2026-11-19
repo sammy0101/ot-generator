@@ -17,6 +17,29 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
 
+    // === 取得「小時 + 分鐘」組合後的 HH:MM 字串 ===
+    function getTimeValue(prefix) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        if (!hEl || !mEl) return '';
+        return (hEl.value && mEl.value) ? (hEl.value + ':' + mEl.value) : '';
+    }
+
+    // === 切換小時/分鐘時自動補 00 或清除，並即時重算時數 ===
+    function handleTimeChange(prefix, part) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        if (!hEl || !mEl) return;
+        if (part === 'hour') {
+            if (hEl.value && !mEl.value) {
+                mEl.value = '00';
+            } else if (!hEl.value) {
+                mEl.value = '';
+            }
+        }
+        updateDuration();
+    }
+
     // === 歷史記錄自訂儲存與渲染功能 ===
     function updateHistory(key, value) {
         if (!value || value.trim() === '') return;
@@ -66,7 +89,6 @@ export const logicScript = `
     (init)();
 
     function init() {
-        // 網頁 UI 底部不顯示名字，僅供 PDF 使用
         updateDuration();
 
         if (isShareMode) {
@@ -138,16 +160,14 @@ export const logicScript = `
     // === 點擊月份按鈕時的分流控制 ===
     function handleMonthClick(m) {
         if (isEditMode) {
-            // 編輯模式：彈出管理彈出視窗
             openMonthModal(m);
         } else {
-            // 正常模式：載入歷史資料
             document.getElementById('queryMonth').value = m;
             loadRecords();
         }
     }
 
-    // === 月份管理彈出視窗控制（徹底解決連續點擊無反應問題） ===
+    // === 月份管理彈出視窗控制 ===
     function openMonthModal(month) {
         if (modalCloseTimer) {
             clearTimeout(modalCloseTimer);
@@ -375,14 +395,18 @@ export const logicScript = `
             groupHourly.classList.remove('hidden');
             groupMoney.classList.add('hidden');
             labelDate.innerText = '日期';
-            document.getElementById('start').required = true;
-            document.getElementById('end').required = true;
+            document.getElementById('startHour').required = true;
+            document.getElementById('startMin').required = true;
+            document.getElementById('endHour').required = true;
+            document.getElementById('endMin').required = true;
             document.getElementById('amount').required = false;
         } else {
             groupHourly.classList.add('hidden');
             groupMoney.classList.remove('hidden');
-            document.getElementById('start').required = false;
-            document.getElementById('end').required = false;
+            document.getElementById('startHour').required = false;
+            document.getElementById('startMin').required = false;
+            document.getElementById('endHour').required = false;
+            document.getElementById('endMin').required = false;
             document.getElementById('amount').required = true;
 
             if (type === 'oncall') {
@@ -471,12 +495,14 @@ export const logicScript = `
     }
     function formatHours(minutes) { return (minutes / 60).toFixed(1); }
 
-    document.getElementById('start').addEventListener('change', updateDuration);
-    document.getElementById('end').addEventListener('change', updateDuration);
+    document.getElementById('startHour').addEventListener('change', function() { handleTimeChange('start', 'hour'); });
+    document.getElementById('startMin').addEventListener('change', function() { handleTimeChange('start', 'min'); });
+    document.getElementById('endHour').addEventListener('change', function() { handleTimeChange('end', 'hour'); });
+    document.getElementById('endMin').addEventListener('change', function() { handleTimeChange('end', 'min'); });
     
     function updateDuration() {
-        const s = document.getElementById('start').value;
-        const e = document.getElementById('end').value;
+        const s = getTimeValue('start');
+        const e = getTimeValue('end');
         const mul = parseFloat(document.getElementById('multiplier').value) || 1;
         
         if (s && e) {
@@ -525,8 +551,8 @@ export const logicScript = `
             };
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
-                payload.start = document.getElementById('start').value;
-                payload.end = document.getElementById('end').value;
+                payload.start = getTimeValue('start');
+                payload.end = getTimeValue('end');
                 updateHistory('location', payload.location);
             } else {
                 payload.amount = Number(document.getElementById('amount').value) || 0;
