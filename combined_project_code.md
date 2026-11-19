@@ -1,147 +1,30 @@
 # Complete Project Codebase
-Generated on: Thu Nov 19 10:51:10 UTC 2026
+Generated on: Thu Nov 19 10:51:38 UTC 2026
 
-## File: src/api.js
+## File: src/ui/index.js
 ````js
-export async function handleAdd(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) records =[];
-
-        records.push({
-            id: Date.now(),
-            type: data.type || 'hourly',
-            date: data.date,
-            endDate: data.endDate,
-            location: data.location,
-            start: data.start,
-            end: data.end,
-            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
-            amount: data.amount ? parseInt(data.amount) : 0,
-            timestamp: new Date().toISOString()
-        });
-
-        records.sort((a, b) => new Date(a.date) - new Date(b.date));
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDelete(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
-
-        const newRecords = records.filter(r => r.id !== data.id);
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDeleteMonth(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-        const monthKey = `OT_${data.month}`;
-        await env.OT_RECORDS.delete(monthKey);
-        
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-        }
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleToggleSent(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-        } else {
-            sentList.push(data.month);
-        }
-        
-        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-
-        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handlePublicGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handleListMonths(request, env) {
-    const url = new URL(request.url);
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
     
-    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
-    const months = list.keys
-        .map(k => k.name.replace('OT_', ''))
-        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
-    
-    months.sort().reverse();
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-
-    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
-}
-
-// === 從 KV 讀取 Base64 純文字字型 ===
-export async function handleGetFont(request, env) {
-    try {
-        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        if (!b64) return new Response("Font not found in KV", { status: 404 });
-        
-        return new Response(b64, {
-            headers: {
-                "Content-Type": "text/plain",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
-        });
-    } catch (e) {
-        return new Response(e.message, { status: 500 });
-    }
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
 }
 
 ````
@@ -725,32 +608,303 @@ export const logicScript = `
     let sentMonths = new Set(); 
     let isEditMode = false;
     let modalCloseTimer = null;
+    let timeWheelTimer = null;
+    let activeTimePrefix = null;
 
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
+    const isTouchPrimary = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
-    // === 取得「小時 + 分鐘」組合後的 HH:MM 字串 ===
+    // === 混合式時間輸入（電腦鍵盤輸入 + 手機滾輪上下滑動） ===
+    function normalizeHour(val) {
+        const digits = val.replace(/[^0-9]/g, '');
+        if (!digits) return '';
+        let n = parseInt(digits.slice(0, 2), 10);
+        if (n > 23) n = 23;
+        return n < 10 ? '0' + n : '' + n;
+    }
+
+    function normalizeMin(val) {
+        const digits = val.replace(/[^0-9]/g, '');
+        if (!digits) return '';
+        if (digits === '3') return '30';
+        if (digits === '0') return '00';
+        const n = parseInt(digits.slice(0, 2), 10);
+        return (n >= 15 && n < 45) ? '30' : '00';
+    }
+
     function getTimeValue(prefix) {
         const hEl = document.getElementById(prefix + 'Hour');
         const mEl = document.getElementById(prefix + 'Min');
         if (!hEl || !mEl) return '';
-        return (hEl.value && mEl.value) ? (hEl.value + ':' + mEl.value) : '';
+        const h = normalizeHour(hEl.value);
+        if (!h) return '';
+        const m = normalizeMin(mEl.value) || '00';
+        return h + ':' + m;
     }
 
-    // === 切換小時/分鐘時自動補 00 或清除，並即時重算時數 ===
-    function handleTimeChange(prefix, part) {
+    function handleTimeBoxClick(prefix, e) {
+        if (isTouchPrimary) {
+            openTimeWheel(prefix);
+            return;
+        }
+        const mEl = document.getElementById(prefix + 'Min');
+        const hEl = document.getElementById(prefix + 'Hour');
+        if (e && e.target === mEl) {
+            mEl.focus();
+            mEl.select();
+        } else if (hEl) {
+            hEl.focus();
+            hEl.select();
+        }
+    }
+
+    function onHourInput(prefix) {
         const hEl = document.getElementById(prefix + 'Hour');
         const mEl = document.getElementById(prefix + 'Min');
-        if (!hEl || !mEl) return;
-        if (part === 'hour') {
-            if (hEl.value && !mEl.value) {
-                mEl.value = '00';
-            } else if (!hEl.value) {
-                mEl.value = '';
+        let val = hEl.value.replace(/[^0-9]/g, '');
+        if (val.length > 2) val = val.slice(0, 2);
+        if (val.length === 1 && parseInt(val, 10) >= 3) {
+            val = '0' + val;
+        }
+        if (val.length === 2) {
+            if (parseInt(val, 10) > 23) val = '23';
+            hEl.value = val;
+            if (!mEl.value) mEl.value = '00';
+            updateDuration();
+            mEl.focus();
+            mEl.select();
+            return;
+        }
+        hEl.value = val;
+        updateDuration();
+    }
+
+    function onHourBlur(prefix) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        const val = normalizeHour(hEl.value);
+        if (!val) {
+            hEl.value = '';
+            mEl.value = '';
+            updateDuration();
+            return;
+        }
+        hEl.value = val;
+        if (!mEl.value) mEl.value = '00';
+        updateDuration();
+    }
+
+    function onMinInput(prefix) {
+        const mEl = document.getElementById(prefix + 'Min');
+        let val = mEl.value.replace(/[^0-9]/g, '');
+        if (val.length > 2) val = val.slice(0, 2);
+        if (val.length === 2) {
+            val = normalizeMin(val);
+        }
+        mEl.value = val;
+        updateDuration();
+    }
+
+    function onMinBlur(prefix) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        if (!hEl.value) {
+            mEl.value = normalizeMin(mEl.value);
+            updateDuration();
+            return;
+        }
+        mEl.value = normalizeMin(mEl.value) || '00';
+        updateDuration();
+    }
+
+    function onHourKeyDown(prefix, e) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        if (hEl.readOnly) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            let n = hEl.value ? parseInt(hEl.value, 10) : new Date().getHours();
+            if (isNaN(n)) n = new Date().getHours();
+            if (hEl.value) {
+                n = e.key === 'ArrowUp' ? (n + 1) % 24 : (n + 23) % 24;
+            }
+            hEl.value = n < 10 ? '0' + n : '' + n;
+            if (!mEl.value) mEl.value = '00';
+            updateDuration();
+        } else if (e.key === ':' || e.key === 'ArrowRight') {
+            if (e.key === ':' || hEl.selectionStart === hEl.value.length) {
+                e.preventDefault();
+                mEl.focus();
+                mEl.select();
             }
         }
+    }
+
+    function onMinKeyDown(prefix, e) {
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        if (mEl.readOnly) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            mEl.value = (mEl.value === '00') ? '30' : '00';
+            updateDuration();
+        } else if (e.key === 'ArrowLeft' && mEl.selectionStart === 0) {
+            e.preventDefault();
+            hEl.focus();
+            hEl.select();
+        } else if (e.key === 'Backspace' && !mEl.value) {
+            e.preventDefault();
+            hEl.focus();
+        } else if (e.key === 'Enter') {
+            onMinBlur(prefix);
+        }
+    }
+
+    function updateWheelHighlight(wheelId, activeIndex) {
+        const wheel = document.getElementById(wheelId);
+        if (!wheel) return;
+        const items = wheel.querySelectorAll('[data-wheel-item]');
+        items.forEach((el, idx) => {
+            if (idx === activeIndex) {
+                el.classList.add('text-white', 'scale-110');
+                el.classList.remove('text-gray-500');
+            } else {
+                el.classList.add('text-gray-500');
+                el.classList.remove('text-white', 'scale-110');
+            }
+        });
+    }
+
+    function selectWheelItem(wheelId, index) {
+        const wheel = document.getElementById(wheelId);
+        if (!wheel) return;
+        wheel.scrollTo({ top: index * 40, behavior: 'smooth' });
+    }
+
+    function openTimeWheel(prefix) {
+        if (timeWheelTimer) {
+            clearTimeout(timeWheelTimer);
+            timeWheelTimer = null;
+        }
+        activeTimePrefix = prefix;
+        const hEl = document.getElementById(prefix + 'Hour');
+        const mEl = document.getElementById(prefix + 'Min');
+        const titleEl = document.getElementById('timeWheelTitle');
+        if (titleEl) {
+            titleEl.innerText = prefix === 'start' ? '選擇開始時間' : '選擇結束時間';
+        }
+
+        const currentHour = new Date().getHours();
+        const curH = hEl && hEl.value ? parseInt(normalizeHour(hEl.value), 10) : currentHour;
+        const curM = mEl && normalizeMin(mEl.value) === '30' ? 1 : 0;
+        const hIdx = isNaN(curH) ? currentHour : Math.max(0, Math.min(23, curH));
+
+        const modal = document.getElementById('timeWheelModal');
+        const sheet = document.getElementById('timeWheelSheet');
+        const hourWheel = document.getElementById('wheelHour');
+        const minWheel = document.getElementById('wheelMin');
+        if (!modal || !sheet || !hourWheel || !minWheel) return;
+
+        modal.classList.remove('hidden');
+        hourWheel.style.scrollBehavior = 'auto';
+        minWheel.style.scrollBehavior = 'auto';
+        hourWheel.scrollTop = hIdx * 40;
+        minWheel.scrollTop = curM * 40;
+        updateWheelHighlight('wheelHour', hIdx);
+        updateWheelHighlight('wheelMin', curM);
+
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.classList.remove('opacity-0');
+            sheet.classList.remove('translate-y-full');
+            sheet.classList.add('translate-y-0');
+            sheet.classList.remove('sm:scale-95');
+            sheet.classList.add('sm:scale-100');
+            hourWheel.scrollTop = hIdx * 40;
+            minWheel.scrollTop = curM * 40;
+        }, 10);
+    }
+
+    function closeTimeWheel() {
+        const modal = document.getElementById('timeWheelModal');
+        const sheet = document.getElementById('timeWheelSheet');
+        if (!modal || !sheet) return;
+
+        modal.classList.add('opacity-0');
+        modal.classList.remove('opacity-100');
+        sheet.classList.add('translate-y-full');
+        sheet.classList.remove('translate-y-0');
+        sheet.classList.add('sm:scale-95');
+        sheet.classList.remove('sm:scale-100');
+
+        if (timeWheelTimer) clearTimeout(timeWheelTimer);
+        timeWheelTimer = setTimeout(() => {
+            modal.classList.add('hidden');
+            timeWheelTimer = null;
+        }, 300);
+    }
+
+    function confirmTimeWheel() {
+        if (!activeTimePrefix) return;
+        const hourWheel = document.getElementById('wheelHour');
+        const minWheel = document.getElementById('wheelMin');
+        const hIdx = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / 40)));
+        const mIdx = Math.max(0, Math.min(1, Math.round(minWheel.scrollTop / 40)));
+        const hStr = hIdx < 10 ? '0' + hIdx : '' + hIdx;
+        const mStr = mIdx === 1 ? '30' : '00';
+        document.getElementById(activeTimePrefix + 'Hour').value = hStr;
+        document.getElementById(activeTimePrefix + 'Min').value = mStr;
         updateDuration();
+        closeTimeWheel();
+    }
+
+    function clearTimeWheel() {
+        if (!activeTimePrefix) return;
+        document.getElementById(activeTimePrefix + 'Hour').value = '';
+        document.getElementById(activeTimePrefix + 'Min').value = '';
+        updateDuration();
+        closeTimeWheel();
+    }
+
+    function setupTimeControls() {
+        ['start', 'end'].forEach(prefix => {
+            const hEl = document.getElementById(prefix + 'Hour');
+            const mEl = document.getElementById(prefix + 'Min');
+            if (!hEl || !mEl) return;
+
+            if (isTouchPrimary) {
+                hEl.readOnly = true;
+                mEl.readOnly = true;
+                hEl.classList.add('cursor-pointer');
+                mEl.classList.add('cursor-pointer');
+            } else {
+                hEl.addEventListener('focus', function() { this.select(); });
+                mEl.addEventListener('focus', function() { this.select(); });
+                hEl.addEventListener('input', function() { onHourInput(prefix); });
+                hEl.addEventListener('blur', function() { onHourBlur(prefix); });
+                hEl.addEventListener('keydown', function(e) { onHourKeyDown(prefix, e); });
+                mEl.addEventListener('input', function() { onMinInput(prefix); });
+                mEl.addEventListener('blur', function() { onMinBlur(prefix); });
+                mEl.addEventListener('keydown', function(e) { onMinKeyDown(prefix, e); });
+            }
+        });
+
+        const wheelHour = document.getElementById('wheelHour');
+        const wheelMin = document.getElementById('wheelMin');
+        if (wheelHour) {
+            wheelHour.addEventListener('scroll', function() {
+                const idx = Math.max(0, Math.min(23, Math.round(this.scrollTop / 40)));
+                updateWheelHighlight('wheelHour', idx);
+            });
+        }
+        if (wheelMin) {
+            wheelMin.addEventListener('scroll', function() {
+                const idx = Math.max(0, Math.min(1, Math.round(this.scrollTop / 40)));
+                updateWheelHighlight('wheelMin', idx);
+            });
+        }
     }
 
     // === 歷史記錄自訂儲存與渲染功能 ===
@@ -802,6 +956,7 @@ export const logicScript = `
     (init)();
 
     function init() {
+        setupTimeControls();
         updateDuration();
 
         if (isShareMode) {
@@ -1208,11 +1363,6 @@ export const logicScript = `
     }
     function formatHours(minutes) { return (minutes / 60).toFixed(1); }
 
-    document.getElementById('startHour').addEventListener('change', function() { handleTimeChange('start', 'hour'); });
-    document.getElementById('startMin').addEventListener('change', function() { handleTimeChange('start', 'min'); });
-    document.getElementById('endHour').addEventListener('change', function() { handleTimeChange('end', 'hour'); });
-    document.getElementById('endMin').addEventListener('change', function() { handleTimeChange('end', 'min'); });
-    
     function updateDuration() {
         const s = getTimeValue('start');
         const e = getTimeValue('end');
@@ -1251,11 +1401,22 @@ export const logicScript = `
         e.preventDefault();
         const pin = document.getElementById('pin').value;
         if (!pin) return alert('請先輸入 PIN 密碼');
+        const type = document.getElementById('recordType').value;
+        if (type === 'hourly') {
+            if (!isTouchPrimary) {
+                onHourBlur('start');
+                onMinBlur('start');
+                onHourBlur('end');
+                onMinBlur('end');
+            }
+            if (!getTimeValue('start') || !getTimeValue('end')) {
+                return alert('請選擇開始時間與結束時間');
+            }
+        }
         const btn = document.getElementById('btn-submit-record');
         btn.disabled = true; btn.innerText = '儲存中...';
         managePinStorage();
         try {
-            const type = document.getElementById('recordType').value;
             const payload = { 
                 pin, 
                 type, 
@@ -1479,34 +1640,6 @@ export const logicScript = `
 
 ````
 
-## File: src/ui/index.js
-````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
-}
-
-````
-
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -1534,6 +1667,151 @@ export default {
     });
   },
 };
+
+````
+
+## File: src/api.js
+````js
+export async function handleAdd(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) records =[];
+
+        records.push({
+            id: Date.now(),
+            type: data.type || 'hourly',
+            date: data.date,
+            endDate: data.endDate,
+            location: data.location,
+            start: data.start,
+            end: data.end,
+            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
+            amount: data.amount ? parseInt(data.amount) : 0,
+            timestamp: new Date().toISOString()
+        });
+
+        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDelete(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+
+        const newRecords = records.filter(r => r.id !== data.id);
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDeleteMonth(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        const monthKey = `OT_${data.month}`;
+        await env.OT_RECORDS.delete(monthKey);
+        
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleToggleSent(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+        } else {
+            sentList.push(data.month);
+        }
+        
+        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+
+        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handlePublicGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleListMonths(request, env) {
+    const url = new URL(request.url);
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    
+    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
+    const months = list.keys
+        .map(k => k.name.replace('OT_', ''))
+        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
+    
+    months.sort().reverse();
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 從 KV 讀取 Base64 純文字字型 ===
+export async function handleGetFont(request, env) {
+    try {
+        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
+        if (!b64) return new Response("Font not found in KV", { status: 404 });
+        
+        return new Response(b64, {
+            headers: {
+                "Content-Type": "text/plain",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
 
 ````
 
@@ -1649,6 +1927,23 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
@@ -1791,23 +2086,6 @@ jobs:
             AUTH_PIN
         env:
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
