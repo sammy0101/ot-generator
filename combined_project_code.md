@@ -1,147 +1,30 @@
 # Complete Project Codebase
-Generated on: Thu Nov 19 11:04:24 UTC 2026
+Generated on: Thu Nov 19 14:30:31 UTC 2026
 
-## File: src/api.js
+## File: src/ui/index.js
 ````js
-export async function handleAdd(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) records =[];
-
-        records.push({
-            id: Date.now(),
-            type: data.type || 'hourly',
-            date: data.date,
-            endDate: data.endDate,
-            location: data.location,
-            start: data.start,
-            end: data.end,
-            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
-            amount: data.amount ? parseInt(data.amount) : 0,
-            timestamp: new Date().toISOString()
-        });
-
-        records.sort((a, b) => new Date(a.date) - new Date(b.date));
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDelete(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
-
-        const newRecords = records.filter(r => r.id !== data.id);
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDeleteMonth(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-        const monthKey = `OT_${data.month}`;
-        await env.OT_RECORDS.delete(monthKey);
-        
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-        }
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleToggleSent(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-        } else {
-            sentList.push(data.month);
-        }
-        
-        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-
-        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handlePublicGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handleListMonths(request, env) {
-    const url = new URL(request.url);
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
     
-    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
-    const months = list.keys
-        .map(k => k.name.replace('OT_', ''))
-        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
-    
-    months.sort().reverse();
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-
-    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
-}
-
-// === 從 KV 讀取 Base64 純文字字型 ===
-export async function handleGetFont(request, env) {
-    try {
-        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        if (!b64) return new Response("Font not found in KV", { status: 404 });
-        
-        return new Response(b64, {
-            headers: {
-                "Content-Type": "text/plain",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
-        });
-    } catch (e) {
-        return new Response(e.message, { status: 500 });
-    }
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
 }
 
 ````
@@ -357,19 +240,105 @@ export const htmlContent = `
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/@pdf-lib/fontkit@0.0.4/dist/fontkit.umd.min.js"></script>
     <style>
-        body { background-color: #111827; }
-        
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        /* === Liquid Glass 背景與核心玻璃材質 === */
+        body {
+            background-color: #060913;
+            background-image:
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.28) 0%, transparent 45%),
+                radial-gradient(circle at 85% 22%, rgba(56, 189, 248, 0.22) 0%, transparent 42%),
+                radial-gradient(circle at 75% 82%, rgba(16, 185, 129, 0.18) 0%, transparent 48%),
+                radial-gradient(circle at 20% 85%, rgba(168, 85, 247, 0.2) 0%, transparent 45%);
+            background-attachment: fixed;
+            color: #f1f5f9;
+        }
+
+        .liquid-glass-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+            backdrop-filter: blur(28px) saturate(185%);
+            -webkit-backdrop-filter: blur(28px) saturate(185%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow:
+                0 24px 60px rgba(0, 0, 0, 0.55),
+                inset 0 1px 1px rgba(255, 255, 255, 0.38),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+        }
+
+        .liquid-glass-panel {
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 100%);
+            backdrop-filter: blur(18px) saturate(155%);
+            -webkit-backdrop-filter: blur(18px) saturate(155%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow:
+                0 8px 24px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        }
+
+        .liquid-glass-input {
+            background: rgba(15, 23, 42, 0.38);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+        }
+        .liquid-glass-input:focus-within,
+        input.liquid-glass-input:focus,
+        select.liquid-glass-input:focus {
+            background: rgba(15, 23, 42, 0.52);
+            border-color: rgba(129, 140, 248, 0.78);
+            box-shadow:
+                0 0 0 3px rgba(99, 102, 241, 0.25),
+                inset 0 1px 1px rgba(255, 255, 255, 0.18);
+        }
+
+        .liquid-glass-sheet {
+            background: linear-gradient(165deg, rgba(30, 41, 59, 0.78) 0%, rgba(15, 23, 42, 0.86) 100%);
+            backdrop-filter: blur(36px) saturate(195%);
+            -webkit-backdrop-filter: blur(36px) saturate(195%);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.65),
+                inset 0 1px 1px rgba(255, 255, 255, 0.38);
+        }
+
+        .liquid-btn-primary {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(79, 70, 229, 0.72) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(199, 210, 254, 0.42);
+            box-shadow:
+                0 10px 28px rgba(99, 102, 241, 0.35),
+                inset 0 1px 1px rgba(255, 255, 255, 0.45);
+        }
+        .liquid-btn-primary:hover {
+            background: linear-gradient(135deg, rgba(129, 140, 248, 0.9) 0%, rgba(99, 102, 241, 0.82) 100%);
+        }
+
+        .liquid-btn-emerald {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.82) 0%, rgba(5, 150, 105, 0.72) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(167, 243, 208, 0.42);
+            box-shadow:
+                0 10px 28px rgba(16, 185, 129, 0.32),
+                inset 0 1px 1px rgba(255, 255, 255, 0.45);
+        }
+        .liquid-btn-emerald:hover {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.88) 0%, rgba(16, 185, 129, 0.82) 100%);
+        }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
         
         .calendar-day { 
             text-align: center; 
             padding: 4px; 
-            border-radius: 4px; 
+            border-radius: 8px; 
             font-size: 0.8rem; 
             height: 36px; 
             display: flex; 
             align-items: center; 
-            justify-content: center; 
+            justify-content: center;
+            transition: transform 0.15s ease;
         }
         @media (min-width: 640px) {
             .calendar-day {
@@ -378,17 +347,36 @@ export const htmlContent = `
             }
         }
         
-        /* 顏色標記 */
-        .has-ot { background-color: #6366f1; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(99, 102, 241, 0.5); }
-        .has-money { background-color: #10b981; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); }
-        .has-transport { background-color: #F59E0B; color: white; font-weight: bold; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
+        /* 玻璃質感顏色標記 */
+        .has-ot {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.85), rgba(79, 70, 229, 0.72));
+            color: white; font-weight: bold;
+            border: 1px solid rgba(199, 210, 254, 0.45);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
+        .has-money {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.72));
+            color: white; font-weight: bold;
+            border: 1px solid rgba(167, 243, 208, 0.45);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
+        .has-transport {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.85), rgba(217, 119, 6, 0.72));
+            color: white; font-weight: bold;
+            border: 1px solid rgba(253, 230, 138, 0.45);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
         
-        .has-both { background: linear-gradient(135deg, #6366f1 50%, #10b981 50%); color: white; font-weight: bold; }
-        .has-money-transport { background: linear-gradient(135deg, #10b981 50%, #f59e0b 50%); color: white; font-weight: bold; }
-        .has-ot-transport { background: linear-gradient(135deg, #6366f1 50%, #f59e0b 50%); color: white; font-weight: bold; }
-        .has-triple { background: linear-gradient(135deg, #6366f1 33%, #10b981 33%, #10b981 66%, #f59e0b 66%); color: white; font-weight: bold; }
+        .has-both { background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 50%, rgba(16, 185, 129, 0.85) 50%); color: white; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); }
+        .has-money-transport { background: linear-gradient(135deg, rgba(16, 185, 129, 0.85) 50%, rgba(245, 158, 11, 0.85) 50%); color: white; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); }
+        .has-ot-transport { background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 50%, rgba(245, 158, 11, 0.85) 50%); color: white; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); }
+        .has-triple { background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 33%, rgba(16, 185, 129, 0.85) 33%, rgba(16, 185, 129, 0.85) 66%, rgba(245, 158, 11, 0.85) 66%); color: white; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); }
         
-        .no-ot { background-color: #374151; color: #9ca3af; }
+        .no-ot {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.45);
+        }
         .empty-day { background-color: transparent; }
 
         .delete-ui { display: none !important; }
@@ -398,35 +386,53 @@ export const htmlContent = `
         .status-ui { display: none !important; }
         .edit-mode .status-ui { display: flex !important; }
 
+        /* 月份按鈕（Liquid Glass 膠囊/磚塊） */
+        .month-btn {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.28) 0%, rgba(79, 70, 229, 0.16) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(165, 180, 252, 0.32);
+            color: #e0e7ff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+        .month-btn:hover {
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.42) 0%, rgba(79, 70, 229, 0.28) 100%);
+        }
+
         /* 月份按鈕已發送樣式 */
         .month-btn.sent {
-            background-color: #065f46 !important;
-            border-color: #059669 !important;
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.32) 0%, rgba(5, 150, 105, 0.18) 100%) !important;
+            border-color: rgba(110, 231, 183, 0.42) !important;
             color: #d1fae5 !important;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.28);
         }
         .month-btn.sent::before {
             content: '✓ ';
             font-size: 0.8em;
         }
 
-        /* 編輯模式下，月份按鈕呈現醒目框線 */
+        /* 編輯模式下，月份按鈕呈現醒目玻璃紅框 */
         .edit-mode .month-btn {
-            border-color: #ef4444 !important;
+            border-color: rgba(248, 113, 113, 0.78) !important;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.25);
         }
 
         .history-chip {
-            display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; 
+            display: inline-flex; align-items: center; padding: 0.25rem 0.65rem; 
             border-radius: 9999px; font-size: 0.75rem; font-weight: 500; 
-            background-color: #374151; color: #d1d5db; border: 1px solid #4b5563; 
+            background: rgba(255, 255, 255, 0.09); color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
             margin-right: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; 
             user-select: none; transition: all 0.2s;
         }
-        .history-chip:hover { background-color: #4b5563; color: white; }
+        .history-chip:hover { background: rgba(255, 255, 255, 0.18); color: white; }
         .history-delete {
-            margin-left: 0.375rem; color: #9ca3af; font-weight: bold; 
+            margin-left: 0.375rem; color: rgba(255, 255, 255, 0.55); font-weight: bold; 
             padding: 0 0.25rem; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;
         }
-        .history-delete:hover { color: #f87171; background-color: #1f2937; }
+        .history-delete:hover { color: #fca5a5; background: rgba(239, 68, 68, 0.22); }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -461,80 +467,80 @@ export const htmlContent = `
         }
     </style>
 </head>
-<body class="min-h-screen p-2 sm:p-4 font-sans text-gray-200 flex flex-col justify-start">
+<body class="min-h-screen p-2 sm:p-4 font-sans text-slate-100 flex flex-col justify-start">
     
     <!-- 卡片最大寬度限制：手機端最大 450px，電腦端（md）擴展至 800px 確保橫向排版舒適 -->
-    <div class="w-full max-w-[450px] md:max-w-[800px] mx-auto bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-4 sm:p-6 border border-gray-700 my-2 sm:my-4 transition-all duration-300">
+    <div class="relative z-10 w-full max-w-[450px] md:max-w-[800px] mx-auto liquid-glass-card rounded-3xl overflow-hidden p-4 sm:p-6 my-2 sm:my-4 transition-all duration-300">
         
         <div id="mainTitleArea" class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-100">OT 記錄器</h1>
+            <h1 class="text-2xl font-bold tracking-tight text-white drop-shadow-sm">OT 記錄器</h1>
         </div>
 
-        <div id="authSection" class="mb-4 bg-gray-700 p-3 sm:p-4 rounded-lg border border-gray-600">
-            <label class="block text-xs font-bold text-gray-300 mb-1">存取密碼 (PIN)</label>
-            <input type="password" id="pin" class="w-full bg-gray-800 border-gray-600 text-white border rounded px-2.5 py-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="****">
-            <div class="mt-2 flex items-center">
-                <input type="checkbox" id="rememberPin" class="h-4 w-4 text-indigo-500 bg-gray-800 border-gray-600 rounded focus:ring-indigo-500 focus:ring-offset-gray-800">
-                <label for="rememberPin" class="ml-2 block text-xs text-gray-300 font-bold cursor-pointer">記住密碼 (下次自動登入)</label>
+        <div id="authSection" class="mb-4 liquid-glass-panel p-3.5 sm:p-4 rounded-2xl">
+            <label class="block text-xs font-bold text-slate-300 mb-1.5">存取密碼 (PIN)</label>
+            <input type="password" id="pin" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none placeholder-slate-400" placeholder="****">
+            <div class="mt-2.5 flex items-center">
+                <input type="checkbox" id="rememberPin" class="h-4 w-4 text-indigo-400 bg-slate-900/60 border-white/25 rounded focus:ring-indigo-400 focus:ring-offset-0">
+                <label for="rememberPin" class="ml-2 block text-xs text-slate-300 font-bold cursor-pointer">記住密碼 (下次自動登入)</label>
             </div>
         </div>
 
         <div id="shareHeader" class="hidden mb-6 text-center">
-            <h1 class="text-2xl font-bold text-white" id="shareTitle">OT 記錄報表</h1>
-            <p class="text-sm text-gray-400 mt-1">唯讀模式</p>
+            <h1 class="text-2xl font-bold text-white drop-shadow-sm" id="shareTitle">OT 記錄報表</h1>
+            <p class="text-sm text-slate-300/80 mt-1">唯讀模式</p>
         </div>
 
-        <div class="flex border-b border-gray-700 mb-6" id="tabContainer">
-            <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50">新增記錄</button>
-            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition">月結報表</button>
+        <div class="flex border-b border-white/15 mb-6" id="tabContainer">
+            <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition">新增記錄</button>
+            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition">月結報表</button>
         </div>
 
         <div id="view-record">
-            <div class="flex gap-2 mb-4 bg-gray-900 p-1 rounded-lg overflow-x-auto border border-gray-700 no-scrollbar px-1">
-                <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold bg-gray-700 text-white shadow transition">🕒 OT</button>
-                <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">📅 當更</button>
-                <button type="button" onclick="setType('percall')" id="btn-percall" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">📞 Call</button>
-                <button type="button" onclick="setType('transport')" id="btn-transport" class="flex-1 py-2.5 px-3 rounded-md text-sm font-bold text-gray-400 hover:bg-gray-800 whitespace-nowrap transition">🚕 交通</button>
+            <div class="flex gap-1.5 mb-5 liquid-glass-panel p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+                <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition">🕒 OT</button>
+                <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📅 當更</button>
+                <button type="button" onclick="setType('percall')" id="btn-percall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📞 Call</button>
+                <button type="button" onclick="setType('transport')" id="btn-transport" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">🚕 交通</button>
             </div>
 
             <form id="addForm" class="space-y-4">
                 <input type="hidden" id="recordType" value="hourly">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300" id="label-date">日期</label>
-                    <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <label class="block text-sm font-medium text-slate-200" id="label-date">日期</label>
+                    <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
                         <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
                     </div>
                 </div>
                 <div id="group-hourly">
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-300">地點</label>
-                        <input type="text" id="location" class="mt-1 block w-full bg-gray-700 border border-gray-600 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：Server Room">
+                        <label class="block text-sm font-medium text-slate-200">地點</label>
+                        <input type="text" id="location" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：Server Room">
                         <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
                     </div>
                     
                     <div class="flex space-x-3 w-full">
                         <div class="flex-1 min-w-0">
-                            <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <div onclick="handleTimeBoxClick('start', event)" class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer">
+                            <label class="block text-sm font-medium text-slate-200">開始時間</label>
+                            <div onclick="handleTimeBoxClick('start', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
                                 <div class="flex items-center">
-                                    <input type="text" id="startHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
-                                    <span class="text-gray-400 font-mono font-bold mx-0.5 select-none">:</span>
-                                    <input type="text" id="startMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
+                                    <input type="text" id="startHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                    <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                    <input type="text" id="startMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
                                 </div>
-                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('start');" aria-label="選擇開始時間" class="text-gray-400 hover:text-white p-0.5 focus:outline-none">
+                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('start');" aria-label="選擇開始時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 </button>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <div onclick="handleTimeBoxClick('end', event)" class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer">
+                            <label class="block text-sm font-medium text-slate-200">結束時間</label>
+                            <div onclick="handleTimeBoxClick('end', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
                                 <div class="flex items-center">
-                                    <input type="text" id="endHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
-                                    <span class="text-gray-400 font-mono font-bold mx-0.5 select-none">:</span>
-                                    <input type="text" id="endMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-gray-400 focus:ring-0 focus:bg-indigo-600/40 rounded outline-none">
+                                    <input type="text" id="endHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                    <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                    <input type="text" id="endMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
                                 </div>
-                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('end');" aria-label="選擇結束時間" class="text-gray-400 hover:text-white p-0.5 focus:outline-none">
+                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('end');" aria-label="選擇結束時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 </button>
                             </div>
@@ -542,43 +548,43 @@ export const htmlContent = `
                     </div>
 
                     <div class="mt-4 mb-2">
-                        <label class="block text-sm font-medium text-gray-300 mb-1">工數 (倍數)</label>
+                        <label class="block text-sm font-medium text-slate-200 mb-1.5">工數 (倍數)</label>
                         <div class="flex gap-2">
                             <input type="hidden" id="multiplier" value="1">
-                            <button type="button" onclick="setMultiplier(1)" id="mul-1" class="flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition">x1</button>
-                            <button type="button" onclick="setMultiplier(1.5)" id="mul-1.5" class="flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x1.5</button>
-                            <button type="button" onclick="setMultiplier(2)" id="mul-2" class="flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x2</button>
-                            <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition">x3</button>
+                            <button type="button" onclick="setMultiplier(1)" id="mul-1" class="flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition">x1</button>
+                            <button type="button" onclick="setMultiplier(1.5)" id="mul-1.5" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x1.5</button>
+                            <button type="button" onclick="setMultiplier(2)" id="mul-2" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x2</button>
+                            <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x3</button>
                         </div>
                     </div>
 
-                    <div class="text-right text-sm text-gray-400 mt-2" id="durationCalc">時數: 0 小時</div>
+                    <div class="text-right text-sm text-slate-300 mt-2" id="durationCalc">時數: 0 小時</div>
                 </div>
 
                 <div id="group-money" class="hidden space-y-4">
                     <div id="field-endDate" class="hidden">
-                        <label class="block text-sm font-medium text-gray-300">結束日期 (至)</label>
-                        <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <label class="block text-sm font-medium text-slate-200">結束日期 (至)</label>
+                        <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
                             <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-300">金額 (HKD)</label>
-                        <input type="number" id="amount" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="輸入金額">
+                        <label class="block text-sm font-medium text-slate-200">金額 (HKD)</label>
+                        <input type="number" id="amount" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="輸入金額">
                     </div>
                     <div id="field-remarks">
-                        <label class="block text-sm font-medium text-gray-300" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1 block w-full border border-gray-600 bg-gray-700 text-white rounded-md py-2 px-3 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="例如：重啟 Server">
-                        <select id="transportSelect" class="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md p-2.5 hidden focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="停車場">停車場</option>
-                            <option value="隧道">隧道</option>
-                            <option value="維修">維修</option>
-                            <option value="其他">其他</option>
+                        <label class="block text-sm font-medium text-slate-200" id="label-remarks">備註 (選填)</label>
+                        <input type="text" id="moneyRemarks" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：重啟 Server">
+                        <select id="transportSelect" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl p-2.5 hidden outline-none">
+                            <option value="停車場" class="bg-slate-900 text-white">停車場</option>
+                            <option value="隧道" class="bg-slate-900 text-white">隧道</option>
+                            <option value="維修" class="bg-slate-900 text-white">維修</option>
+                            <option value="其他" class="bg-slate-900 text-white">其他</option>
                         </select>
                     </div>
                 </div>
 
-                <button type="submit" id="btn-submit-record" class="w-full bg-indigo-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/30">儲存記錄</button>
+                <button type="submit" id="btn-submit-record" class="w-full liquid-btn-primary text-white py-3 sm:py-3.5 rounded-2xl font-bold transition">儲存記錄</button>
             </form>
         </div>
 
@@ -590,119 +596,118 @@ export const htmlContent = `
             </div>
             
             <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
-                <div class="flex-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                <div class="flex-1 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
                     <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto">
-                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 text-white px-4 py-2.5 rounded-md hover:bg-gray-600 whitespace-nowrap transition">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-500 whitespace-nowrap transition" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-500 whitespace-nowrap transition" title="管理/刪除">✏️</button>
+                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial liquid-glass-panel text-white px-4 py-2.5 rounded-xl hover:bg-white/15 whitespace-nowrap transition font-medium">查詢</button>
+                    <button onclick="copyShareLink()" id="btn-share" class="bg-sky-500/70 hover:bg-sky-400/80 border border-sky-300/40 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(56,189,248,0.28),inset_0_1px_1px_rgba(255,255,255,0.4)]" title="複製分享連結">🔗</button>
+                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]" title="管理/刪除">✏️</button>
                 </div>
             </div>
             
             <!-- 月曆視圖：電腦端（md）最大寬度設為 lg 確保整體比例平衡 -->
-            <div id="calendarView" class="mb-6 hidden bg-gray-900/50 p-2.5 rounded-lg border border-gray-700 max-w-md md:max-w-lg mx-auto">
+            <div id="calendarView" class="mb-6 hidden liquid-glass-panel p-3 rounded-2xl max-w-md md:max-w-lg mx-auto">
                 <div class="calendar-grid"></div>
-                <div class="flex justify-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
-                    <span class="flex items-center"><span class="w-3 h-3 bg-indigo-500 rounded mr-1"></span>OT</span>
-                    <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500 rounded mr-1"></span>當更/Call</span>
-                    <span class="flex items-center"><span class="w-3 h-3 bg-amber-500 rounded mr-1"></span>交通</span>
+                <div class="flex justify-center gap-4 mt-3 text-xs text-slate-300/80 flex-wrap">
+                    <span class="flex items-center"><span class="w-3 h-3 bg-indigo-500/90 border border-indigo-300/50 rounded mr-1.5"></span>OT</span>
+                    <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500/90 border border-emerald-300/50 rounded mr-1.5"></span>當更/Call</span>
+                    <span class="flex items-center"><span class="w-3 h-3 bg-amber-500/90 border border-amber-300/50 rounded mr-1.5"></span>交通</span>
                 </div>
             </div>
 
-            <div id="recordsList" class="bg-gray-900 rounded-md border border-gray-700 p-3 sm:p-4 mb-4 max-h-80 overflow-y-auto overflow-x-auto text-sm space-y-2">
-                <p class="text-center text-gray-500">請查詢</p>
+            <div id="recordsList" class="liquid-glass-panel rounded-2xl p-3 sm:p-4 mb-4 max-h-80 overflow-y-auto overflow-x-auto text-sm space-y-2">
+                <p class="text-center text-slate-400">請查詢</p>
             </div>
 
-            <!-- 總結數據欄位（校正總時數至與其他行相同的 text-xl 比例大小） -->
-            <div id="totalSummary" class="text-right border-t border-gray-700 pt-4 space-y-1 hidden text-sm sm:text-base">
-                <div class="text-gray-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-400 text-xl">$0</span></div>
-                <div class="text-gray-300">總交通: <span id="sumTransport" class="font-bold text-amber-400 text-xl">$0</span></div>
+            <!-- 總結數據欄位 -->
+            <div id="totalSummary" class="text-right border-t border-white/15 pt-4 space-y-1 hidden text-sm sm:text-base">
+                <div class="text-slate-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-300 text-xl">$0</span></div>
+                <div class="text-slate-300">總交通: <span id="sumTransport" class="font-bold text-amber-300 text-xl">$0</span></div>
                 
-                <!-- 底部隔線及統計：將總時數的大小比例調校一致 -->
-                <div class="text-gray-100 mt-2 pt-2 border-t border-gray-700 space-y-1">
-                    <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-gray-100 font-bold">$0</span></div>
-                    <div class="text-gray-300">總時數: <span id="sumHours" class="font-bold text-indigo-400 text-xl">0</span> hr</div>
+                <div class="text-white mt-2 pt-2 border-t border-white/15 space-y-1">
+                    <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-white font-bold">$0</span></div>
+                    <div class="text-slate-300">總時數: <span id="sumHours" class="font-bold text-indigo-300 text-xl">0</span> hr</div>
                 </div>
             </div>
             
-            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 bg-green-600 text-white py-3 sm:py-3.5 rounded-md font-bold hover:bg-green-500 hidden shadow-lg shadow-green-500/30 transition">
+            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 liquid-btn-emerald text-white py-3 sm:py-3.5 rounded-2xl font-bold hidden transition">
                 下載 PDF 報表
             </button>
         </div>
         <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 
-    <!-- 時間選擇滾輪彈出視窗（仿 iPhone 計時器體驗：左右滿版分區、僅允許垂直滑動、鎖定背景網頁） -->
-    <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300 touch-none overscroll-none">
-        <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl touch-none overscroll-none">
-            <div class="flex items-center justify-between border-b border-gray-700 pb-3">
-                <button type="button" onclick="clearTimeWheel()" class="text-sm font-bold text-gray-400 hover:text-red-400 px-2 py-1 transition">清除</button>
-                <h3 id="timeWheelTitle" class="text-base font-bold text-gray-100">選擇時間</h3>
-                <button type="button" onclick="confirmTimeWheel()" class="text-sm font-bold text-indigo-400 hover:text-indigo-300 px-2 py-1 transition">確定</button>
+    <!-- 時間選擇滾輪彈出視窗（Liquid Glass 風格） -->
+    <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300 touch-none overscroll-none">
+        <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] liquid-glass-sheet rounded-t-3xl sm:rounded-3xl p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 touch-none overscroll-none">
+            <div class="flex items-center justify-between border-b border-white/15 pb-3">
+                <button type="button" onclick="clearTimeWheel()" class="text-sm font-bold text-slate-300 hover:text-red-300 px-2 py-1 transition">清除</button>
+                <h3 id="timeWheelTitle" class="text-base font-bold text-white">選擇時間</h3>
+                <button type="button" onclick="confirmTimeWheel()" class="text-sm font-bold text-indigo-300 hover:text-indigo-200 px-2 py-1 transition">確定</button>
             </div>
-            <div class="relative flex items-stretch h-[220px] bg-gray-900/80 rounded-xl border border-gray-700 overflow-hidden select-none">
-                <div class="pointer-events-none absolute top-[88px] left-3 right-3 h-[44px] bg-gray-700/60 border border-gray-600/60 rounded-xl z-0"></div>
-                <div class="pointer-events-none absolute top-0 left-0 right-0 h-[84px] bg-gradient-to-b from-gray-900/95 to-transparent z-20"></div>
-                <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-[84px] bg-gradient-to-t from-gray-900/95 to-transparent z-20"></div>
+            <div class="relative flex items-stretch h-[220px] bg-slate-950/45 rounded-2xl border border-white/15 overflow-hidden select-none shadow-inner">
+                <div class="pointer-events-none absolute top-[88px] left-3 right-3 h-[44px] bg-white/10 border border-white/25 rounded-xl z-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.28)]"></div>
+                <div class="pointer-events-none absolute top-0 left-0 right-0 h-[84px] bg-gradient-to-b from-slate-900/90 to-transparent z-20"></div>
+                <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-[84px] bg-gradient-to-t from-slate-900/90 to-transparent z-20"></div>
                 <div class="pointer-events-none absolute left-1/2 top-[88px] h-[44px] -translate-x-1/2 flex items-center justify-center z-20">
-                    <span class="text-2xl font-bold text-gray-300 pb-0.5">:</span>
+                    <span class="text-2xl font-bold text-white/90 pb-0.5">:</span>
                 </div>
 
                 <div id="wheelHour" class="relative z-10 flex-1 h-[220px] no-scrollbar time-wheel-scroll">
                     <div class="h-[88px] shrink-0"></div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 0)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">00</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 1)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">01</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 2)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">02</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 3)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">03</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 4)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">04</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 5)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">05</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 6)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">06</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 7)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">07</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 8)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">08</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 9)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">09</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 10)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">10</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 11)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">11</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 12)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">12</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 13)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">13</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 14)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">14</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 15)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">15</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 16)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">16</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 17)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">17</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 18)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">18</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 19)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">19</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 20)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">20</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 21)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">21</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 22)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">22</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 23)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">23</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 0)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 1)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">01</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 2)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">02</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 3)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">03</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 4)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">04</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 5)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">05</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 6)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">06</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 7)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">07</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 8)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">08</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 9)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">09</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 10)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">10</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 11)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">11</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 12)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">12</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 13)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">13</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 14)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">14</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 15)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">15</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 16)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">16</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 17)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">17</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 18)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">18</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 19)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">19</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 20)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">20</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 21)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">21</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 22)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">22</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelHour', 23)" class="w-full h-[44px] flex items-center justify-end pr-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">23</div>
                     <div class="h-[88px] shrink-0"></div>
                 </div>
 
                 <div id="wheelMin" class="relative z-10 flex-1 h-[220px] no-scrollbar time-wheel-scroll">
                     <div class="h-[88px] shrink-0"></div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 0)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">00</div>
-                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 1)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-gray-500 time-wheel-item cursor-pointer transition-colors">30</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 0)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">00</div>
+                    <div data-wheel-item onclick="selectWheelItem('wheelMin', 1)" class="w-full h-[44px] flex items-center justify-start pl-8 text-lg font-mono font-bold text-white/35 time-wheel-item cursor-pointer transition-colors">30</div>
                     <div class="h-[88px] shrink-0"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 管理月份的 Action Sheet / 彈出式底部選單 -->
-    <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] bg-gray-800 rounded-t-2xl sm:rounded-2xl border-t sm:border border-gray-700 p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 shadow-2xl">
+    <!-- 管理月份的 Action Sheet / 彈出式底部選單（Liquid Glass 風格） -->
+    <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] liquid-glass-sheet rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300">
             <div class="text-center">
-                <h3 id="modalMonthTitle" class="text-lg font-bold text-gray-100 font-mono">管理月份</h3>
-                <p class="text-xs text-gray-400 mt-1">請選擇要對該月份執行的安全操作</p>
+                <h3 id="modalMonthTitle" class="text-lg font-bold text-white font-mono">管理月份</h3>
+                <p class="text-xs text-slate-300/75 mt-1">請選擇要對該月份執行的安全操作</p>
             </div>
             <div class="flex flex-col gap-2.5 pt-2">
-                <button type="button" id="modalToggleSentBtn" class="w-full py-3.5 px-4 text-sm font-bold text-emerald-200 bg-emerald-950/80 border border-emerald-800 rounded-xl hover:bg-emerald-900 transition flex items-center justify-center gap-2">
+                <button type="button" id="modalToggleSentBtn" class="w-full py-3.5 px-4 text-sm font-bold text-emerald-100 bg-emerald-500/20 border border-emerald-400/40 rounded-2xl hover:bg-emerald-500/35 transition flex items-center justify-center gap-2 shadow-[inset_0_1px_1px_rgba(255,255,255,0.22)]">
                     <span id="modalToggleSentIcon">📤</span> <span id="modalToggleSentText">標記為已提交</span>
                 </button>
-                <button type="button" id="modalDeleteBtn" class="w-full py-3.5 px-4 text-sm font-bold text-red-200 bg-red-950/80 border border-red-900 rounded-xl hover:bg-red-900 transition flex items-center justify-center gap-2">
+                <button type="button" id="modalDeleteBtn" class="w-full py-3.5 px-4 text-sm font-bold text-red-100 bg-red-500/20 border border-red-400/40 rounded-2xl hover:bg-red-500/35 transition flex items-center justify-center gap-2 shadow-[inset_0_1px_1px_rgba(255,255,255,0.22)]">
                     🗑️ 刪除整月資料
                 </button>
-                <button type="button" onclick="closeMonthModal()" class="w-full py-3.5 px-4 text-sm font-bold text-gray-300 bg-gray-700/60 border border-gray-600 rounded-xl hover:bg-gray-600 transition">
+                <button type="button" onclick="closeMonthModal()" class="w-full py-3.5 px-4 text-sm font-bold text-slate-200 bg-white/10 border border-white/15 rounded-2xl hover:bg-white/20 transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
                     取消
                 </button>
             </div>
@@ -1778,34 +1783,6 @@ export const logicScript = `
 
 ````
 
-## File: src/ui/index.js
-````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
-}
-
-````
-
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -1833,6 +1810,151 @@ export default {
     });
   },
 };
+
+````
+
+## File: src/api.js
+````js
+export async function handleAdd(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) records =[];
+
+        records.push({
+            id: Date.now(),
+            type: data.type || 'hourly',
+            date: data.date,
+            endDate: data.endDate,
+            location: data.location,
+            start: data.start,
+            end: data.end,
+            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
+            amount: data.amount ? parseInt(data.amount) : 0,
+            timestamp: new Date().toISOString()
+        });
+
+        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDelete(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+
+        const newRecords = records.filter(r => r.id !== data.id);
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDeleteMonth(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        const monthKey = `OT_${data.month}`;
+        await env.OT_RECORDS.delete(monthKey);
+        
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleToggleSent(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+        } else {
+            sentList.push(data.month);
+        }
+        
+        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+
+        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handlePublicGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleListMonths(request, env) {
+    const url = new URL(request.url);
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    
+    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
+    const months = list.keys
+        .map(k => k.name.replace('OT_', ''))
+        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
+    
+    months.sort().reverse();
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 從 KV 讀取 Base64 純文字字型 ===
+export async function handleGetFont(request, env) {
+    try {
+        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
+        if (!b64) return new Response("Font not found in KV", { status: 404 });
+        
+        return new Response(b64, {
+            headers: {
+                "Content-Type": "text/plain",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
+}
 
 ````
 
@@ -1948,6 +2070,23 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
@@ -2090,23 +2229,6 @@ jobs:
             AUTH_PIN
         env:
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
