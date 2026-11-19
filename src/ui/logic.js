@@ -174,9 +174,9 @@ export const logicScript = `
         items.forEach((el, idx) => {
             if (idx === activeIndex) {
                 el.classList.add('text-white', 'text-2xl');
-                el.classList.remove('text-gray-500', 'text-lg');
+                el.classList.remove('text-white/35', 'text-lg');
             } else {
-                el.classList.add('text-gray-500', 'text-lg');
+                el.classList.add('text-white/35', 'text-lg');
                 el.classList.remove('text-white', 'text-2xl');
             }
         });
@@ -433,13 +433,11 @@ export const logicScript = `
         const container = document.getElementById('view-export');
         
         if (isEditMode) {
-            btn.classList.add('bg-red-600', 'hover:bg-red-500');
-            btn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
+            btn.className = "bg-red-500/75 hover:bg-red-500/90 border border-red-300/50 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(239,68,68,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] font-bold";
             btn.innerText = '完成';
             container.classList.add('edit-mode'); 
         } else {
-            btn.classList.add('bg-gray-600', 'hover:bg-gray-500');
-            btn.classList.remove('bg-red-600', 'hover:bg-red-500');
+            btn.className = "bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]";
             btn.innerText = '✏️';
             container.classList.remove('edit-mode');
         }
@@ -608,7 +606,7 @@ export const logicScript = `
 
                 const currentViewMonth = document.getElementById('queryMonth').value;
                 if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-gray-500">已刪除</p>';
+                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-slate-400">已刪除</p>';
                     document.getElementById('calendarView').classList.add('hidden');
                     document.getElementById('totalSummary').classList.add('hidden');
                     document.getElementById('pdfBtn').classList.add('hidden');
@@ -624,7 +622,7 @@ export const logicScript = `
         }
     }
 
-    // === 月份按鈕渲染 ===
+    // === 月份按鈕渲染（由 CSS .month-btn 與 .month-btn.sent 控制 Liquid Glass 視覺） ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
@@ -636,8 +634,8 @@ export const logicScript = `
             badges.innerHTML = sortedMonths.map(m => {
                 const isSent = sentMonths.has(m);
                 const btnClass = isSent 
-                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold border rounded-lg transition focus:outline-none shadow-sm cursor-pointer"
-                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold text-indigo-200 bg-indigo-900 border border-indigo-700 rounded-lg hover:bg-indigo-800 transition focus:outline-none shadow-sm cursor-pointer";
+                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer"
+                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer";
 
                 return '<div class="relative w-full">' +
                     '<button type="button" onclick="handleMonthClick(\\'' + m + '\\')" class="' + btnClass + '">' + m + '</button>' +
@@ -663,9 +661,9 @@ export const logicScript = `
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold bg-gray-700 text-white border border-gray-500 shadow whitespace-nowrap transition";
+                    btn.className = "flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition";
                 } else {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-md text-sm font-bold text-gray-500 hover:bg-gray-800 hover:text-gray-300 whitespace-nowrap transition";
+                    btn.className = "flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition";
                 }
             }
         });
@@ -729,9 +727,9 @@ export const logicScript = `
             const btn = document.getElementById(btnId);
             if(btn) {
                 if (v === val) {
-                    btn.className = "flex-1 py-2.5 rounded border border-indigo-600 bg-indigo-600 text-white text-sm font-bold transition";
+                    btn.className = "flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition";
                 } else {
-                    btn.className = "flex-1 py-2.5 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm font-bold hover:bg-gray-700 transition";
+                    btn.className = "flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition";
                 }
             }
         });
@@ -811,8 +809,8 @@ export const logicScript = `
             fetchHistoryMonths();
         }
         
-        const active = "flex-1 py-3 text-center font-bold text-indigo-400 border-b-2 border-indigo-500 transition hover:bg-gray-700/50";
-        const inactive = "flex-1 py-3 text-center text-gray-500 hover:text-indigo-400 hover:bg-gray-700/50 transition";
+        const active = "flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition";
+        const inactive = "flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition";
         document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
         document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
     }
@@ -862,7 +860,7 @@ export const logicScript = `
             const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
             if (res.ok) {
                 document.getElementById('msg').innerText = '✅ 儲存成功';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-green-400';
+                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-emerald-300';
                 document.getElementById('amount').value = '';
                 document.getElementById('location').value = '';
                 document.getElementById('moneyRemarks').value = '';
@@ -947,7 +945,7 @@ export const logicScript = `
         const listEl = document.getElementById('recordsList');
         const summaryEl = document.getElementById('totalSummary');
         
-        listEl.innerHTML = '<p class="text-center text-gray-400">載入中...</p>';
+        listEl.innerHTML = '<p class="text-center text-slate-300/75">載入中...</p>';
         
         try {
             let url;
@@ -970,14 +968,14 @@ export const logicScript = `
             renderCalendar(y, m, data);
 
             if (data.length === 0) {
-                listEl.innerHTML = '<p class="text-center text-gray-500">無記錄</p>';
+                listEl.innerHTML = '<p class="text-center text-slate-400">無記錄</p>';
                 summaryEl.classList.add('hidden');
                 document.getElementById('pdfBtn').classList.add('hidden');
             } else {
-                let html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
+                let html = '<table class="w-full text-left text-slate-200"><thead><tr class="text-white/50 border-b border-white/15"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
                 
                 if (isShareMode) {
-                    html = '<table class="w-full text-left text-gray-300"><thead><tr class="text-gray-500 border-b border-gray-700"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
+                    html = '<table class="w-full text-left text-slate-200"><thead><tr class="text-white/50 border-b border-white/15"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
                 }
 
                 data.forEach(r => {
@@ -992,45 +990,45 @@ export const logicScript = `
                         const effectiveMins = mins * mul;
                         grandTotalMinutes += effectiveMins;
                         
-                        typeLabel = '<span class="text-indigo-400 font-bold">' + (r.location || 'OT') + '</span>';
+                        typeLabel = '<span class="text-indigo-300 font-bold">' + (r.location || 'OT') + '</span>';
                         detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
                         const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
                         
-                        value = '<span class="text-indigo-400 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
+                        value = '<span class="text-indigo-300 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
                     } else if (r.type === 'transport') {
                         grandTotalTransport += amount;
                         
-                        typeLabel = '<span class="text-amber-400 font-bold">交通費</span>';
-                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        typeLabel = '<span class="text-amber-300 font-bold">交通費</span>';
+                        detail = r.location ? '<span class="text-white/70">' + r.location + '</span>' : '-';
                         
-                        value = '<span class="text-amber-400 font-bold">$' + amount + '</span>';
+                        value = '<span class="text-amber-300 font-bold">$' + amount + '</span>';
                     } else if (r.type === 'oncall') {
                         grandTotalMoney += amount;
                         
-                        typeLabel = '<span class="text-emerald-400 font-bold">當更</span>'; 
+                        typeLabel = '<span class="text-emerald-300 font-bold">當更</span>'; 
                         const startD = r.date.split('-')[2];
                         const endD = r.endDate ? r.endDate.split('-')[2] : '';
                         detail = startD + '日 - ' + endD + '日'; 
                         
-                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
+                        value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
                     } else { 
                         grandTotalMoney += amount;
                         
-                        typeLabel = '<span class="text-emerald-400 font-bold">Call</span>';
-                        detail = r.location ? '<span class="text-gray-400">' + r.location + '</span>' : '-';
+                        typeLabel = '<span class="text-emerald-300 font-bold">Call</span>';
+                        detail = r.location ? '<span class="text-white/70">' + r.location + '</span>' : '-';
                         
-                        value = '<span class="text-emerald-400 font-bold">$' + amount + '</span>';
+                        value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
                     }
 
                     const [yr, mo, dy] = r.date.split('-');
                     const formattedDate = yr + '年' + parseInt(mo) + '月' + parseInt(dy) + '日';
 
-                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-400 hover:text-red-300 text-xs">🗑️</button></td>';
+                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-300 hover:text-red-200 text-xs">🗑️</button></td>';
 
-                    html += '<tr class="border-b border-gray-700 last:border-0 hover:bg-gray-800 transition">' +
+                    html += '<tr class="border-b border-white/10 last:border-0 hover:bg-white/10 transition">' +
                         '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
                         '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
-                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-gray-400">' + detail + '</td>' +
+                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-white/70">' + detail + '</td>' +
                         '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
                         deleteBtn +
                         '</tr>';
