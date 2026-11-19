@@ -165,20 +165,84 @@ export const htmlContent = `
                     <div class="flex space-x-3 w-full">
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <div class="relative mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md focus-within:ring-2 focus-within:ring-indigo-500">
-                                <select id="start" required class="w-full bg-gray-700 border-none rounded-md py-2 pl-3 pr-8 text-white focus:ring-0 outline-none cursor-pointer">
-                                    <option value="" class="bg-gray-800 text-gray-400">--:--</option>
-                                </select>
-                                <svg class="pointer-events-none absolute right-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <div class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                                <div class="flex items-center space-x-1">
+                                    <select id="startHour" aria-label="開始小時" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
+                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
+                                        <option value="00" class="bg-gray-800 text-white">00</option>
+                                        <option value="01" class="bg-gray-800 text-white">01</option>
+                                        <option value="02" class="bg-gray-800 text-white">02</option>
+                                        <option value="03" class="bg-gray-800 text-white">03</option>
+                                        <option value="04" class="bg-gray-800 text-white">04</option>
+                                        <option value="05" class="bg-gray-800 text-white">05</option>
+                                        <option value="06" class="bg-gray-800 text-white">06</option>
+                                        <option value="07" class="bg-gray-800 text-white">07</option>
+                                        <option value="08" class="bg-gray-800 text-white">08</option>
+                                        <option value="09" class="bg-gray-800 text-white">09</option>
+                                        <option value="10" class="bg-gray-800 text-white">10</option>
+                                        <option value="11" class="bg-gray-800 text-white">11</option>
+                                        <option value="12" class="bg-gray-800 text-white">12</option>
+                                        <option value="13" class="bg-gray-800 text-white">13</option>
+                                        <option value="14" class="bg-gray-800 text-white">14</option>
+                                        <option value="15" class="bg-gray-800 text-white">15</option>
+                                        <option value="16" class="bg-gray-800 text-white">16</option>
+                                        <option value="17" class="bg-gray-800 text-white">17</option>
+                                        <option value="18" class="bg-gray-800 text-white">18</option>
+                                        <option value="19" class="bg-gray-800 text-white">19</option>
+                                        <option value="20" class="bg-gray-800 text-white">20</option>
+                                        <option value="21" class="bg-gray-800 text-white">21</option>
+                                        <option value="22" class="bg-gray-800 text-white">22</option>
+                                        <option value="23" class="bg-gray-800 text-white">23</option>
+                                    </select>
+                                    <span class="text-gray-400 font-bold">:</span>
+                                    <select id="startMin" aria-label="開始分鐘" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
+                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
+                                        <option value="00" class="bg-gray-800 text-white">00</option>
+                                        <option value="30" class="bg-gray-800 text-white">30</option>
+                                    </select>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 pointer-events-none shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <div class="relative mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md focus-within:ring-2 focus-within:ring-indigo-500">
-                                <select id="end" required class="w-full bg-gray-700 border-none rounded-md py-2 pl-3 pr-8 text-white focus:ring-0 outline-none cursor-pointer">
-                                    <option value="" class="bg-gray-800 text-gray-400">--:--</option>
-                                </select>
-                                <svg class="pointer-events-none absolute right-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <div class="mt-1 flex items-center justify-between w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                                <div class="flex items-center space-x-1">
+                                    <select id="endHour" aria-label="結束小時" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
+                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
+                                        <option value="00" class="bg-gray-800 text-white">00</option>
+                                        <option value="01" class="bg-gray-800 text-white">01</option>
+                                        <option value="02" class="bg-gray-800 text-white">02</option>
+                                        <option value="03" class="bg-gray-800 text-white">03</option>
+                                        <option value="04" class="bg-gray-800 text-white">04</option>
+                                        <option value="05" class="bg-gray-800 text-white">05</option>
+                                        <option value="06" class="bg-gray-800 text-white">06</option>
+                                        <option value="07" class="bg-gray-800 text-white">07</option>
+                                        <option value="08" class="bg-gray-800 text-white">08</option>
+                                        <option value="09" class="bg-gray-800 text-white">09</option>
+                                        <option value="10" class="bg-gray-800 text-white">10</option>
+                                        <option value="11" class="bg-gray-800 text-white">11</option>
+                                        <option value="12" class="bg-gray-800 text-white">12</option>
+                                        <option value="13" class="bg-gray-800 text-white">13</option>
+                                        <option value="14" class="bg-gray-800 text-white">14</option>
+                                        <option value="15" class="bg-gray-800 text-white">15</option>
+                                        <option value="16" class="bg-gray-800 text-white">16</option>
+                                        <option value="17" class="bg-gray-800 text-white">17</option>
+                                        <option value="18" class="bg-gray-800 text-white">18</option>
+                                        <option value="19" class="bg-gray-800 text-white">19</option>
+                                        <option value="20" class="bg-gray-800 text-white">20</option>
+                                        <option value="21" class="bg-gray-800 text-white">21</option>
+                                        <option value="22" class="bg-gray-800 text-white">22</option>
+                                        <option value="23" class="bg-gray-800 text-white">23</option>
+                                    </select>
+                                    <span class="text-gray-400 font-bold">:</span>
+                                    <select id="endMin" aria-label="結束分鐘" required class="bg-gray-700 text-white border-none py-0 px-1.5 rounded focus:ring-0 outline-none cursor-pointer text-center hover:bg-gray-600">
+                                        <option value="" class="bg-gray-800 text-gray-400">--</option>
+                                        <option value="00" class="bg-gray-800 text-white">00</option>
+                                        <option value="30" class="bg-gray-800 text-white">30</option>
+                                    </select>
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 pointer-events-none shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                         </div>
                     </div>
