@@ -1,164 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Nov 19 11:04:00 UTC 2026
-
-## File: .github/workflows/deploy.yml
-````yml
-name: Deploy to Cloudflare Workers
-
-on:
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
-
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: .github/workflows/combine-code.yml
-````yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              # 寫入檔案標題
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
-              echo "\`\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
-
-````
+Generated on: Thu Nov 19 11:04:24 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -301,34 +142,6 @@ export async function handleGetFont(request, env) {
     } catch (e) {
         return new Response(e.message, { status: 500 });
     }
-}
-
-````
-
-## File: src/ui/index.js
-````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
 }
 
 ````
@@ -919,6 +732,7 @@ export const logicScript = `
     let modalCloseTimer = null;
     let timeWheelTimer = null;
     let activeTimePrefix = null;
+    const TIME_ROW_HEIGHT = 44;
 
     const urlParams = new URLSearchParams(window.location.search);
     const isShareMode = urlParams.get('view') === 'share';
@@ -1077,11 +891,11 @@ export const logicScript = `
         const items = wheel.querySelectorAll('[data-wheel-item]');
         items.forEach((el, idx) => {
             if (idx === activeIndex) {
-                el.classList.add('text-white', 'scale-110');
-                el.classList.remove('text-gray-500');
+                el.classList.add('text-white', 'text-2xl');
+                el.classList.remove('text-gray-500', 'text-lg');
             } else {
-                el.classList.add('text-gray-500');
-                el.classList.remove('text-white', 'scale-110');
+                el.classList.add('text-gray-500', 'text-lg');
+                el.classList.remove('text-white', 'text-2xl');
             }
         });
     }
@@ -1089,7 +903,7 @@ export const logicScript = `
     function selectWheelItem(wheelId, index) {
         const wheel = document.getElementById(wheelId);
         if (!wheel) return;
-        wheel.scrollTo({ top: index * 40, behavior: 'smooth' });
+        wheel.scrollTo({ top: index * TIME_ROW_HEIGHT, behavior: 'smooth' });
     }
 
     function openTimeWheel(prefix) {
@@ -1116,11 +930,14 @@ export const logicScript = `
         const minWheel = document.getElementById('wheelMin');
         if (!modal || !sheet || !hourWheel || !minWheel) return;
 
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
         modal.classList.remove('hidden');
         hourWheel.style.scrollBehavior = 'auto';
         minWheel.style.scrollBehavior = 'auto';
-        hourWheel.scrollTop = hIdx * 40;
-        minWheel.scrollTop = curM * 40;
+        hourWheel.scrollTop = hIdx * TIME_ROW_HEIGHT;
+        minWheel.scrollTop = curM * TIME_ROW_HEIGHT;
         updateWheelHighlight('wheelHour', hIdx);
         updateWheelHighlight('wheelMin', curM);
 
@@ -1131,8 +948,8 @@ export const logicScript = `
             sheet.classList.add('translate-y-0');
             sheet.classList.remove('sm:scale-95');
             sheet.classList.add('sm:scale-100');
-            hourWheel.scrollTop = hIdx * 40;
-            minWheel.scrollTop = curM * 40;
+            hourWheel.scrollTop = hIdx * TIME_ROW_HEIGHT;
+            minWheel.scrollTop = curM * TIME_ROW_HEIGHT;
         }, 10);
     }
 
@@ -1140,6 +957,9 @@ export const logicScript = `
         const modal = document.getElementById('timeWheelModal');
         const sheet = document.getElementById('timeWheelSheet');
         if (!modal || !sheet) return;
+
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
 
         modal.classList.add('opacity-0');
         modal.classList.remove('opacity-100');
@@ -1159,8 +979,8 @@ export const logicScript = `
         if (!activeTimePrefix) return;
         const hourWheel = document.getElementById('wheelHour');
         const minWheel = document.getElementById('wheelMin');
-        const hIdx = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / 40)));
-        const mIdx = Math.max(0, Math.min(1, Math.round(minWheel.scrollTop / 40)));
+        const hIdx = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / TIME_ROW_HEIGHT)));
+        const mIdx = Math.max(0, Math.min(1, Math.round(minWheel.scrollTop / TIME_ROW_HEIGHT)));
         const hStr = hIdx < 10 ? '0' + hIdx : '' + hIdx;
         const mStr = mIdx === 1 ? '30' : '00';
         document.getElementById(activeTimePrefix + 'Hour').value = hStr;
@@ -1204,15 +1024,24 @@ export const logicScript = `
         const wheelMin = document.getElementById('wheelMin');
         if (wheelHour) {
             wheelHour.addEventListener('scroll', function() {
-                const idx = Math.max(0, Math.min(23, Math.round(this.scrollTop / 40)));
+                const idx = Math.max(0, Math.min(23, Math.round(this.scrollTop / TIME_ROW_HEIGHT)));
                 updateWheelHighlight('wheelHour', idx);
             });
         }
         if (wheelMin) {
             wheelMin.addEventListener('scroll', function() {
-                const idx = Math.max(0, Math.min(1, Math.round(this.scrollTop / 40)));
+                const idx = Math.max(0, Math.min(1, Math.round(this.scrollTop / TIME_ROW_HEIGHT)));
                 updateWheelHighlight('wheelMin', idx);
             });
+        }
+
+        const timeModal = document.getElementById('timeWheelModal');
+        if (timeModal) {
+            timeModal.addEventListener('touchmove', function(e) {
+                if (!e.target.closest('#wheelHour, #wheelMin')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
         }
     }
 
@@ -1949,6 +1778,34 @@ export const logicScript = `
 
 ````
 
+## File: src/ui/index.js
+````js
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
+
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
+    
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
+}
+
+````
+
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -2091,6 +1948,165 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
+
+````
+
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
+
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
+
+````
+
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
+
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
+
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
