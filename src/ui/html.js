@@ -165,14 +165,20 @@ export const htmlContent = `
                     <div class="flex space-x-3 w-full">
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">開始時間</label>
-                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <input type="time" id="start" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                            <div class="relative mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md focus-within:ring-2 focus-within:ring-indigo-500">
+                                <select id="start" required class="w-full bg-gray-700 border-none rounded-md py-2 pl-3 pr-8 text-white focus:ring-0 outline-none cursor-pointer">
+                                    <option value="" class="bg-gray-800 text-gray-400">--:--</option>
+                                </select>
+                                <svg class="pointer-events-none absolute right-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <label class="block text-sm font-medium text-gray-300">結束時間</label>
-                            <div class="mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
-                                <input type="time" id="end" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                            <div class="relative mt-1 flex items-center w-full bg-gray-700 border border-gray-600 rounded-md focus-within:ring-2 focus-within:ring-indigo-500">
+                                <select id="end" required class="w-full bg-gray-700 border-none rounded-md py-2 pl-3 pr-8 text-white focus:ring-0 outline-none cursor-pointer">
+                                    <option value="" class="bg-gray-800 text-gray-400">--:--</option>
+                                </select>
+                                <svg class="pointer-events-none absolute right-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
                         </div>
                     </div>
