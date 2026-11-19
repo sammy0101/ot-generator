@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Thu Nov 19 10:31:46 UTC 2026
+Generated on: Thu Nov 19 10:35:00 UTC 2026
 
 ## File: src/ui/index.js
 ````js
@@ -1657,9 +1657,6 @@ jobs:
 name: Deploy to Cloudflare Workers
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
