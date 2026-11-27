@@ -1,30 +1,147 @@
 # Complete Project Codebase
-Generated on: Thu Nov 19 14:35:06 UTC 2026
+Generated on: Fri Nov 27 06:01:26 UTC 2026
 
-## File: src/ui/index.js
+## File: src/api.js
 ````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
+export async function handleAdd(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
 
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) records =[];
+
+        records.push({
+            id: Date.now(),
+            type: data.type || 'hourly',
+            date: data.date,
+            endDate: data.endDate,
+            location: data.location,
+            start: data.start,
+            end: data.end,
+            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
+            amount: data.amount ? parseInt(data.amount) : 0,
+            timestamp: new Date().toISOString()
+        });
+
+        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDelete(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        const monthKey = `OT_${data.date.substring(0, 7)}`;
+        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+
+        const newRecords = records.filter(r => r.id !== data.id);
+        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleDeleteMonth(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        const monthKey = `OT_${data.month}`;
+        await env.OT_RECORDS.delete(monthKey);
+        
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+        }
+
+        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleToggleSent(request, env) {
+    try {
+        const data = await request.json();
+        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+
+        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+        
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter(m => m !== data.month);
+        } else {
+            sentList.push(data.month);
+        }
+        
+        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+
+        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    }
+}
+
+export async function handleGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handlePublicGet(request, env) {
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
+    const key = `OT_${month}`;
+    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
+    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleListMonths(request, env) {
+    const url = new URL(request.url);
+    const pin = url.searchParams.get('pin');
+    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
     
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
+    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
+    const months = list.keys
+        .map(k => k.name.replace('OT_', ''))
+        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
+    
+    months.sort().reverse();
+    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+
+    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// === 從 KV 讀取 Base64 純文字字型 ===
+export async function handleGetFont(request, env) {
+    try {
+        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
+        if (!b64) return new Response("Font not found in KV", { status: 404 });
+        
+        return new Response(b64, {
+            headers: {
+                "Content-Type": "text/plain",
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "Access-Control-Allow-Origin": "*"
+            }
+        });
+    } catch (e) {
+        return new Response(e.message, { status: 500 });
+    }
 }
 
 ````
@@ -48,34 +165,34 @@ export const pdfScript = `
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
             
-            // === 獲取純文字字型並還原 ===
-            const fontUrl = '/api/font'; 
+            // === 獲取純文字字型並還原（含記憶體快取） ===
+            let fontBytes = window.__CACHED_FONT_BYTES;
+            if (!fontBytes) {
+                const fontUrl = '/api/font'; 
+                const fontRes = await fetch(fontUrl);
+                if (!fontRes.ok) {
+                    const errText = await fontRes.text();
+                    throw new Error('字型載入失敗: ' + errText);
+                }
+                
+                const b64String = await fontRes.text();
+                if (b64String.includes("<!DOC") || b64String.includes("<html")) {
+                    throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
+                }
 
-            const fontRes = await fetch(fontUrl);
-            if (!fontRes.ok) {
-                const errText = await fontRes.text();
-                throw new Error(\`字型載入失敗: \${errText}\`);
-            }
-            
-            // 拿到 Base64 純文字
-            const b64String = await fontRes.text();
-            
-            if (b64String.includes("<!DOC") || b64String.includes("<html")) {
-                throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
-            }
-
-            // 在瀏覽器端將 Base64 轉換回二進位陣列
-            const binaryString = window.atob(b64String);
-            const len = binaryString.length;
-            const fontBytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                fontBytes[i] = binaryString.charCodeAt(i);
+                const binaryString = window.atob(b64String);
+                const len = binaryString.length;
+                fontBytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    fontBytes[i] = binaryString.charCodeAt(i);
+                }
+                window.__CACHED_FONT_BYTES = fontBytes;
             }
 
             const chineseFont = await pdfDoc.embedFont(fontBytes);
             // ============================================
 
-            const page = pdfDoc.addPage([595.28, 841.89]);
+            let page = pdfDoc.addPage([595.28, 841.89]);
             const { width, height } = page.getSize();
             let yPos = height - 60;
             const marginX = 40;
@@ -83,7 +200,7 @@ export const pdfScript = `
             const colorBlack = rgb(0, 0, 0);
             const colorGreen = rgb(0, 0.5, 0);
             const colorOrange = rgb(0.85, 0.5, 0);
-            const colorBlue = rgb(0.38, 0.4, 0.94); // 藍色主題色 (對應網頁端 indigo-400)
+            const colorBlue = rgb(0.38, 0.4, 0.94);
 
             const monthStr = document.getElementById('queryMonth').value;
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
@@ -101,17 +218,27 @@ export const pdfScript = `
             const fontSize = 11;
             const drawTxt = (text, x, font, color=colorBlack) => page.drawText(text, { x, y: yPos, size: fontSize, font, color });
 
-            drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
-            drawTxt('時數/金額', col.val, chineseFont, rgb(0.5,0.5,0.5));
-            
-            page.drawLine({ start: { x: marginX, y: yPos-5 }, end: { x: width-marginX, y: yPos-5 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
-            yPos -= 25;
+            const drawTableHeader = () => {
+                drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
+                drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
+                drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
+                drawTxt('時數/金額', col.val, chineseFont, rgb(0.5,0.5,0.5));
+                page.drawLine({ start: { x: marginX, y: yPos-5 }, end: { x: width-marginX, y: yPos-5 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+                yPos -= 25;
+            };
+
+            drawTableHeader();
 
             for (const r of currentRecords) {
                 const amount = Number(r.amount) || 0; 
                 if (r.type !== 'hourly' && amount === 0) continue;
+
+                // 繪製列之前檢查空間，換頁時重新指派 page 並繪製表頭
+                if (yPos < 60) {
+                    page = pdfDoc.addPage([595.28, 841.89]);
+                    yPos = height - 60;
+                    drawTableHeader();
+                }
 
                 let itemStr = '', detailStr = '', valStr = '';
                 let detailFont = helvetica; 
@@ -150,25 +277,24 @@ export const pdfScript = `
 
                 drawTxt(r.date, col.d, helvetica);
                 const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
-                
-                // === 已優化調整：將項目欄位（safeItem）也帶入與金額相同的 rowColor，實現統一上色 ===
                 drawTxt(safeItem, col.item, chineseFont, rowColor);
-                
                 drawTxt(detailStr, col.detail, detailFont);
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
 
                 page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
                 yPos -= 25;
-                
-                if (yPos < 50) { pdfDoc.addPage([595.28, 841.89]); yPos = height - 50; }
+            }
+
+            // 總結區塊需要約 110pt 高度，空間不足時自動換頁
+            if (yPos < 150) {
+                page = pdfDoc.addPage([595.28, 841.89]);
+                yPos = height - 60;
             }
 
             yPos -= 10;
             page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            // === 依據您的指定，重新安排 PDF 底部統計區塊的輸出順序 ===
-            
             // 1. 總當更/Call
             drawTxt("總當更/Call: ", 350, chineseFont);
             drawTxt("$" + grandTotalMoney, 440, helveticaBold, colorGreen);
@@ -195,14 +321,37 @@ export const pdfScript = `
 
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            
             let filename = 'OT_Record_' + monthStr + '.pdf';
             if (window.USER_NAME) filename = 'OT_Record_' + monthStr + '_' + window.USER_NAME + '.pdf';
-            link.download = filename;
-            
-            link.click();
+
+            // 手機端優先嘗試 Web Share API，避免 iOS Web App 跳轉離開原頁面導致狀態/PIN 遺失
+            let shared = false;
+            if (typeof isTouchPrimary !== 'undefined' && isTouchPrimary && navigator.share && navigator.canShare) {
+                try {
+                    const pdfFile = new File([pdfBytes], filename, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [pdfFile] })) {
+                        await navigator.share({ files: [pdfFile], title: filename });
+                        shared = true;
+                    }
+                } catch (shareErr) {
+                    if (shareErr && shareErr.name === 'AbortError') {
+                        shared = true;
+                    }
+                }
+            }
+
+            if (!shared) {
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            }
 
         } catch(err) { 
             console.error(err); 
@@ -213,7 +362,6 @@ export const pdfScript = `
         }
     }
 `;
-
 ````
 
 ## File: src/ui/html.js
@@ -1781,6 +1929,34 @@ export const logicScript = `
 
 ````
 
+## File: src/ui/index.js
+````js
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
+
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
+    
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
+}
+
+````
+
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -1808,151 +1984,6 @@ export default {
     });
   },
 };
-
-````
-
-## File: src/api.js
-````js
-export async function handleAdd(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) records =[];
-
-        records.push({
-            id: Date.now(),
-            type: data.type || 'hourly',
-            date: data.date,
-            endDate: data.endDate,
-            location: data.location,
-            start: data.start,
-            end: data.end,
-            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
-            amount: data.amount ? parseInt(data.amount) : 0,
-            timestamp: new Date().toISOString()
-        });
-
-        records.sort((a, b) => new Date(a.date) - new Date(b.date));
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDelete(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
-
-        const newRecords = records.filter(r => r.id !== data.id);
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleDeleteMonth(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-        const monthKey = `OT_${data.month}`;
-        await env.OT_RECORDS.delete(monthKey);
-        
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-        }
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleToggleSent(request, env) {
-    try {
-        const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-        } else {
-            sentList.push(data.month);
-        }
-        
-        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
-
-        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
-    }
-}
-
-export async function handleGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handlePublicGet(request, env) {
-    const url = new URL(request.url);
-    const month = url.searchParams.get('month');
-    const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
-}
-
-export async function handleListMonths(request, env) {
-    const url = new URL(request.url);
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    
-    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
-    const months = list.keys
-        .map(k => k.name.replace('OT_', ''))
-        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
-    
-    months.sort().reverse();
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-
-    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
-}
-
-// === 從 KV 讀取 Base64 純文字字型 ===
-export async function handleGetFont(request, env) {
-    try {
-        const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        if (!b64) return new Response("Font not found in KV", { status: 404 });
-        
-        return new Response(b64, {
-            headers: {
-                "Content-Type": "text/plain",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
-        });
-    } catch (e) {
-        return new Response(e.message, { status: 500 });
-    }
-}
 
 ````
 
@@ -2074,23 +2105,6 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
@@ -2233,6 +2247,23 @@ jobs:
             AUTH_PIN
         env:
           AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
