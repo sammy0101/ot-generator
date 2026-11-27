@@ -171,37 +171,17 @@ export const pdfScript = `
 
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
             let filename = 'OT_Record_' + monthStr + '.pdf';
             if (window.USER_NAME) filename = 'OT_Record_' + monthStr + '_' + window.USER_NAME + '.pdf';
 
-            // 手機端優先嘗試 Web Share API，避免 iOS Web App 跳轉離開原頁面導致狀態/PIN 遺失
-            let shared = false;
-            if (typeof isTouchPrimary !== 'undefined' && isTouchPrimary && navigator.share && navigator.canShare) {
-                try {
-                    const pdfFile = new File([pdfBytes], filename, { type: 'application/pdf' });
-                    if (navigator.canShare({ files: [pdfFile] })) {
-                        await navigator.share({ files: [pdfFile], title: filename });
-                        shared = true;
-                    }
-                } catch (shareErr) {
-                    if (shareErr && shareErr.name === 'AbortError') {
-                        shared = true;
-                    }
-                }
-            }
-
-            if (!shared) {
-                const blobUrl = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = filename;
-                link.target = '_blank';
-                link.rel = 'noopener';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-            }
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
         } catch(err) { 
             console.error(err); 
