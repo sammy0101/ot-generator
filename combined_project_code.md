@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 10:35:48 UTC 2026
+Generated on: Fri Nov 27 10:39:12 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -2720,7 +2720,8 @@ export function getHtml(userName = '', isAuthenticated = false) {
         </script>
     `;
 
-    return htmlContent.replace('<!--APP_SCRIPTS-->', scripts);
+    // 使用回呼函式避免字串內含 "$'" 被 replace() 解析為後文插入符號
+    return htmlContent.replace('<!--APP_SCRIPTS-->', () => scripts);
 }
 
 ````
