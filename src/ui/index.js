@@ -15,5 +15,6 @@ export function getHtml(userName = '', isAuthenticated = false) {
         </script>
     `;
 
-    return htmlContent.replace('<!--APP_SCRIPTS-->', scripts);
+    // 使用回呼函式避免字串內含 "$'" 被 replace() 解析為後文插入符號
+    return htmlContent.replace('<!--APP_SCRIPTS-->', () => scripts);
 }
