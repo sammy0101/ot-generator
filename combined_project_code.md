@@ -1,5 +1,164 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 10:27:30 UTC 2026
+Generated on: Fri Nov 27 10:33:06 UTC 2026
+
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
+
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
+
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
+
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
+
+````
 
 ## File: src/api.js
 ````js
@@ -401,6 +560,34 @@ export async function handleGetFont(request, env) {
 
 ````
 
+## File: src/ui/index.js
+````js
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
+
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
+    
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
+}
+
+````
+
 ## File: src/ui/pdf.js
 ````js
 export const pdfScript = `
@@ -760,14 +947,10 @@ export const htmlContent = `
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: rgba(255, 255, 255, 0.45);
         }
-        .empty-day { background-color: transparent; }
 
         .delete-ui { display: none !important; }
         .edit-mode .delete-ui { display: flex !important; }
         .edit-mode td.delete-ui, .edit-mode th.delete-ui { display: table-cell !important; }
-
-        .status-ui { display: none !important; }
-        .edit-mode .status-ui { display: flex !important; }
 
         /* 月份按鈕（Liquid Glass 膠囊/磚塊） */
         .month-btn {
@@ -855,173 +1038,192 @@ export const htmlContent = `
     <!-- 卡片最大寬度限制：手機端最大 450px，電腦端（md）擴展至 800px 確保橫向排版舒適 -->
     <div class="relative z-10 w-full max-w-[450px] md:max-w-[800px] mx-auto liquid-glass-card rounded-3xl overflow-hidden p-4 sm:p-6 my-2 sm:my-4 transition-all duration-300">
         
-        <div id="mainTitleArea" class="text-center mb-6">
-            <h1 class="text-2xl font-bold tracking-tight text-white drop-shadow-sm">OT 記錄器</h1>
-        </div>
-
-        <div id="authSection" class="mb-4 liquid-glass-panel p-3.5 sm:p-4 rounded-2xl">
-            <label class="block text-xs font-bold text-slate-300 mb-1.5">存取密碼 (PIN)</label>
-            <input type="password" id="pin" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none placeholder-slate-400" placeholder="****">
-            <div class="mt-2.5 flex items-center">
-                <input type="checkbox" id="rememberPin" class="h-4 w-4 text-indigo-400 bg-slate-900/60 border-white/25 rounded focus:ring-indigo-400 focus:ring-offset-0">
-                <label for="rememberPin" class="ml-2 block text-xs text-slate-300 font-bold cursor-pointer">記住密碼 (下次自動登入)</label>
+        <!-- 登入畫面（未登入且非分享模式時顯示） -->
+        <div id="loginSection" class="hidden py-4 max-w-sm mx-auto">
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-2">🔐</div>
+                <h1 class="text-2xl font-bold tracking-tight text-white drop-shadow-sm">OT 記錄器 Pro</h1>
+                <p id="loginUserSubtitle" class="text-xs text-slate-300/75 mt-1 hidden"></p>
             </div>
-        </div>
-
-        <div id="shareHeader" class="hidden mb-6 text-center">
-            <h1 class="text-2xl font-bold text-white drop-shadow-sm" id="shareTitle">OT 記錄報表</h1>
-            <p class="text-sm text-slate-300/80 mt-1">唯讀模式</p>
-        </div>
-
-        <div class="flex border-b border-white/15 mb-6" id="tabContainer">
-            <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition">新增記錄</button>
-            <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition">月結報表</button>
-        </div>
-
-        <div id="view-record">
-            <div class="flex gap-1.5 mb-5 liquid-glass-panel p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
-                <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition">🕒 OT</button>
-                <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📅 當更</button>
-                <button type="button" onclick="setType('percall')" id="btn-percall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📞 Call</button>
-                <button type="button" onclick="setType('transport')" id="btn-transport" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">🚕 交通</button>
-            </div>
-
-            <form id="addForm" class="space-y-4">
-                <input type="hidden" id="recordType" value="hourly">
+            <form id="loginForm" class="liquid-glass-panel p-5 rounded-2xl space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-200" id="label-date">日期</label>
-                    <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
-                        <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
-                    </div>
+                    <label for="loginPassword" class="block text-xs font-bold text-slate-300 mb-1.5">登入密碼</label>
+                    <input type="password" id="loginPassword" autocomplete="current-password" required class="w-full liquid-glass-input text-white rounded-xl px-3.5 py-2.5 outline-none placeholder-slate-400" placeholder="請輸入系統密碼">
                 </div>
-                <div id="group-hourly">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-200">地點</label>
-                        <input type="text" id="location" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：Server Room">
-                        <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
-                    </div>
-                    
-                    <div class="flex space-x-3 w-full">
-                        <div class="flex-1 min-w-0">
-                            <label class="block text-sm font-medium text-slate-200">開始時間</label>
-                            <div onclick="handleTimeBoxClick('start', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
-                                <div class="flex items-center">
-                                    <input type="text" id="startHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
-                                    <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
-                                    <input type="text" id="startMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
-                                </div>
-                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('start');" aria-label="選擇開始時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <label class="block text-sm font-medium text-slate-200">結束時間</label>
-                            <div onclick="handleTimeBoxClick('end', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
-                                <div class="flex items-center">
-                                    <input type="text" id="endHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
-                                    <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
-                                    <input type="text" id="endMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
-                                </div>
-                                <button type="button" onclick="event.stopPropagation(); openTimeWheel('end');" aria-label="選擇結束時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 mb-2">
-                        <label class="block text-sm font-medium text-slate-200 mb-1.5">工數 (倍數)</label>
-                        <div class="flex gap-2">
-                            <input type="hidden" id="multiplier" value="1">
-                            <button type="button" onclick="setMultiplier(1)" id="mul-1" class="flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition">x1</button>
-                            <button type="button" onclick="setMultiplier(1.5)" id="mul-1.5" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x1.5</button>
-                            <button type="button" onclick="setMultiplier(2)" id="mul-2" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x2</button>
-                            <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x3</button>
-                        </div>
-                    </div>
-
-                    <div class="text-right text-sm text-slate-300 mt-2" id="durationCalc">時數: 0 小時</div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="rememberLogin" checked class="h-4 w-4 text-indigo-400 bg-slate-900/60 border-white/25 rounded focus:ring-indigo-400 focus:ring-offset-0">
+                    <label for="rememberLogin" class="ml-2 block text-xs text-slate-300 font-bold cursor-pointer">保持登入 (自動刷新 30 天有效期)</label>
                 </div>
-
-                <div id="group-money" class="hidden space-y-4">
-                    <div id="field-endDate" class="hidden">
-                        <label class="block text-sm font-medium text-slate-200">結束日期 (至)</label>
-                        <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
-                            <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-200">金額 (HKD)</label>
-                        <input type="number" id="amount" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="輸入金額">
-                    </div>
-                    <div id="field-remarks">
-                        <label class="block text-sm font-medium text-slate-200" id="label-remarks">備註 (選填)</label>
-                        <input type="text" id="moneyRemarks" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：重啟 Server">
-                        <select id="transportSelect" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl p-2.5 hidden outline-none">
-                            <option value="停車場" class="bg-slate-900 text-white">停車場</option>
-                            <option value="隧道" class="bg-slate-900 text-white">隧道</option>
-                            <option value="維修" class="bg-slate-900 text-white">維修</option>
-                            <option value="其他" class="bg-slate-900 text-white">其他</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="submit" id="btn-submit-record" class="w-full liquid-btn-primary text-white py-3 sm:py-3.5 rounded-2xl font-bold transition">儲存記錄</button>
+                <button type="submit" id="btn-login" class="w-full liquid-btn-primary text-white py-3 rounded-2xl font-bold transition">登入系統</button>
+                <p id="loginError" class="text-center text-xs font-bold text-red-300 min-h-[16px]"></p>
             </form>
         </div>
 
-        <div id="view-export" class="hidden">
-            
-            <!-- 歷史月份按鈕：手機端 4 欄，電腦端（md）自動延展至 6 欄 -->
-            <div id="historyMonthsArea" class="mb-4 hidden">
-                <div id="historyBadges" class="grid grid-cols-4 md:grid-cols-6 gap-2 mb-4"></div>
-            </div>
-            
-            <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
-                <div class="flex-1 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
-                    <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+        <!-- 主系統與唯讀分享容器 -->
+        <div id="appContainer" class="hidden">
+            <div id="mainTitleArea" class="flex items-center justify-between mb-6 gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-sm truncate">OT 記錄器</h1>
+                    <span id="headerUserBadge" class="hidden text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-500/25 border border-indigo-300/35 text-indigo-200 truncate"></span>
                 </div>
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <button onclick="loadRecords()" class="flex-1 sm:flex-initial liquid-glass-panel text-white px-4 py-2.5 rounded-xl hover:bg-white/15 whitespace-nowrap transition font-medium">查詢</button>
-                    <button onclick="copyShareLink()" id="btn-share" class="bg-sky-500/70 hover:bg-sky-400/80 border border-sky-300/40 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(56,189,248,0.28),inset_0_1px_1px_rgba(255,255,255,0.4)]" title="複製分享連結">🔗</button>
-                    <button onclick="toggleEditMode()" id="btn-edit" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]" title="管理/刪除">✏️</button>
-                </div>
-            </div>
-            
-            <!-- 月曆視圖：電腦端（md）最大寬度設為 lg 確保整體比例平衡 -->
-            <div id="calendarView" class="mb-6 hidden liquid-glass-panel p-3 rounded-2xl max-w-md md:max-w-lg mx-auto">
-                <div class="calendar-grid"></div>
-                <div class="flex justify-center gap-4 mt-3 text-xs text-slate-300/80 flex-wrap">
-                    <span class="flex items-center"><span class="w-3 h-3 bg-indigo-500/90 border border-indigo-300/50 rounded mr-1.5"></span>OT</span>
-                    <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500/90 border border-emerald-300/50 rounded mr-1.5"></span>當更/Call</span>
-                    <span class="flex items-center"><span class="w-3 h-3 bg-amber-500/90 border border-amber-300/50 rounded mr-1.5"></span>交通</span>
-                </div>
+                <button type="button" onclick="logout()" id="btn-logout" class="text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3 py-1.5 rounded-xl transition whitespace-nowrap">登出</button>
             </div>
 
-            <div id="recordsList" class="liquid-glass-panel rounded-2xl p-3 sm:p-4 mb-4 max-h-80 overflow-y-auto overflow-x-auto text-sm space-y-2">
-                <p class="text-center text-slate-400">請查詢</p>
+            <div id="shareHeader" class="hidden mb-6 text-center">
+                <h1 class="text-2xl font-bold text-white drop-shadow-sm" id="shareTitle">OT 記錄報表</h1>
+                <p class="text-sm text-slate-300/80 mt-1">唯讀模式</p>
             </div>
 
-            <!-- 總結數據欄位 -->
-            <div id="totalSummary" class="text-right border-t border-white/15 pt-4 space-y-1 hidden text-sm sm:text-base">
-                <div class="text-slate-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-300 text-xl">$0</span></div>
-                <div class="text-slate-300">總交通: <span id="sumTransport" class="font-bold text-amber-300 text-xl">$0</span></div>
+            <div class="flex border-b border-white/15 mb-6" id="tabContainer">
+                <button onclick="switchTab('record')" id="tab-record" class="flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition">新增記錄</button>
+                <button onclick="switchTab('export')" id="tab-export" class="flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition">月結報表</button>
+            </div>
+
+            <div id="view-record">
+                <div class="flex gap-1.5 mb-5 liquid-glass-panel p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+                    <button type="button" onclick="setType('hourly')" id="btn-hourly" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition">🕒 OT</button>
+                    <button type="button" onclick="setType('oncall')" id="btn-oncall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📅 當更</button>
+                    <button type="button" onclick="setType('percall')" id="btn-percall" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">📞 Call</button>
+                    <button type="button" onclick="setType('transport')" id="btn-transport" class="flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition">🚕 交通</button>
+                </div>
+
+                <form id="addForm" class="space-y-4">
+                    <input type="hidden" id="recordType" value="hourly">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-200" id="label-date">日期</label>
+                        <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
+                            <input type="date" id="date" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none" required>
+                        </div>
+                    </div>
+                    <div id="group-hourly">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-200">地點</label>
+                            <input type="text" id="location" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：Server Room">
+                            <div id="history-location" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        
+                        <div class="flex space-x-3 w-full">
+                            <div class="flex-1 min-w-0">
+                                <label class="block text-sm font-medium text-slate-200">開始時間</label>
+                                <div onclick="handleTimeBoxClick('start', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
+                                    <div class="flex items-center">
+                                        <input type="text" id="startHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                        <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                        <input type="text" id="startMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="開始分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                    </div>
+                                    <button type="button" onclick="event.stopPropagation(); openTimeWheel('start');" aria-label="選擇開始時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <label class="block text-sm font-medium text-slate-200">結束時間</label>
+                                <div onclick="handleTimeBoxClick('end', event)" class="mt-1.5 flex items-center justify-between w-full liquid-glass-input rounded-xl px-3 py-2 cursor-pointer">
+                                    <div class="flex items-center">
+                                        <input type="text" id="endHour" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束小時" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                        <span class="text-slate-400 font-mono font-bold mx-0.5 select-none">:</span>
+                                        <input type="text" id="endMin" inputmode="numeric" maxlength="2" placeholder="--" required aria-label="結束分鐘" class="w-7 bg-transparent border-none p-0 text-center text-base font-mono text-white placeholder-slate-400 focus:ring-0 focus:bg-indigo-500/35 rounded outline-none">
+                                    </div>
+                                    <button type="button" onclick="event.stopPropagation(); openTimeWheel('end');" aria-label="選擇結束時間" class="text-slate-300/75 hover:text-white p-0.5 focus:outline-none">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 mb-2">
+                            <label class="block text-sm font-medium text-slate-200 mb-1.5">工數 (倍數)</label>
+                            <div class="flex gap-2">
+                                <input type="hidden" id="multiplier" value="1">
+                                <button type="button" onclick="setMultiplier(1)" id="mul-1" class="flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition">x1</button>
+                                <button type="button" onclick="setMultiplier(1.5)" id="mul-1.5" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x1.5</button>
+                                <button type="button" onclick="setMultiplier(2)" id="mul-2" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x2</button>
+                                <button type="button" onclick="setMultiplier(3)" id="mul-3" class="flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition">x3</button>
+                            </div>
+                        </div>
+
+                        <div class="text-right text-sm text-slate-300 mt-2" id="durationCalc">時數: 0 小時</div>
+                    </div>
+
+                    <div id="group-money" class="hidden space-y-4">
+                        <div id="field-endDate" class="hidden">
+                            <label class="block text-sm font-medium text-slate-200">結束日期 (至)</label>
+                            <div class="mt-1.5 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
+                                <input type="date" id="endDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-200">金額 (HKD)</label>
+                            <input type="number" min="0" step="1" id="amount" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="輸入金額">
+                        </div>
+                        <div id="field-remarks">
+                            <label class="block text-sm font-medium text-slate-200" id="label-remarks">備註 (選填)</label>
+                            <input type="text" id="moneyRemarks" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl py-2 px-3 placeholder-slate-400/70 outline-none" placeholder="例如：重啟 Server">
+                            <select id="transportSelect" class="mt-1.5 block w-full liquid-glass-input text-white rounded-xl p-2.5 hidden outline-none">
+                                <option value="停車場" class="bg-slate-900 text-white">停車場</option>
+                                <option value="隧道" class="bg-slate-900 text-white">隧道</option>
+                                <option value="維修" class="bg-slate-900 text-white">維修</option>
+                                <option value="其他" class="bg-slate-900 text-white">其他</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-submit-record" class="w-full liquid-btn-primary text-white py-3 sm:py-3.5 rounded-2xl font-bold transition">儲存記錄</button>
+                </form>
+            </div>
+
+            <div id="view-export" class="hidden">
                 
-                <div class="text-white mt-2 pt-2 border-t border-white/15 space-y-1">
-                    <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-white font-bold">$0</span></div>
-                    <div class="text-slate-300">總時數: <span id="sumHours" class="font-bold text-indigo-300 text-xl">0</span> hr</div>
+                <!-- 歷史月份按鈕：手機端 4 欄，電腦端（md）自動延展至 6 欄 -->
+                <div id="historyMonthsArea" class="mb-4 hidden">
+                    <div id="historyBadges" class="grid grid-cols-4 md:grid-cols-6 gap-2 mb-4"></div>
                 </div>
+                
+                <div id="queryControls" class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <div class="flex-1 flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
+                        <input type="month" id="queryMonth" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button onclick="loadRecords()" class="flex-1 sm:flex-initial liquid-glass-panel text-white px-4 py-2.5 rounded-xl hover:bg-white/15 whitespace-nowrap transition font-medium">查詢</button>
+                        <button onclick="copyShareLink()" id="btn-share" class="bg-sky-500/70 hover:bg-sky-400/80 border border-sky-300/40 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(56,189,248,0.28),inset_0_1px_1px_rgba(255,255,255,0.4)]" title="複製分享連結">🔗</button>
+                        <button onclick="toggleEditMode()" id="btn-edit" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]" title="管理/編輯/刪除">✏️</button>
+                    </div>
+                </div>
+                
+                <!-- 月曆視圖 -->
+                <div id="calendarView" class="mb-6 hidden liquid-glass-panel p-3 rounded-2xl max-w-md md:max-w-lg mx-auto">
+                    <div class="calendar-grid"></div>
+                    <div class="flex justify-center gap-4 mt-3 text-xs text-slate-300/80 flex-wrap">
+                        <span class="flex items-center"><span class="w-3 h-3 bg-indigo-500/90 border border-indigo-300/50 rounded mr-1.5"></span>OT</span>
+                        <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500/90 border border-emerald-300/50 rounded mr-1.5"></span>當更/Call</span>
+                        <span class="flex items-center"><span class="w-3 h-3 bg-amber-500/90 border border-amber-300/50 rounded mr-1.5"></span>交通</span>
+                    </div>
+                </div>
+
+                <div id="recordsList" class="liquid-glass-panel rounded-2xl p-3 sm:p-4 mb-4 max-h-80 overflow-y-auto overflow-x-auto text-sm space-y-2">
+                    <p class="text-center text-slate-400">請查詢</p>
+                </div>
+
+                <!-- 總結數據欄位 -->
+                <div id="totalSummary" class="text-right border-t border-white/15 pt-4 space-y-1 hidden text-sm sm:text-base">
+                    <div class="text-slate-300">總當更/Call: <span id="sumMoney" class="font-bold text-emerald-300 text-xl">$0</span></div>
+                    <div class="text-slate-300">總交通: <span id="sumTransport" class="font-bold text-amber-300 text-xl">$0</span></div>
+                    
+                    <div class="text-white mt-2 pt-2 border-t border-white/15 space-y-1">
+                        <div class="font-bold">總計 (含交通): <span id="sumAll" class="text-xl text-white font-bold">$0</span></div>
+                        <div class="text-slate-300">總時數: <span id="sumHours" class="font-bold text-indigo-300 text-xl">0</span> hr</div>
+                    </div>
+                </div>
+                
+                <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 liquid-btn-emerald text-white py-3 sm:py-3.5 rounded-2xl font-bold hidden transition">
+                    下載 PDF 報表
+                </button>
             </div>
-            
-            <button onclick="generatePDF()" id="pdfBtn" class="w-full mt-4 liquid-btn-emerald text-white py-3 sm:py-3.5 rounded-2xl font-bold hidden transition">
-                下載 PDF 報表
-            </button>
+            <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
         </div>
-        <p id="msg" class="mt-4 text-center text-sm font-bold min-h-[20px]"></p>
     </div>
 
-    <!-- 時間選擇滾輪彈出視窗（Liquid Glass 風格） -->
+    <!-- 時間選擇滾輪彈出視窗 -->
     <div id="timeWheelModal" onclick="closeTimeWheel()" class="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300 touch-none overscroll-none">
         <div id="timeWheelSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] liquid-glass-sheet rounded-t-3xl sm:rounded-3xl p-5 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 touch-none overscroll-none">
             <div class="flex items-center justify-between border-b border-white/15 pb-3">
@@ -1076,7 +1278,90 @@ export const htmlContent = `
         </div>
     </div>
 
-    <!-- 管理月份的 Action Sheet / 彈出式底部選單（Liquid Glass 風格） -->
+    <!-- 單筆記錄編輯彈出視窗 -->
+    <div id="editRecordModal" onclick="closeEditModal()" class="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div id="editRecordSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] liquid-glass-sheet rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-white/15 pb-3">
+                <h3 class="text-base font-bold text-white">編輯記錄</h3>
+                <button type="button" onclick="closeEditModal()" class="text-sm font-bold text-slate-300 hover:text-white px-2 py-1">✕</button>
+            </div>
+            <form id="editRecordForm" class="space-y-3.5">
+                <input type="hidden" id="editId">
+                <input type="hidden" id="editOriginalDate">
+                <input type="hidden" id="editType">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1" id="editLabelDate">日期</label>
+                    <div class="flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
+                        <input type="date" id="editDate" required class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                    </div>
+                </div>
+
+                <div id="editGroupHourly" class="space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">地點</label>
+                        <input type="text" id="editLocation" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">開始時間</label>
+                            <div class="flex items-center gap-1 liquid-glass-input rounded-xl px-2 py-1.5">
+                                <select id="editStartHour" class="flex-1 bg-transparent text-white text-center font-mono outline-none"></select>
+                                <span class="text-slate-400 font-mono">:</span>
+                                <select id="editStartMin" class="flex-1 bg-transparent text-white text-center font-mono outline-none"></select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">結束時間</label>
+                            <div class="flex items-center gap-1 liquid-glass-input rounded-xl px-2 py-1.5">
+                                <select id="editEndHour" class="flex-1 bg-transparent text-white text-center font-mono outline-none"></select>
+                                <span class="text-slate-400 font-mono">:</span>
+                                <select id="editEndMin" class="flex-1 bg-transparent text-white text-center font-mono outline-none"></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">工數 (倍數)</label>
+                        <select id="editMultiplier" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none">
+                            <option value="1" class="bg-slate-900">x1</option>
+                            <option value="1.5" class="bg-slate-900">x1.5</option>
+                            <option value="2" class="bg-slate-900">x2</option>
+                            <option value="3" class="bg-slate-900">x3</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="editGroupMoney" class="hidden space-y-3.5">
+                    <div id="editFieldEndDate" class="hidden">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">結束日期 (至)</label>
+                        <div class="flex items-center w-full liquid-glass-input rounded-xl px-3 py-2">
+                            <input type="date" id="editEndDate" class="w-full bg-transparent border-none p-0 text-white focus:ring-0 outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">金額 (HKD)</label>
+                        <input type="number" min="0" step="1" id="editAmount" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none">
+                    </div>
+                    <div id="editFieldRemarks">
+                        <label class="block text-xs font-bold text-slate-300 mb-1" id="editLabelRemarks">備註</label>
+                        <input type="text" id="editMoneyRemarks" class="w-full liquid-glass-input text-white rounded-xl px-3 py-2 outline-none">
+                        <select id="editTransportSelect" class="w-full liquid-glass-input text-white rounded-xl p-2.5 hidden outline-none">
+                            <option value="停車場" class="bg-slate-900 text-white">停車場</option>
+                            <option value="隧道" class="bg-slate-900 text-white">隧道</option>
+                            <option value="維修" class="bg-slate-900 text-white">維修</option>
+                            <option value="其他" class="bg-slate-900 text-white">其他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-2.5 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 py-3 text-sm font-bold text-slate-200 bg-white/10 border border-white/15 rounded-2xl hover:bg-white/20 transition">取消</button>
+                    <button type="submit" id="btn-save-edit" class="flex-1 py-3 text-sm font-bold text-white liquid-btn-primary rounded-2xl transition">儲存變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 管理月份的 Action Sheet / 彈出式底部選單 -->
     <div id="monthActionModal" onclick="closeMonthModal()" class="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-end sm:items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div id="monthActionSheet" onclick="event.stopPropagation();" class="w-full max-w-[450px] liquid-glass-sheet rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300">
             <div class="text-center">
@@ -1096,6 +1381,7 @@ export const htmlContent = `
             </div>
         </div>
     </div>
+    <!--APP_SCRIPTS-->
 </body>
 </html>
 `;
@@ -2187,34 +2473,6 @@ export const logicScript = `
 `;
 ````
 
-## File: src/ui/index.js
-````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
-}
-
-````
-
 ## File: src/index.js
 ````js
 import {
@@ -2553,165 +2811,6 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
-
-````
-
-## File: .github/workflows/combine-code.yml
-````yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              # 寫入檔案標題
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
-              echo "\`\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
-
-````
-
-## File: .github/workflows/deploy.yml
-````yml
-name: Deploy to Cloudflare Workers
-
-on:
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
-
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
