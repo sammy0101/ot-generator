@@ -424,6 +424,18 @@ export const logicScript = `
         }
     }
 
+    window.addEventListener('pageshow', function() {
+        if (!isShareMode) {
+            const savedPin = localStorage.getItem('ot_pin');
+            const pinEl = document.getElementById('pin');
+            const rememberEl = document.getElementById('rememberPin');
+            if (savedPin && pinEl) {
+                if (!pinEl.value) pinEl.value = savedPin;
+                if (rememberEl) rememberEl.checked = true;
+            }
+        }
+    });
+
     function managePinStorage() {
         if(isShareMode) return;
         const pin = document.getElementById('pin').value;
