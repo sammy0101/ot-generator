@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 08:02:55 UTC 2026
+Generated on: Fri Nov 27 08:03:30 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -1274,6 +1274,18 @@ export const logicScript = `
             renderHistoryChips('location', 'history-location', 'location');
         }
     }
+
+    window.addEventListener('pageshow', function() {
+        if (!isShareMode) {
+            const savedPin = localStorage.getItem('ot_pin');
+            const pinEl = document.getElementById('pin');
+            const rememberEl = document.getElementById('rememberPin');
+            if (savedPin && pinEl) {
+                if (!pinEl.value) pinEl.value = savedPin;
+                if (rememberEl) rememberEl.checked = true;
+            }
+        }
+    });
 
     function managePinStorage() {
         if(isShareMode) return;
