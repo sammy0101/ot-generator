@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 10:33:47 UTC 2026
+Generated on: Fri Nov 27 10:34:29 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -1204,19 +1204,42 @@ export const htmlContent = `
 ## File: src/ui/logic.js
 ````js
 export const logicScript = `
+    function getLocalDateStr(dt) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function parseLocalDate(dateStr) {
+        const parts = dateStr.split('-').map(Number);
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    function escapeHtml(str) {
+        return String(str === undefined || str === null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     const today = new Date();
-    document.getElementById('date').valueAsDate = today;
-    document.getElementById('endDate').valueAsDate = today;
-    document.getElementById('queryMonth').value = today.toISOString().slice(0, 7);
-    
+    const todayStr = getLocalDateStr(today);
+    document.getElementById('date').value = todayStr;
+    document.getElementById('endDate').value = todayStr;
+    document.getElementById('queryMonth').value = todayStr.slice(0, 7);
+
     let currentRecords = [];
     let grandTotalMinutes = 0;
     let grandTotalMoney = 0;
     let grandTotalTransport = 0;
     let knownMonths = new Set();
-    let sentMonths = new Set(); 
+    let sentMonths = new Set();
     let isEditMode = false;
     let modalCloseTimer = null;
+    let editModalCloseTimer = null;
     let timeWheelTimer = null;
     let activeTimePrefix = null;
     const TIME_ROW_HEIGHT = 44;
@@ -1225,6 +1248,60 @@ export const logicScript = `
     const isShareMode = urlParams.get('view') === 'share';
     const sharedMonth = urlParams.get('month');
     const isTouchPrimary = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+    function showLoginGate(message) {
+        document.getElementById('appContainer').classList.add('hidden');
+        document.getElementById('loginSection').classList.remove('hidden');
+        const errEl = document.getElementById('loginError');
+        if (errEl) errEl.innerText = message || '';
+        const pwdEl = document.getElementById('loginPassword');
+        if (pwdEl) {
+            pwdEl.value = '';
+            setTimeout(() => pwdEl.focus(), 50);
+        }
+    }
+
+    function showAppContainer() {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('appContainer').classList.remove('hidden');
+        if (window.USER_NAME) {
+            const badge = document.getElementById('headerUserBadge');
+            if (badge) {
+                badge.innerText = window.USER_NAME;
+                badge.classList.remove('hidden');
+            }
+        }
+    }
+
+    async function apiFetch(url, options) {
+        const opts = Object.assign({ credentials: 'same-origin' }, options || {});
+        const res = await fetch(url, opts);
+        if (res.status === 401 && !isShareMode && url !== '/api/login') {
+            currentRecords = [];
+            knownMonths.clear();
+            sentMonths.clear();
+            showLoginGate('登入已逾時或憑證無效，請重新登入');
+            throw new Error('AUTH_REQUIRED');
+        }
+        return res;
+    }
+
+    async function logout() {
+        try {
+            await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        } catch (e) {
+            console.error(e);
+        }
+        currentRecords = [];
+        knownMonths.clear();
+        sentMonths.clear();
+        if (isEditMode) toggleEditMode(true);
+        document.getElementById('recordsList').innerHTML = '<p class="text-center text-slate-400">請查詢</p>';
+        document.getElementById('calendarView').classList.add('hidden');
+        document.getElementById('totalSummary').classList.add('hidden');
+        document.getElementById('pdfBtn').classList.add('hidden');
+        showLoginGate('');
+    }
 
     // === 混合式時間輸入（電腦鍵盤輸入 + 手機滾輪上下滑動） ===
     function normalizeHour(val) {
@@ -1532,7 +1609,7 @@ export const logicScript = `
         }
     }
 
-    // === 歷史記錄自訂儲存與渲染功能 ===
+    // === 歷史記錄自訂儲存與渲染功能 (使用安全的 data-* 與事件委派防止 XSS) ===
     function updateHistory(key, value) {
         if (!value || value.trim() === '') return;
         try {
@@ -1549,19 +1626,30 @@ export const logicScript = `
     function renderHistoryChips(key, containerId, targetInputId) {
         const container = document.getElementById(containerId);
         if (!container) return;
+        container.innerHTML = '';
         try {
             const history = JSON.parse(localStorage.getItem('ot_hist_' + key) || '[]');
-            if (history.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            container.innerHTML = history.map(val => {
-                const escapedVal = val.replace(/'/g, "\\\\'");
-                return '<span class="history-chip" onclick="document.getElementById(\\'' + targetInputId + '\\').value=\\'' + escapedVal + '\\'; if(\\'' + targetInputId + '\\' === \\'location\\' && typeof updateDuration === \\'function\\') updateDuration();">' +
-                    val +
-                    '<span class="history-delete" onclick="event.stopPropagation(); deleteHistory(\\'' + key + '\\', \\'' + escapedVal + '\\', \\'' + containerId + '\\', \\'' + targetInputId + '\\')">×</span>' +
-                    '</span>';
-            }).join('');
+            history.forEach(val => {
+                const chip = document.createElement('span');
+                chip.className = 'history-chip';
+                chip.textContent = val;
+                chip.addEventListener('click', () => {
+                    const input = document.getElementById(targetInputId);
+                    if (input) input.value = val;
+                    if (targetInputId === 'location') updateDuration();
+                });
+
+                const del = document.createElement('span');
+                del.className = 'history-delete';
+                del.textContent = '×';
+                del.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteHistory(key, val, containerId, targetInputId);
+                });
+
+                chip.appendChild(del);
+                container.appendChild(chip);
+            });
         } catch (e) {
             console.error(e);
         }
@@ -1578,101 +1666,148 @@ export const logicScript = `
         }
     }
 
+    function initEditTimeSelects() {
+        const hourSelects = ['editStartHour', 'editEndHour'];
+        hourSelects.forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            sel.innerHTML = '';
+            for (let h = 0; h < 24; h++) {
+                const val = h < 10 ? '0' + h : '' + h;
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                opt.className = 'bg-slate-900 text-white';
+                sel.appendChild(opt);
+            }
+        });
+        resetEditMinSelect('editStartMin', '00');
+        resetEditMinSelect('editEndMin', '00');
+    }
+
+    function resetEditMinSelect(id, selectedMin) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const mins = ['00', '30'];
+        if (selectedMin && !mins.includes(selectedMin)) {
+            mins.push(selectedMin);
+            mins.sort();
+        }
+        sel.innerHTML = '';
+        mins.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            opt.className = 'bg-slate-900 text-white';
+            sel.appendChild(opt);
+        });
+        sel.value = selectedMin || '00';
+    }
+
+    function initAuthenticatedApp() {
+        showAppContainer();
+        renderHistoryChips('location', 'history-location', 'location');
+        fetchHistoryMonths();
+    }
+
     (init)();
 
     function init() {
+        localStorage.removeItem('ot_pin'); // 清除舊版明文 PIN 殘留
         setupTimeControls();
+        initEditTimeSelects();
         updateDuration();
 
         if (isShareMode) {
+            showAppContainer();
             document.getElementById('mainTitleArea').classList.add('hidden');
-            document.getElementById('authSection').classList.add('hidden');
             document.getElementById('tabContainer').classList.add('hidden');
             document.getElementById('view-record').classList.add('hidden');
             document.getElementById('view-export').classList.remove('hidden');
-            
+
             document.getElementById('queryControls').classList.add('hidden');
             document.getElementById('historyMonthsArea').classList.add('hidden');
-            
+
             document.getElementById('shareHeader').classList.remove('hidden');
             const monthLabel = sharedMonth ? ' (' + sharedMonth + ')' : '';
             if (window.USER_NAME) {
-                document.getElementById('shareTitle').innerText = window.USER_NAME + " 的 OT 記錄" + monthLabel;
+                document.getElementById('shareTitle').innerText = window.USER_NAME + ' 的 OT 記錄' + monthLabel;
             } else {
-                document.getElementById('shareTitle').innerText = "OT 記錄報表" + monthLabel;
+                document.getElementById('shareTitle').innerText = 'OT 記錄報表' + monthLabel;
             }
 
             if (sharedMonth) {
                 document.getElementById('queryMonth').value = sharedMonth;
-                loadRecords(true); 
+                loadRecords(true);
             }
+            return;
+        }
+
+        if (window.USER_NAME) {
+            const sub = document.getElementById('loginUserSubtitle');
+            if (sub) {
+                sub.innerText = '使用者：' + window.USER_NAME;
+                sub.classList.remove('hidden');
+            }
+        }
+
+        if (window.INITIAL_AUTH) {
+            initAuthenticatedApp();
         } else {
-            const pinEl = document.getElementById('pin');
-            const rememberEl = document.getElementById('rememberPin');
-            const savedPin = localStorage.getItem('ot_pin');
-            if (savedPin && pinEl && rememberEl) {
-                pinEl.value = savedPin;
-                rememberEl.checked = true;
-                fetchHistoryMonths();
-            }
-            if (rememberEl) {
-                rememberEl.addEventListener('change', managePinStorage);
-            }
-            if (pinEl) {
-                pinEl.addEventListener('input', function() {
-                    if (rememberEl && rememberEl.checked && this.value) {
-                        localStorage.setItem('ot_pin', this.value);
-                    }
-                });
-            }
-            renderHistoryChips('location', 'history-location', 'location');
+            showLoginGate('');
         }
     }
 
-    window.addEventListener('pageshow', function() {
-        if (!isShareMode) {
-            const savedPin = localStorage.getItem('ot_pin');
-            const pinEl = document.getElementById('pin');
-            const rememberEl = document.getElementById('rememberPin');
-            if (savedPin && pinEl) {
-                if (!pinEl.value) pinEl.value = savedPin;
-                if (rememberEl) rememberEl.checked = true;
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('rememberLogin').checked;
+        const btn = document.getElementById('btn-login');
+        const errEl = document.getElementById('loginError');
+
+        errEl.innerText = '';
+        btn.disabled = true;
+        btn.innerText = '驗證中...';
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password, remember }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                errEl.innerText = data.error || '登入失敗';
+                return;
             }
+            document.getElementById('loginPassword').value = '';
+            initAuthenticatedApp();
+        } catch (err) {
+            errEl.innerText = '連線失敗，請稍後再試';
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '登入系統';
         }
     });
 
-    function managePinStorage() {
-        if(isShareMode) return;
-        const pin = document.getElementById('pin').value;
-        const remember = document.getElementById('rememberPin').checked;
-        if (remember && pin) {
-            localStorage.setItem('ot_pin', pin);
-        } else {
-            localStorage.removeItem('ot_pin');
-        }
-    }
+    function toggleEditMode(forceOff = false) {
+        isEditMode = forceOff ? false : !isEditMode;
 
-    function toggleEditMode() {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return alert('請先輸入 PIN 密碼才能進入管理模式');
-        
-        isEditMode = !isEditMode;
-        
         const btn = document.getElementById('btn-edit');
         const container = document.getElementById('view-export');
-        
+
         if (isEditMode) {
-            btn.className = "bg-red-500/75 hover:bg-red-500/90 border border-red-300/50 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(239,68,68,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] font-bold";
+            btn.className = 'bg-red-500/75 hover:bg-red-500/90 border border-red-300/50 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[0_4px_14px_rgba(239,68,68,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] font-bold';
             btn.innerText = '完成';
-            container.classList.add('edit-mode'); 
+            container.classList.add('edit-mode');
         } else {
-            btn.className = "bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]";
+            btn.className = 'bg-white/10 hover:bg-white/20 border border-white/20 text-white px-3.5 py-2 rounded-xl whitespace-nowrap transition shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]';
             btn.innerText = '✏️';
             container.classList.remove('edit-mode');
         }
     }
 
-    // === 點擊月份按鈕時的分流控制 ===
     function handleMonthClick(m) {
         if (isEditMode) {
             openMonthModal(m);
@@ -1682,7 +1817,6 @@ export const logicScript = `
         }
     }
 
-    // === 月份管理彈出視窗控制 ===
     function openMonthModal(month) {
         if (modalCloseTimer) {
             clearTimeout(modalCloseTimer);
@@ -1690,16 +1824,15 @@ export const logicScript = `
         }
 
         const isSent = sentMonths.has(month);
-        
         const titleEl = document.getElementById('modalMonthTitle');
         if (titleEl) titleEl.innerText = '管理 ' + month;
-        
+
         const textEl = document.getElementById('modalToggleSentText');
         if (textEl) textEl.innerText = isSent ? '取消提交狀態' : '標記為已提交';
-        
+
         const iconEl = document.getElementById('modalToggleSentIcon');
         if (iconEl) iconEl.innerText = isSent ? '✕' : '📤';
-        
+
         const toggleBtn = document.getElementById('modalToggleSentBtn');
         if (toggleBtn) {
             toggleBtn.disabled = false;
@@ -1708,7 +1841,7 @@ export const logicScript = `
                 closeMonthModal();
             };
         }
-        
+
         const deleteBtn = document.getElementById('modalDeleteBtn');
         if (deleteBtn) {
             deleteBtn.disabled = false;
@@ -1717,11 +1850,11 @@ export const logicScript = `
                 closeMonthModal();
             };
         }
-        
+
         const modal = document.getElementById('monthActionModal');
         const sheet = document.getElementById('monthActionSheet');
         if (!modal || !sheet) return;
-        
+
         modal.classList.remove('hidden');
         setTimeout(() => {
             modal.classList.add('opacity-100');
@@ -1737,14 +1870,14 @@ export const logicScript = `
         const modal = document.getElementById('monthActionModal');
         const sheet = document.getElementById('monthActionSheet');
         if (!modal || !sheet) return;
-        
+
         modal.classList.add('opacity-0');
         modal.classList.remove('opacity-100');
         sheet.classList.add('translate-y-full');
         sheet.classList.remove('translate-y-0');
         sheet.classList.add('sm:scale-95');
         sheet.classList.remove('sm:scale-100');
-        
+
         if (modalCloseTimer) clearTimeout(modalCloseTimer);
         modalCloseTimer = setTimeout(() => {
             modal.classList.add('hidden');
@@ -1752,11 +1885,192 @@ export const logicScript = `
         }, 300);
     }
 
+    // === 單筆記錄編輯彈窗控制 ===
+    function openEditModal(recordId) {
+        const rec = currentRecords.find(r => String(r.id) === String(recordId));
+        if (!rec) return;
+
+        if (editModalCloseTimer) {
+            clearTimeout(editModalCloseTimer);
+            editModalCloseTimer = null;
+        }
+
+        const type = rec.type || 'hourly';
+        document.getElementById('editId').value = rec.id;
+        document.getElementById('editOriginalDate').value = rec.date;
+        document.getElementById('editType').value = type;
+        document.getElementById('editDate').value = rec.date;
+
+        const gHourly = document.getElementById('editGroupHourly');
+        const gMoney = document.getElementById('editGroupMoney');
+        const fEndDate = document.getElementById('editFieldEndDate');
+        const fRemarks = document.getElementById('editFieldRemarks');
+        const lblDate = document.getElementById('editLabelDate');
+        const lblRemarks = document.getElementById('editLabelRemarks');
+        const inpRemarks = document.getElementById('editMoneyRemarks');
+        const selTrans = document.getElementById('editTransportSelect');
+
+        if (type === 'hourly') {
+            gHourly.classList.remove('hidden');
+            gMoney.classList.add('hidden');
+            lblDate.innerText = '日期';
+            document.getElementById('editLocation').value = rec.location || '';
+
+            const [sh, sm] = (rec.start || '09:00').split(':');
+            const [eh, em] = (rec.end || '10:00').split(':');
+            document.getElementById('editStartHour').value = sh || '09';
+            resetEditMinSelect('editStartMin', sm || '00');
+            document.getElementById('editEndHour').value = eh || '10';
+            resetEditMinSelect('editEndMin', em || '00');
+
+            const mulSel = document.getElementById('editMultiplier');
+            const mulStr = String(rec.multiplier || 1);
+            if (!Array.from(mulSel.options).some(o => o.value === mulStr)) {
+                const opt = document.createElement('option');
+                opt.value = mulStr;
+                opt.textContent = 'x' + mulStr;
+                opt.className = 'bg-slate-900';
+                mulSel.appendChild(opt);
+            }
+            mulSel.value = mulStr;
+            document.getElementById('editAmount').required = false;
+            document.getElementById('editEndDate').required = false;
+        } else {
+            gHourly.classList.add('hidden');
+            gMoney.classList.remove('hidden');
+            document.getElementById('editAmount').required = true;
+            document.getElementById('editAmount').value = rec.amount || 0;
+
+            if (type === 'oncall') {
+                lblDate.innerText = '開始日期';
+                fEndDate.classList.remove('hidden');
+                fRemarks.classList.add('hidden');
+                document.getElementById('editEndDate').required = true;
+                document.getElementById('editEndDate').value = rec.endDate || rec.date;
+            } else {
+                lblDate.innerText = '日期';
+                fEndDate.classList.add('hidden');
+                fRemarks.classList.remove('hidden');
+                document.getElementById('editEndDate').required = false;
+
+                if (type === 'transport') {
+                    lblRemarks.innerText = '行程/詳情';
+                    inpRemarks.classList.add('hidden');
+                    selTrans.classList.remove('hidden');
+                    const locVal = rec.location || '其他';
+                    if (!Array.from(selTrans.options).some(o => o.value === locVal)) {
+                        const opt = document.createElement('option');
+                        opt.value = locVal;
+                        opt.textContent = locVal;
+                        opt.className = 'bg-slate-900 text-white';
+                        selTrans.appendChild(opt);
+                    }
+                    selTrans.value = locVal;
+                } else {
+                    lblRemarks.innerText = '備註 (選填)';
+                    inpRemarks.classList.remove('hidden');
+                    selTrans.classList.add('hidden');
+                    inpRemarks.value = rec.location || '';
+                }
+            }
+        }
+
+        const modal = document.getElementById('editRecordModal');
+        const sheet = document.getElementById('editRecordSheet');
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.classList.remove('opacity-0');
+            sheet.classList.remove('translate-y-full');
+            sheet.classList.add('translate-y-0');
+            sheet.classList.remove('sm:scale-95');
+            sheet.classList.add('sm:scale-100');
+        }, 10);
+    }
+
+    function closeEditModal() {
+        const modal = document.getElementById('editRecordModal');
+        const sheet = document.getElementById('editRecordSheet');
+        if (!modal || !sheet) return;
+
+        modal.classList.add('opacity-0');
+        modal.classList.remove('opacity-100');
+        sheet.classList.add('translate-y-full');
+        sheet.classList.remove('translate-y-0');
+        sheet.classList.add('sm:scale-95');
+        sheet.classList.remove('sm:scale-100');
+
+        if (editModalCloseTimer) clearTimeout(editModalCloseTimer);
+        editModalCloseTimer = setTimeout(() => {
+            modal.classList.add('hidden');
+            editModalCloseTimer = null;
+        }, 300);
+    }
+
+    document.getElementById('editRecordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn-save-edit');
+        btn.disabled = true;
+        btn.innerText = '儲存中...';
+
+        const type = document.getElementById('editType').value;
+        const payload = {
+            id: document.getElementById('editId').value,
+            originalDate: document.getElementById('editOriginalDate').value,
+            type,
+            date: document.getElementById('editDate').value,
+        };
+
+        if (type === 'hourly') {
+            payload.location = document.getElementById('editLocation').value;
+            payload.start = document.getElementById('editStartHour').value + ':' + document.getElementById('editStartMin').value;
+            payload.end = document.getElementById('editEndHour').value + ':' + document.getElementById('editEndMin').value;
+            payload.multiplier = document.getElementById('editMultiplier').value;
+        } else {
+            payload.amount = Number(document.getElementById('editAmount').value) || 0;
+            if (type === 'transport') {
+                payload.location = document.getElementById('editTransportSelect').value;
+            } else if (type === 'oncall') {
+                payload.endDate = document.getElementById('editEndDate').value;
+                if (payload.endDate < payload.date) {
+                    btn.disabled = false;
+                    btn.innerText = '儲存變更';
+                    return alert('結束日期不可早於開始日期');
+                }
+            } else {
+                payload.location = document.getElementById('editMoneyRemarks').value || '';
+            }
+        }
+
+        try {
+            const res = await apiFetch('/api/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '更新失敗');
+
+            knownMonths.add(data.month);
+            if (data.movedFrom) {
+                document.getElementById('queryMonth').value = data.month;
+                fetchHistoryMonths();
+            }
+            renderRecordsView(data.month, data.records);
+            closeEditModal();
+        } catch (err) {
+            if (err.message !== 'AUTH_REQUIRED') alert(err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '儲存變更';
+        }
+    });
+
     // === 複製分享連結功能 ===
     function copyShareLink() {
-        const month = document.getElementById('queryMonth').value || today.toISOString().slice(0, 7);
+        const month = document.getElementById('queryMonth').value || todayStr.slice(0, 7);
         const url = window.location.origin + window.location.pathname + '?view=share&month=' + month;
-        
+
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url).then(() => {
                 alert('已複製分享連結 (無需密碼即可查看此月報表)：\\n' + url);
@@ -1786,66 +2100,60 @@ export const logicScript = `
     }
 
     async function toggleSent(month, btnElement) {
-        const pin = document.getElementById('pin').value;
-        if (!pin) return;
-        
         if (btnElement) btnElement.disabled = true;
         const textSpan = document.getElementById('modalToggleSentText');
         if (textSpan) textSpan.innerText = '處理中...';
-        
+
         try {
-            const res = await fetch('/api/toggle_sent', {
+            const res = await apiFetch('/api/toggle_sent', {
                 method: 'POST',
-                body: JSON.stringify({ pin, month })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ month }),
             });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.list && data.list.includes(month)) {
-                    sentMonths.add(month);
-                } else {
-                    sentMonths.delete(month);
-                }
-                renderMonthButtons();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '操作失敗');
+
+            if (data.list && data.list.includes(month)) {
+                sentMonths.add(month);
             } else {
-                throw new Error('操作失敗');
+                sentMonths.delete(month);
             }
+            renderMonthButtons();
         } catch (e) {
-            alert(e.message);
+            if (e.message !== 'AUTH_REQUIRED') alert(e.message);
         } finally {
             if (btnElement) btnElement.disabled = false;
         }
     }
 
     async function deleteMonth(month, btnElement) {
-        if (!confirm('⚠️ 警告：確定要刪除[' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
-        const pin = document.getElementById('pin').value;
-        if (!pin) return;
-        
+        if (!confirm('⚠️ 警告：確定要刪除 [' + month + '] 的所有資料嗎？刪除後無法復原！')) return;
         if (btnElement) btnElement.disabled = true;
-        
-        try {
-            const res = await fetch('/api/delete_month', {
-                method: 'POST',
-                body: JSON.stringify({ pin, month })
-            });
-            if (res.ok) { 
-                knownMonths.delete(month);
-                sentMonths.delete(month);
-                renderMonthButtons();
 
-                const currentViewMonth = document.getElementById('queryMonth').value;
-                if (currentViewMonth === month) {
-                    document.getElementById('recordsList').innerHTML = '<p class="text-center text-slate-400">已刪除</p>';
-                    document.getElementById('calendarView').classList.add('hidden');
-                    document.getElementById('totalSummary').classList.add('hidden');
-                    document.getElementById('pdfBtn').classList.add('hidden');
-                }
-                alert('已刪除 ' + month + ' 的資料');
-            } else { 
-                throw new Error('刪除失敗'); 
+        try {
+            const res = await apiFetch('/api/delete_month', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ month }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '刪除失敗');
+
+            knownMonths.delete(month);
+            sentMonths.delete(month);
+            renderMonthButtons();
+
+            const currentViewMonth = document.getElementById('queryMonth').value;
+            if (currentViewMonth === month) {
+                currentRecords = [];
+                document.getElementById('recordsList').innerHTML = '<p class="text-center text-slate-400">已刪除</p>';
+                document.getElementById('calendarView').classList.add('hidden');
+                document.getElementById('totalSummary').classList.add('hidden');
+                document.getElementById('pdfBtn').classList.add('hidden');
             }
-        } catch (err) { 
-            alert(err.message); 
+            alert('已刪除 ' + month + ' 的資料');
+        } catch (err) {
+            if (err.message !== 'AUTH_REQUIRED') alert(err.message);
         } finally {
             if (btnElement) btnElement.disabled = false;
         }
@@ -1859,17 +2167,24 @@ export const logicScript = `
 
         if (sortedMonths.length > 0) {
             area.classList.remove('hidden');
-            badges.className = "grid grid-cols-4 md:grid-cols-6 gap-2 mb-4";
-            badges.innerHTML = sortedMonths.map(m => {
+            badges.className = 'grid grid-cols-4 md:grid-cols-6 gap-2 mb-4';
+            badges.innerHTML = '';
+            sortedMonths.forEach(m => {
                 const isSent = sentMonths.has(m);
-                const btnClass = isSent 
-                    ? "month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer"
-                    : "month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer";
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative w-full';
 
-                return '<div class="relative w-full">' +
-                    '<button type="button" onclick="handleMonthClick(\\'' + m + '\\')" class="' + btnClass + '">' + m + '</button>' +
-                    '</div>';
-            }).join('');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = isSent
+                    ? 'month-btn sent w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer'
+                    : 'month-btn w-full h-10 text-[10px] min-[375px]:text-xs font-bold rounded-xl transition focus:outline-none cursor-pointer';
+                btn.textContent = m;
+                btn.addEventListener('click', () => handleMonthClick(m));
+
+                wrapper.appendChild(btn);
+                badges.appendChild(wrapper);
+            });
         } else {
             area.classList.add('hidden');
         }
@@ -1877,10 +2192,10 @@ export const logicScript = `
 
     function setType(type) {
         document.getElementById('amount').value = '';
-        document.getElementById('moneyRemarks').value = ''; 
-        document.getElementById('transportSelect').selectedIndex = 0; 
+        document.getElementById('moneyRemarks').value = '';
+        document.getElementById('transportSelect').selectedIndex = 0;
         document.getElementById('recordType').value = type;
-        
+
         if (type !== 'hourly') {
             setMultiplier(1);
         }
@@ -1890,9 +2205,9 @@ export const logicScript = `
             const btn = document.getElementById('btn-' + t);
             if (btn) {
                 if (t === type) {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition";
+                    btn.className = 'flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white shadow-md border border-white/25 bg-white/15 backdrop-blur-md whitespace-nowrap transition';
                 } else {
-                    btn.className = "flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition";
+                    btn.className = 'flex-1 py-2.5 px-2 rounded-xl text-sm font-bold text-white/55 hover:bg-white/10 hover:text-white border border-transparent whitespace-nowrap transition';
                 }
             }
         });
@@ -1915,6 +2230,7 @@ export const logicScript = `
             document.getElementById('endHour').required = true;
             document.getElementById('endMin').required = true;
             document.getElementById('amount').required = false;
+            document.getElementById('endDate').required = false;
         } else {
             groupHourly.classList.add('hidden');
             groupMoney.classList.remove('hidden');
@@ -1927,12 +2243,13 @@ export const logicScript = `
             if (type === 'oncall') {
                 labelDate.innerText = '開始日期';
                 fieldEndDate.classList.remove('hidden');
-                fieldRemarks.classList.add('hidden'); 
+                fieldRemarks.classList.add('hidden');
                 document.getElementById('endDate').required = true;
-            } else { 
+            } else {
                 labelDate.innerText = '日期';
                 fieldEndDate.classList.add('hidden');
-                fieldRemarks.classList.remove('hidden'); 
+                fieldRemarks.classList.remove('hidden');
+                document.getElementById('endDate').required = false;
 
                 if (type === 'transport') {
                     labelRemarks.innerText = '行程/詳情';
@@ -1952,13 +2269,12 @@ export const logicScript = `
         document.getElementById('multiplier').value = val;
         const mulVals = [1, 1.5, 2, 3];
         mulVals.forEach(v => {
-            const btnId = 'mul-' + v; 
-            const btn = document.getElementById(btnId);
-            if(btn) {
+            const btn = document.getElementById('mul-' + v);
+            if (btn) {
                 if (v === val) {
-                    btn.className = "flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition";
+                    btn.className = 'flex-1 py-2.5 rounded-xl border border-indigo-400/60 bg-indigo-500/40 text-white text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.3),inset_0_1px_1px_rgba(255,255,255,0.35)] transition';
                 } else {
-                    btn.className = "flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition";
+                    btn.className = 'flex-1 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/60 text-sm font-bold hover:bg-white/10 hover:text-white transition';
                 }
             }
         });
@@ -1966,88 +2282,95 @@ export const logicScript = `
     }
 
     async function deleteRecord(id, date) {
-        if(!confirm('確定要刪除這筆記錄嗎？')) return;
-        const pin = document.getElementById('pin').value;
+        if (!confirm('確定要刪除這筆記錄嗎？')) return;
         try {
-            const res = await fetch('/api/delete', {
+            const res = await apiFetch('/api/delete', {
                 method: 'POST',
-                body: JSON.stringify({ pin, id, date })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, date }),
             });
-            if(res.ok) { loadRecords(); } else { throw new Error('刪除失敗'); }
-        } catch(err) { alert(err.message); }
-    }
-
-    async function fetchHistoryMonths() {
-        const pin = document.getElementById('pin').value;
-        if(!pin) return;
-        managePinStorage();
-        try {
-            const res = await fetch('/api/list_months?pin=' + pin);
             const data = await res.json();
-            if(!data.error) {
-                knownMonths.clear();
-                if (Array.isArray(data)) {
-                    data.forEach(m => knownMonths.add(m));
-                } else if (data.months) {
-                    data.months.forEach(m => knownMonths.add(m));
-                    sentMonths = new Set(data.sentList || []);
+            if (!res.ok) throw new Error(data.error || '刪除失敗');
+
+            if (Array.isArray(data.records)) {
+                renderRecordsView(data.month, data.records);
+                if (data.records.length === 0) {
+                    knownMonths.delete(data.month);
+                    renderMonthButtons();
                 }
-                renderMonthButtons();
+            } else {
+                loadRecords();
             }
-        } catch(e) {
-            console.error("載入月份失敗:", e);
+        } catch (err) {
+            if (err.message !== 'AUTH_REQUIRED') alert(err.message);
         }
     }
 
-    document.getElementById('pin').addEventListener('blur', fetchHistoryMonths);
+    async function fetchHistoryMonths() {
+        try {
+            const res = await apiFetch('/api/list_months');
+            const data = await res.json();
+            if (!data.error && data.months) {
+                data.months.forEach(m => knownMonths.add(m));
+                sentMonths = new Set(data.sentList || []);
+                renderMonthButtons();
+            }
+        } catch (e) {
+            if (e.message !== 'AUTH_REQUIRED') console.error('載入月份失敗:', e);
+        }
+    }
 
     function getMinutesDiff(start, end) {
         const [sh, sm] = start.split(':').map(Number);
         const [eh, em] = end.split(':').map(Number);
         let diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff < 0) diff += 24 * 60; 
+        if (diff < 0) diff += 24 * 60;
         return diff;
     }
-    function formatHours(minutes) { return (minutes / 60).toFixed(1); }
+
+    function formatHours(minutes) {
+        return (minutes / 60).toFixed(1);
+    }
 
     function updateDuration() {
         const s = getTimeValue('start');
         const e = getTimeValue('end');
         const mul = parseFloat(document.getElementById('multiplier').value) || 1;
-        
+
         if (s && e) {
             const mins = getMinutesDiff(s, e);
             const effectiveMins = mins * mul;
             const hoursStr = formatHours(mins);
             const effHoursStr = formatHours(effectiveMins);
-            
+
             if (mul === 1) {
                 document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' 小時';
             } else {
                 document.getElementById('durationCalc').innerText = '時數: ' + hoursStr + ' hr (x' + mul + ') = ' + effHoursStr + ' 小時';
             }
         } else {
-            document.getElementById('durationCalc').innerText = "時數: 0 小時";
+            document.getElementById('durationCalc').innerText = '時數: 0 小時';
         }
     }
 
     function switchTab(tab) {
         document.getElementById('view-record').classList.toggle('hidden', tab !== 'record');
         document.getElementById('view-export').classList.toggle('hidden', tab !== 'export');
-        if (tab === 'export' && document.getElementById('pin').value) {
+        if (tab === 'export') {
             fetchHistoryMonths();
+            if (currentRecords.length === 0) {
+                loadRecords();
+            }
         }
-        
-        const active = "flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition";
-        const inactive = "flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition";
+
+        const active = 'flex-1 py-3 text-center font-bold text-indigo-300 border-b-2 border-indigo-400 bg-white/5 rounded-t-xl transition';
+        const inactive = 'flex-1 py-3 text-center text-white/55 hover:text-indigo-300 hover:bg-white/5 rounded-t-xl transition';
         document.getElementById('tab-record').className = tab === 'record' ? active : inactive;
         document.getElementById('tab-export').className = tab === 'export' ? active : inactive;
     }
 
     document.getElementById('addForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const pin = document.getElementById('pin').value;
-        if (!pin) return alert('請先輸入 PIN 密碼');
         const type = document.getElementById('recordType').value;
         if (type === 'hourly') {
             if (!isTouchPrimary) {
@@ -2059,16 +2382,23 @@ export const logicScript = `
             if (!getTimeValue('start') || !getTimeValue('end')) {
                 return alert('請選擇開始時間與結束時間');
             }
+        } else if (type === 'oncall') {
+            const startD = document.getElementById('date').value;
+            const endD = document.getElementById('endDate').value;
+            if (endD < startD) {
+                return alert('結束日期不可早於開始日期');
+            }
         }
+
         const btn = document.getElementById('btn-submit-record');
-        btn.disabled = true; btn.innerText = '儲存中...';
-        managePinStorage();
+        btn.disabled = true;
+        btn.innerText = '儲存中...';
+
         try {
-            const payload = { 
-                pin, 
-                type, 
+            const payload = {
+                type,
                 date: document.getElementById('date').value,
-                multiplier: document.getElementById('multiplier').value 
+                multiplier: document.getElementById('multiplier').value,
             };
             if (type === 'hourly') {
                 payload.location = document.getElementById('location').value;
@@ -2086,46 +2416,75 @@ export const logicScript = `
                     payload.endDate = document.getElementById('endDate').value;
                 }
             }
-            const res = await fetch('/api/add', { method: 'POST', body: JSON.stringify(payload) });
-            if (res.ok) {
-                document.getElementById('msg').innerText = '✅ 儲存成功';
-                document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-emerald-300';
-                document.getElementById('amount').value = '';
-                document.getElementById('location').value = '';
-                document.getElementById('moneyRemarks').value = '';
-                document.getElementById('transportSelect').selectedIndex = 0; 
-                setMultiplier(1);
-                const currentMonth = payload.date.substring(0, 7);
-                knownMonths.add(currentMonth);
-                fetchHistoryMonths();
-                renderHistoryChips('location', 'history-location', 'location');
-                setTimeout(() => document.getElementById('msg').innerText = '', 2000);
-            } else { throw new Error(await res.text()); }
-        } catch(err) { alert(err.message); } 
-        finally { btn.disabled = false; btn.innerText = '儲存記錄'; }
+
+            const res = await apiFetch('/api/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '儲存失敗');
+
+            document.getElementById('msg').innerText = '✅ 儲存成功';
+            document.getElementById('msg').className = 'mt-4 text-center text-sm font-bold text-emerald-300';
+            document.getElementById('amount').value = '';
+            document.getElementById('location').value = '';
+            document.getElementById('moneyRemarks').value = '';
+            document.getElementById('transportSelect').selectedIndex = 0;
+            setMultiplier(1);
+
+            const currentMonth = data.month || payload.date.substring(0, 7);
+            knownMonths.add(currentMonth);
+            renderMonthButtons();
+            renderHistoryChips('location', 'history-location', 'location');
+
+            if (document.getElementById('queryMonth').value === currentMonth && Array.isArray(data.records)) {
+                renderRecordsView(currentMonth, data.records);
+            }
+            setTimeout(() => (document.getElementById('msg').innerText = ''), 2000);
+        } catch (err) {
+            if (err.message !== 'AUTH_REQUIRED') alert(err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '儲存記錄';
+        }
     });
 
     function renderCalendar(year, month, records) {
         const grid = document.querySelector('.calendar-grid');
         grid.innerHTML = '';
-        
+
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekDays.forEach(w => {
+            const hd = document.createElement('div');
+            hd.className = 'text-center text-[11px] font-bold text-slate-400 pb-1';
+            hd.textContent = w;
+            grid.appendChild(hd);
+        });
+
         const otDays = new Set();
         const moneyDays = new Set();
         const transportDays = new Set();
 
         records.forEach(r => {
-            const d = parseInt(r.date.split('-')[2]);
-            if (r.type === 'hourly') otDays.add(d);
-            else if (r.type === 'transport') transportDays.add(d);
-            else {
-                moneyDays.add(d);
-                if (r.type === 'oncall' && r.endDate) {
-                    const start = new Date(r.date);
-                    const end = new Date(r.endDate);
-                    for (let dt = start; dt <= end; dt.setDate(dt.getDate() + 1)) {
-                        if (dt.getMonth() + 1 === month) moneyDays.add(dt.getDate());
+            if (r.type !== 'hourly' && Number(r.amount || 0) === 0) return;
+
+            const start = parseLocalDate(r.date);
+            if (r.type === 'oncall' && r.endDate) {
+                const end = parseLocalDate(r.endDate);
+                for (let dt = new Date(start.getTime()); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                    if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
+                        moneyDays.add(dt.getDate());
                     }
                 }
+                return;
+            }
+
+            if (start.getFullYear() === year && start.getMonth() + 1 === month) {
+                const d = start.getDate();
+                if (r.type === 'hourly') otDays.add(d);
+                else if (r.type === 'transport') transportDays.add(d);
+                else moneyDays.add(d);
             }
         });
 
@@ -2133,11 +2492,11 @@ export const logicScript = `
         const firstDay = new Date(year, month - 1, 1).getDay();
 
         for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
-        
+
         for (let d = 1; d <= daysInMonth; d++) {
             const div = document.createElement('div');
             div.innerText = d;
-            
+
             const hasOT = otDays.has(d);
             const hasMoney = moneyDays.has(d);
             const hasTransport = transportDays.has(d);
@@ -2164,126 +2523,141 @@ export const logicScript = `
         document.getElementById('calendarView').classList.remove('hidden');
     }
 
-    async function loadRecords(forcePublic = false) {
-        const pin = document.getElementById('pin').value;
-        const monthStr = document.getElementById('queryMonth').value; 
-        
-        if (!isShareMode && !pin) return alert('請先輸入 PIN 密碼');
-        if (!isShareMode) managePinStorage();
-
+    function renderRecordsView(monthStr, data) {
         const listEl = document.getElementById('recordsList');
         const summaryEl = document.getElementById('totalSummary');
-        
+
+        currentRecords = data;
+        grandTotalMinutes = 0;
+        grandTotalMoney = 0;
+        grandTotalTransport = 0;
+
+        const [y, m] = monthStr.split('-').map(Number);
+        renderCalendar(y, m, data);
+
+        if (data.length === 0) {
+            listEl.innerHTML = '<p class="text-center text-slate-400">無記錄</p>';
+            summaryEl.classList.add('hidden');
+            document.getElementById('pdfBtn').classList.add('hidden');
+            return;
+        }
+
+        let html = '<table class="w-full text-left text-slate-200"><thead><tr class="text-white/50 border-b border-white/15"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th>';
+        if (!isShareMode) {
+            html += '<th class="text-right w-16 delete-ui">操作</th>';
+        }
+        html += '</tr></thead><tbody>';
+
+        data.forEach(r => {
+            const amount = Number(r.amount) || 0;
+            if (r.type !== 'hourly' && amount === 0) return;
+
+            let detail = '', value = '', typeLabel = '';
+
+            if (r.type === 'hourly') {
+                const mins = getMinutesDiff(r.start, r.end);
+                const mul = r.multiplier || 1;
+                const effectiveMins = mins * mul;
+                grandTotalMinutes += effectiveMins;
+
+                typeLabel = '<span class="text-indigo-300 font-bold">' + escapeHtml(r.location || 'OT') + '</span>';
+                detail = escapeHtml(r.start.replace(':', '') + ' - ' + r.end.replace(':', ''));
+                const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
+
+                value = '<span class="text-indigo-300 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
+            } else if (r.type === 'transport') {
+                grandTotalTransport += amount;
+                typeLabel = '<span class="text-amber-300 font-bold">交通費</span>';
+                detail = r.location ? '<span class="text-white/70">' + escapeHtml(r.location) + '</span>' : '-';
+                value = '<span class="text-amber-300 font-bold">$' + amount + '</span>';
+            } else if (r.type === 'oncall') {
+                grandTotalMoney += amount;
+                typeLabel = '<span class="text-emerald-300 font-bold">當更</span>';
+                const startD = r.date.split('-')[2];
+                const endD = r.endDate ? r.endDate.split('-')[2] : '';
+                detail = escapeHtml(startD + '日 - ' + endD + '日');
+                value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
+            } else {
+                grandTotalMoney += amount;
+                typeLabel = '<span class="text-emerald-300 font-bold">Call</span>';
+                detail = r.location ? '<span class="text-white/70">' + escapeHtml(r.location) + '</span>' : '-';
+                value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
+            }
+
+            const [yr, mo, dy] = r.date.split('-');
+            const formattedDate = yr + '年' + parseInt(mo, 10) + '月' + parseInt(dy, 10) + '日';
+            const safeIdAttr = escapeHtml(r.id);
+            const safeDateAttr = escapeHtml(r.date);
+
+            const actionCol = isShareMode
+                ? ''
+                : '<td class="py-2 text-right delete-ui whitespace-nowrap">' +
+                  '<button type="button" data-action="edit" data-id="' + safeIdAttr + '" class="text-sky-300 hover:text-sky-200 text-xs mr-2" title="編輯">✏️</button>' +
+                  '<button type="button" data-action="delete" data-id="' + safeIdAttr + '" data-date="' + safeDateAttr + '" class="text-red-300 hover:text-red-200 text-xs" title="刪除">🗑️</button>' +
+                  '</td>';
+
+            html += '<tr class="border-b border-white/10 last:border-0 hover:bg-white/10 transition">' +
+                '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
+                '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
+                '<td class="py-2 text-right text-xs md:text-sm font-mono text-white/70">' + detail + '</td>' +
+                '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
+                actionCol +
+                '</tr>';
+        });
+
+        html += '</tbody></table>';
+        listEl.innerHTML = html;
+
+        if (!isShareMode) {
+            listEl.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+                btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+            });
+            listEl.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+                btn.addEventListener('click', () => deleteRecord(btn.getAttribute('data-id'), btn.getAttribute('data-date')));
+            });
+        }
+
+        const totalAll = grandTotalMoney + grandTotalTransport;
+        document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
+        document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
+        document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
+        document.getElementById('sumAll').innerText = '$' + totalAll;
+
+        summaryEl.classList.remove('hidden');
+        document.getElementById('pdfBtn').classList.remove('hidden');
+
+        if (isEditMode) {
+            document.getElementById('view-export').classList.add('edit-mode');
+        }
+    }
+
+    async function loadRecords(forcePublic = false) {
+        const monthStr = document.getElementById('queryMonth').value;
+        if (!monthStr) return;
+
+        const listEl = document.getElementById('recordsList');
         listEl.innerHTML = '<p class="text-center text-slate-300/75">載入中...</p>';
-        
+
         try {
-            let url;
+            let res;
             if (isShareMode || forcePublic) {
-                url = '/api/public/get?month=' + monthStr;
+                res = await fetch('/api/public/get?month=' + encodeURIComponent(monthStr));
             } else {
-                url = '/api/get?month=' + monthStr + '&pin=' + pin;
+                res = await apiFetch('/api/get?month=' + encodeURIComponent(monthStr));
             }
-
-            const res = await fetch(url);
             const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            
-            currentRecords = data;
-            grandTotalMinutes = 0;
-            grandTotalMoney = 0;
-            grandTotalTransport = 0;
-            
-            const [y, m] = monthStr.split('-').map(Number);
-            renderCalendar(y, m, data);
+            if (!res.ok || data.error) throw new Error(data.error || '讀取失敗');
 
-            if (data.length === 0) {
-                listEl.innerHTML = '<p class="text-center text-slate-400">無記錄</p>';
-                summaryEl.classList.add('hidden');
-                document.getElementById('pdfBtn').classList.add('hidden');
-            } else {
-                let html = '<table class="w-full text-left text-slate-200"><thead><tr class="text-white/50 border-b border-white/15"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th><th class="text-right w-10 delete-ui">操作</th></tr></thead><tbody>';
-                
-                if (isShareMode) {
-                    html = '<table class="w-full text-left text-slate-200"><thead><tr class="text-white/50 border-b border-white/15"><th>日期</th><th>項目/地點</th><th class="text-right">時間/詳情</th><th class="text-right">時數/金額</th></tr></thead><tbody>';
-                }
-
-                data.forEach(r => {
-                    const amount = Number(r.amount) || 0; 
-                    if (r.type !== 'hourly' && amount === 0) return;
-
-                    let detail = '', value = '', typeLabel = '';
-                    
-                    if (r.type === 'hourly') {
-                        const mins = getMinutesDiff(r.start, r.end);
-                        const mul = r.multiplier || 1;
-                        const effectiveMins = mins * mul;
-                        grandTotalMinutes += effectiveMins;
-                        
-                        typeLabel = '<span class="text-indigo-300 font-bold">' + (r.location || 'OT') + '</span>';
-                        detail = r.start.replace(':', '') + ' - ' + r.end.replace(':', '');
-                        const mulLabel = mul > 1 ? ' (x' + mul + ')' : '';
-                        
-                        value = '<span class="text-indigo-300 font-bold">' + formatHours(effectiveMins) + ' hr' + mulLabel + '</span>';
-                    } else if (r.type === 'transport') {
-                        grandTotalTransport += amount;
-                        
-                        typeLabel = '<span class="text-amber-300 font-bold">交通費</span>';
-                        detail = r.location ? '<span class="text-white/70">' + r.location + '</span>' : '-';
-                        
-                        value = '<span class="text-amber-300 font-bold">$' + amount + '</span>';
-                    } else if (r.type === 'oncall') {
-                        grandTotalMoney += amount;
-                        
-                        typeLabel = '<span class="text-emerald-300 font-bold">當更</span>'; 
-                        const startD = r.date.split('-')[2];
-                        const endD = r.endDate ? r.endDate.split('-')[2] : '';
-                        detail = startD + '日 - ' + endD + '日'; 
-                        
-                        value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
-                    } else { 
-                        grandTotalMoney += amount;
-                        
-                        typeLabel = '<span class="text-emerald-300 font-bold">Call</span>';
-                        detail = r.location ? '<span class="text-white/70">' + r.location + '</span>' : '-';
-                        
-                        value = '<span class="text-emerald-300 font-bold">$' + amount + '</span>';
-                    }
-
-                    const [yr, mo, dy] = r.date.split('-');
-                    const formattedDate = yr + '年' + parseInt(mo) + '月' + parseInt(dy) + '日';
-
-                    const deleteBtn = isShareMode ? '' : '<td class="py-2 text-right delete-ui"><button onclick="deleteRecord(' + r.id + ', \\'' + r.date + '\\')" class="text-red-300 hover:text-red-200 text-xs">🗑️</button></td>';
-
-                    html += '<tr class="border-b border-white/10 last:border-0 hover:bg-white/10 transition">' +
-                        '<td class="py-2 text-xs md:text-sm">' + formattedDate + '</td>' +
-                        '<td class="py-2 text-xs md:text-sm">' + typeLabel + '</td>' +
-                        '<td class="py-2 text-right text-xs md:text-sm font-mono text-white/70">' + detail + '</td>' +
-                        '<td class="py-2 text-right text-xs md:text-sm font-bold">' + value + '</td>' +
-                        deleteBtn +
-                        '</tr>';
-                });
-                
-                html += '</tbody></table>';
-                listEl.innerHTML = html;
-
-                const totalAll = grandTotalMoney + grandTotalTransport;
-                document.getElementById('sumHours').innerText = formatHours(grandTotalMinutes);
-                document.getElementById('sumMoney').innerText = '$' + grandTotalMoney;
-                document.getElementById('sumTransport').innerText = '$' + grandTotalTransport;
-                document.getElementById('sumAll').innerText = '$' + totalAll; 
-                
-                summaryEl.classList.remove('hidden');
-                document.getElementById('pdfBtn').classList.remove('hidden');
-                
-                if (isEditMode) {
-                    document.getElementById('view-export').classList.add('edit-mode');
-                }
+            renderRecordsView(monthStr, data);
+        } catch (err) {
+            if (err.message !== 'AUTH_REQUIRED') {
+                listEl.innerHTML = '<p class="text-center text-red-300">讀取失敗</p>';
+                alert(err.message);
             }
-        } catch (err) { 
-            alert(err.message); 
         }
     }
 `;
+
 ````
 
 ## File: src/ui/index.js
