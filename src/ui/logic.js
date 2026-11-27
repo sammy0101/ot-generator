@@ -402,11 +402,23 @@ export const logicScript = `
                 loadRecords(true); 
             }
         } else {
+            const pinEl = document.getElementById('pin');
+            const rememberEl = document.getElementById('rememberPin');
             const savedPin = localStorage.getItem('ot_pin');
-            if (savedPin) {
-                document.getElementById('pin').value = savedPin;
-                document.getElementById('rememberPin').checked = true;
+            if (savedPin && pinEl && rememberEl) {
+                pinEl.value = savedPin;
+                rememberEl.checked = true;
                 fetchHistoryMonths();
+            }
+            if (rememberEl) {
+                rememberEl.addEventListener('change', managePinStorage);
+            }
+            if (pinEl) {
+                pinEl.addEventListener('input', function() {
+                    if (rememberEl && rememberEl.checked && this.value) {
+                        localStorage.setItem('ot_pin', this.value);
+                    }
+                });
             }
             renderHistoryChips('location', 'history-location', 'location');
         }
@@ -622,7 +634,7 @@ export const logicScript = `
         }
     }
 
-    // === 月份按鈕渲染（由 CSS .month-btn 與 .month-btn.sent 控制 Liquid Glass 視覺） ===
+    // === 月份按鈕渲染 ===
     function renderMonthButtons() {
         const area = document.getElementById('historyMonthsArea');
         const badges = document.getElementById('historyBadges');
