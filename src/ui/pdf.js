@@ -1,46 +1,92 @@
 export const pdfScript = `
+    function fitPdfText(text, font, size, maxWidth) {
+        const raw = String(text === undefined || text === null ? '' : text);
+        if (!raw) return '';
+        if (font.widthOfTextAtSize(raw, size) <= maxWidth) return raw;
+        const ellipsis = '...';
+        const ellipsisWidth = font.widthOfTextAtSize(ellipsis, size);
+        let result = '';
+        for (let i = 0; i < raw.length; i++) {
+            const next = result + raw[i];
+            if (font.widthOfTextAtSize(next, size) + ellipsisWidth > maxWidth) {
+                break;
+            }
+            result = next;
+        }
+        return result + ellipsis;
+    }
+
+    async function loadCachedFontBytes() {
+        if (window.__CACHED_FONT_BYTES) return window.__CACHED_FONT_BYTES;
+
+        const fontUrl = '/api/font';
+        let b64String = '';
+
+        if (window.caches) {
+            try {
+                const cache = await caches.open('ot-font-cache-v1');
+                let cachedRes = await cache.match(fontUrl);
+                if (!cachedRes) {
+                    const netRes = await fetch(fontUrl);
+                    if (!netRes.ok) {
+                        const errText = await netRes.text();
+                        throw new Error('字型載入失敗: ' + errText);
+                    }
+                    await cache.put(fontUrl, netRes.clone());
+                    cachedRes = netRes;
+                }
+                b64String = await cachedRes.text();
+            } catch (cacheErr) {
+                const fallbackRes = await fetch(fontUrl);
+                if (!fallbackRes.ok) throw new Error('字型載入失敗');
+                b64String = await fallbackRes.text();
+            }
+        } else {
+            const fontRes = await fetch(fontUrl);
+            if (!fontRes.ok) {
+                const errText = await fontRes.text();
+                throw new Error('字型載入失敗: ' + errText);
+            }
+            b64String = await fontRes.text();
+        }
+
+        if (b64String.includes('<!DOC') || b64String.includes('<html')) {
+            if (window.caches) {
+                try {
+                    const cache = await caches.open('ot-font-cache-v1');
+                    await cache.delete(fontUrl);
+                } catch (e) {}
+            }
+            throw new Error('下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。');
+        }
+
+        const binaryString = window.atob(b64String);
+        const len = binaryString.length;
+        const fontBytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            fontBytes[i] = binaryString.charCodeAt(i);
+        }
+        window.__CACHED_FONT_BYTES = fontBytes;
+        return fontBytes;
+    }
+
     async function generatePDF() {
-        if(currentRecords.length === 0) return;
+        if (currentRecords.length === 0) return;
         const btn = document.getElementById('pdfBtn');
         const originalText = btn.innerText;
-        
-        btn.innerText = "載入字型與生成中... (請稍候)"; 
+
+        btn.innerText = '載入字型與生成中... (請稍候)';
         btn.disabled = true;
-        
+
         try {
             const { PDFDocument, rgb, StandardFonts } = PDFLib;
             const pdfDoc = await PDFDocument.create();
             pdfDoc.registerFontkit(fontkit);
-            
+
             const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            
-            // === 獲取純文字字型並還原（含記憶體快取） ===
-            let fontBytes = window.__CACHED_FONT_BYTES;
-            if (!fontBytes) {
-                const fontUrl = '/api/font'; 
-                const fontRes = await fetch(fontUrl);
-                if (!fontRes.ok) {
-                    const errText = await fontRes.text();
-                    throw new Error('字型載入失敗: ' + errText);
-                }
-                
-                const b64String = await fontRes.text();
-                if (b64String.includes("<!DOC") || b64String.includes("<html")) {
-                    throw new Error("下載到無效的字型檔案，請確認 GitHub Actions 是否部署成功。");
-                }
-
-                const binaryString = window.atob(b64String);
-                const len = binaryString.length;
-                fontBytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    fontBytes[i] = binaryString.charCodeAt(i);
-                }
-                window.__CACHED_FONT_BYTES = fontBytes;
-            }
-
+            const fontBytes = await loadCachedFontBytes();
             const chineseFont = await pdfDoc.embedFont(fontBytes);
-            // ============================================
 
             let page = pdfDoc.addPage([595.28, 841.89]);
             const { width, height } = page.getSize();
@@ -55,7 +101,7 @@ export const pdfScript = `
             const monthStr = document.getElementById('queryMonth').value;
             page.drawText(monthStr, { x: marginX, y: yPos, size: 20, font: helveticaBold });
             page.drawText(' OT/當更/交通 記錄表', { x: marginX + 90, y: yPos, size: 20, font: chineseFont });
-            
+
             if (window.USER_NAME) {
                 const nameText = window.USER_NAME;
                 const nameWidth = chineseFont.widthOfTextAtSize(nameText, 14);
@@ -66,24 +112,24 @@ export const pdfScript = `
 
             const col = { d: 40, item: 130, detail: 350, val: 480 };
             const fontSize = 11;
-            const drawTxt = (text, x, font, color=colorBlack) => page.drawText(text, { x, y: yPos, size: fontSize, font, color });
+            const drawTxt = (text, x, font, color = colorBlack) =>
+                page.drawText(text, { x, y: yPos, size: fontSize, font, color });
 
             const drawTableHeader = () => {
-                drawTxt('日期', col.d, chineseFont, rgb(0.5,0.5,0.5));
-                drawTxt('項目/地點', col.item, chineseFont, rgb(0.5,0.5,0.5));
-                drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5,0.5,0.5));
-                drawTxt('時數/金額', col.val, chineseFont, rgb(0.5,0.5,0.5));
-                page.drawLine({ start: { x: marginX, y: yPos-5 }, end: { x: width-marginX, y: yPos-5 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+                drawTxt('日期', col.d, chineseFont, rgb(0.5, 0.5, 0.5));
+                drawTxt('項目/地點', col.item, chineseFont, rgb(0.5, 0.5, 0.5));
+                drawTxt('時間/詳情', col.detail, chineseFont, rgb(0.5, 0.5, 0.5));
+                drawTxt('時數/金額', col.val, chineseFont, rgb(0.5, 0.5, 0.5));
+                page.drawLine({ start: { x: marginX, y: yPos - 5 }, end: { x: width - marginX, y: yPos - 5 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
                 yPos -= 25;
             };
 
             drawTableHeader();
 
             for (const r of currentRecords) {
-                const amount = Number(r.amount) || 0; 
+                const amount = Number(r.amount) || 0;
                 if (r.type !== 'hourly' && amount === 0) continue;
 
-                // 繪製列之前檢查空間，換頁時重新指派 page 並繪製表頭
                 if (yPos < 60) {
                     page = pdfDoc.addPage([595.28, 841.89]);
                     yPos = height - 60;
@@ -91,7 +137,7 @@ export const pdfScript = `
                 }
 
                 let itemStr = '', detailStr = '', valStr = '';
-                let detailFont = helvetica; 
+                let detailFont = helvetica;
                 let rowColor = colorBlack;
 
                 if (r.type === 'hourly') {
@@ -106,7 +152,7 @@ export const pdfScript = `
                 } else if (r.type === 'transport') {
                     itemStr = '交通費';
                     detailStr = r.location ? r.location : '-';
-                    detailFont = chineseFont; 
+                    detailFont = chineseFont;
                     valStr = '$' + amount;
                     rowColor = colorOrange;
                 } else if (r.type === 'oncall') {
@@ -117,7 +163,7 @@ export const pdfScript = `
                     detailFont = chineseFont;
                     valStr = '$' + amount;
                     rowColor = colorGreen;
-                } else { 
+                } else {
                     itemStr = 'Call';
                     detailStr = r.location ? r.location : '-';
                     detailFont = chineseFont;
@@ -126,48 +172,43 @@ export const pdfScript = `
                 }
 
                 drawTxt(r.date, col.d, helvetica);
-                const safeItem = itemStr.length > 20 ? itemStr.substring(0,19)+'...' : itemStr;
+                const safeItem = fitPdfText(itemStr, chineseFont, fontSize, col.detail - col.item - 12);
+                const safeDetail = fitPdfText(detailStr, detailFont, fontSize, col.val - col.detail - 12);
                 drawTxt(safeItem, col.item, chineseFont, rowColor);
-                drawTxt(detailStr, col.detail, detailFont);
+                drawTxt(safeDetail, col.detail, detailFont);
                 drawTxt(valStr, col.val, helveticaBold, rowColor);
 
-                page.drawLine({ start: { x: marginX, y: yPos-8 }, end: { x: width-marginX, y: yPos-8 }, thickness: 0.5, color: rgb(0.9,0.9,0.9) });
+                page.drawLine({ start: { x: marginX, y: yPos - 8 }, end: { x: width - marginX, y: yPos - 8 }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) });
                 yPos -= 25;
             }
 
-            // 總結區塊需要約 110pt 高度，空間不足時自動換頁
             if (yPos < 150) {
                 page = pdfDoc.addPage([595.28, 841.89]);
                 yPos = height - 60;
             }
 
             yPos -= 10;
-            page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 1 });
+            page.drawLine({ start: { x: marginX, y: yPos }, end: { x: width - marginX, y: yPos }, thickness: 1 });
             yPos -= 25;
 
-            // 1. 總當更/Call
-            drawTxt("總當更/Call: ", 350, chineseFont);
-            drawTxt("$" + grandTotalMoney, 440, helveticaBold, colorGreen);
+            drawTxt('總當更/Call: ', 350, chineseFont);
+            drawTxt('$' + grandTotalMoney, 440, helveticaBold, colorGreen);
             yPos -= 20;
 
-            // 2. 總交通
-            drawTxt("總交通: ", 350, chineseFont);
-            drawTxt("$" + grandTotalTransport, 440, helveticaBold, colorOrange);
+            drawTxt('總交通: ', 350, chineseFont);
+            drawTxt('$' + grandTotalTransport, 440, helveticaBold, colorOrange);
             yPos -= 15;
 
-            // 3. 統計小分隔線
-            page.drawLine({ start: { x: 350, y: yPos }, end: { x: width-marginX, y: yPos }, thickness: 0.5, color: rgb(0.7,0.7,0.7) });
+            page.drawLine({ start: { x: 350, y: yPos }, end: { x: width - marginX, y: yPos }, thickness: 0.5, color: rgb(0.7, 0.7, 0.7) });
             yPos -= 20;
 
-            // 4. 總計 (含交通)
-            drawTxt("總計 (含交通): ", 350, chineseFont); 
+            drawTxt('總計 (含交通): ', 350, chineseFont);
             const totalAll = grandTotalMoney + grandTotalTransport;
-            drawTxt("$" + totalAll, 440, helveticaBold, colorBlack); 
+            drawTxt('$' + totalAll, 440, helveticaBold, colorBlack);
             yPos -= 20;
 
-            // 5. 總時數
-            drawTxt("總時數: ", 350, chineseFont);
-            drawTxt(formatHours(grandTotalMinutes) + " hr", 440, helveticaBold, colorBlue);
+            drawTxt('總時數: ', 350, chineseFont);
+            drawTxt(formatHours(grandTotalMinutes) + ' hr', 440, helveticaBold, colorBlue);
 
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -182,13 +223,12 @@ export const pdfScript = `
             link.click();
             document.body.removeChild(link);
             setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-
-        } catch(err) { 
-            console.error(err); 
-            alert("生成失敗: " + err.message); 
-        } finally { 
-            btn.disabled = false; 
-            btn.innerText = originalText; 
+        } catch (err) {
+            console.error(err);
+            alert('生成失敗: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
         }
     }
 `;
