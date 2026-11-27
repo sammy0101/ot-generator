@@ -1,5 +1,5 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 10:35:06 UTC 2026
+Generated on: Fri Nov 27 10:35:48 UTC 2026
 
 ## File: src/api.js
 ````js
@@ -2957,109 +2957,55 @@ export async function authenticateRequest(request, env) {
 
 ## ✨ 主要功能
 
-*   **多種類型記錄**：
+*   **密碼登入與 30 天滑動續期**：
+    *   登入後即可使用完整新增、查詢、編輯與刪除功能，不需重複在介面輸入 PIN 碼。
+    *   採用 `HttpOnly` + HMAC-SHA256 簽章 Session Cookie；勾選「保持登入」時每次造訪或操作都會自動刷新 30 天有效期，僅於連續 30 天未登入時才需重新輸入密碼。
+*   **多種類型記錄與單筆編輯**：
     *   🕒 **時數 OT**：記錄加班日期、地點（支援常用地點歷史標籤快速帶入）與時段，支援工數倍數（`x1`、`x1.5`、`x2`、`x3`）自動換算總時數。
-    *   ⏱️ **半小時制時間輸入**：分鐘限定 `00` 與 `30`。電腦端支援鍵盤直接輸入與方向鍵調整（未輸入分鐘自動帶入 `00`）；手機端點擊時間欄位會彈出仿 iPhone 計時器的雙欄上下滑動滾輪（開啟時自動定位至目前小時）。
-    *   📅 **當更 (On-Call)**：記錄當更日期範圍與津貼。
-    *   📞 **Call**：記錄每次出勤津貼與備註。
-    *   🚕 **交通費**：記錄實報實銷的交通費用（支援下拉選單：停車場、隧道、維修、其他）。
-*   **視覺化月曆與報表**：
-    *   以顏色區分不同類型的記錄（藍色 OT、綠色 當更/Call、橙色 交通）。
-    *   支援**雙色/三色條紋**顯示，若同一天有多種類型記錄，月曆格子會自動顯示對應條紋。
-    *   網頁列表與 PDF 統一採用「日期、項目/地點、時間/詳情、時數/金額」表頭與對應色彩標記，底部依序彙整「總當更/Call」、「總交通」、「總計 (含交通)」與「總時數」。
-    *   支援月份「已提交 (`✓`)」狀態標記，方便追蹤申報進度。
-*   **PDF 報表生成**：
-    *   前端使用 `pdf-lib` 自動生成 A4 格式 PDF。
-    *   支援**中文字型**（部署時自動自 GitHub 下載 `justfont/open-huninn-font` 粉圓體並寫入 KV，由 `/api/font` 提供）。
-    *   自動計算總當更/Call、總交通、總計與總時數，檔名與抬頭自動帶入使用者名稱。
-*   **安全性與分享**：
-    *   **PIN 碼保護**：寫入與讀取資料需輸入密碼（支援「記住密碼」）。
-    *   **分享連結**：可生成唯讀連結，供他人查看或下載單月報表，無需密碼（內建剪貼簿相容複製機制）。
-*   **現代化介面與防誤觸管理**：
-    *   採用 **Liquid Glass（液態玻璃）** 風格設計，搭配響應式寬度（手機端最佳化與電腦端加寬排版）。
-    *   點擊管理模式（✏️）後點選月份會彈出 **Action Sheet 選單**（標記提交 / 刪除整月 / 取消），避免在手機上誤觸刪除。
+    *   ⏱️ **半小時制時間輸入**：分鐘限定 `00` 與 `30`。電腦端支援鍵盤直接輸入與方向鍵調整；手機端點擊時間欄位會彈出雙欄上下滑動滾輪。
+    *   📅 **當更 (On-Call)**、📞 **Call**、🚕 **交通費**。
+    *   ✏️ **單筆編輯**：於管理模式下可直接修改既有記錄的日期（含跨月移動）、時間、地點、倍數或金額，並即時同步畫面。
+*   **視覺化月曆與 PDF 報表**：
+    *   以顏色與多色條紋區分不同記錄，並修正跨時區與跨月當更計算。
+    *   前端使用 `pdf-lib` 生成 A4 PDF，支援 Cache API 本地持久快取字型與欄位寬度自動截斷保護。
+*   **唯讀分享連結**：
+    *   可生成單月唯讀連結（`?view=share&month=YYYY-MM`），供他人免密碼瀏覽與下載 PDF 報表。
 
 ## 🛠️ 技術架構
 
 *   **Runtime**: Cloudflare Workers (Serverless)
 *   **Database**: Cloudflare Workers KV (Key-Value Storage)
+*   **Auth**: Web Crypto HMAC-SHA256 `HttpOnly` Cookie Session (Sliding 30-day TTL) + Same-Origin CSRF Check
 *   **Frontend**: Vanilla JS + Tailwind CSS (由 Worker 直接回傳 HTML)
 *   **PDF Library**: `pdf-lib` + `fontkit`
 *   **CI/CD**: GitHub Actions 手動觸發部署
 
-## 🚀 部署教學
+## 🚀 部署與 Secret 設定
 
-本專案設計為使用 **GitHub Actions** 進行部署，您無需在本地安裝複雜環境。
-
-### 1. 前置準備
-1.  擁有一個 Cloudflare 帳號。
-2.  Fork 或 Clone 此儲存庫到您的 GitHub。
-
-### 2. 設定 Cloudflare
-1.  登入 Cloudflare Dashboard，進入 **Workers & Pages**。
-2.  建立一個 **KV Namespace**：
-    *   名稱隨意，例如 `OT_RECORDS`。
-    *   建立後，複製該 Namespace 的 **ID**。
-3.  獲取 **Account ID** (在 Workers 首頁右側)。
-4.  建立 **API Token**：
-    *   權限選擇「Edit Cloudflare Workers」。
-    *   **重要**：確保該 Token 有權限編輯 KV Storage。
-
-### 3. 設定 GitHub Secrets
-進入您的 GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**，新增以下 Repository secrets：
-
-| Secret 名稱 | 說明 | 範例 |
-| :--- | :--- | :--- |
-| `CLOUDFLARE_API_TOKEN` | 您的 Cloudflare API Token | `xRw...` |
-| `CLOUDFLARE_ACCOUNT_ID` | 您的 Cloudflare Account ID | `a1b2...` |
-| `OT_KV_ID` | 步驟 2 建立的 KV Namespace ID | `4f8e...` |
-| `AUTH_PIN` | 您想設定的登入密碼 (PIN) | `123456` |
-| `USER_NAME` | 您的名字 (顯示在報表抬頭與 PDF 上) | `陳大文` |
-
-### 4. 開始部署
-*   `deploy.yml` 已設定為**手動觸發**（`workflow_dispatch`），推送程式碼至 `main` 不會自動部署 Worker。
-*   請前往 GitHub Repository 上方的 **Actions** 分頁，選擇 **Deploy to Cloudflare Workers**，點擊右側 **Run workflow** 即可執行部署（部署時會一併下載最新粉圓體字型並上傳至 KV）。
+1. 於 Cloudflare 建立 KV Namespace，取得 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`OT_KV_ID`。
+2. 於 GitHub Repository Secrets 設定：
+   * `AUTH_PIN`：系統登入密碼（後端同時支援 `AUTH_PASSWORD` 或 `AUTH_PIN`）。
+   * `USER_NAME`：報表與頁首顯示的使用者名稱。
+3. 前往 GitHub **Actions** 手動執行 **Deploy to Cloudflare Workers** 完成字型上傳與部署。
 
 ## 📂 專案結構
 
 ```text
 ot-generator/
 ├── .github/workflows/
-│   ├── deploy.yml        # GitHub Actions 手動部署腳本 (上傳字型至 KV + 部署 Worker)
-│   └── combine-code.yml  # 自動將專案程式碼彙整為 combined_project_code.md
+│   ├── deploy.yml        # GitHub Actions 手動部署腳本
+│   └── combine-code.yml  # 彙整專案程式碼為 combined_project_code.md
 ├── src/
-│   ├── index.js          # 程式入口與路由 (Router)
-│   ├── api.js            # 後端邏輯 (CRUD KV 資料庫與字型讀取)
-│   └── ui/               # 前端程式碼
-│       ├── index.js      # UI 組裝與 USER_NAME 注入
-│       ├── html.js       # HTML 結構、Liquid Glass 樣式與滾輪/Action Sheet 視窗
-│       ├── logic.js      # 前端互動邏輯 (時間輸入/滾輪、月曆、管理彈窗、UI 控制)
-│       └── pdf.js        # PDF 生成邏輯 (pdf-lib)
-└── wrangler.toml         # Cloudflare 設定檔模板
+│   ├── index.js          # 路由與頁首 SSR 登入狀態檢查
+│   ├── auth.js           # 固定時間密碼比對、HMAC Cookie 簽發/驗證與 30 天滑動續期
+│   ├── api.js            # CRUD API（含輸入驗證、UUID 與即時回傳更新）
+│   └── ui/
+│       ├── index.js      # HTML 組裝與安全變數注入
+│       ├── html.js       # 登入閘門、主畫面與編輯彈窗結構
+│       ├── logic.js      # 登入狀態機、401 攔截、XSS 防護、月曆與編輯邏輯
+│       └── pdf.js        # PDF 生成與 Cache API 字型快取
+└── wrangler.toml
 ```
-
-## 📖 使用說明
-
-1.  **登入**：開啟部署後的網址，輸入您在 Secrets 設定的 `AUTH_PIN`。
-2.  **新增記錄**：
-    *   選擇類型 (OT / 當更 / Call / 交通)。
-    *   填寫日期、時間（僅限 `00` / `30` 分鐘）或金額與工數倍數。
-    *   按下「儲存記錄」。
-3.  **月結報表**：
-    *   切換到「月結報表」分頁。
-    *   系統會自動列出已有記錄的月份，點擊月份按鈕即可載入。
-    *   點擊「下載 PDF 報表」即可匯出檔案。
-4.  **管理與刪除資料**：
-    *   點擊查詢列右側的 `✏️` 按鈕進入管理模式（按鈕會變為紅色的「完成」）。
-    *   **單筆刪除**：點擊下方記錄列表右側的垃圾桶圖示 🗑️。
-    *   **月份提交狀態與整月刪除**：於管理模式下直接點擊上方任一月份按鈕，透過底部彈出的選單選擇「標記為已提交 / 取消提交狀態」或「刪除整月資料」。
-5.  **分享**：
-    *   在月結報表頁面點擊 🔗 按鈕，複製連結給他人。該連結不需要 PIN 碼即可查看或下載該月報表。
-
-## 📝 注意事項
-
-*   **資料延遲**：Cloudflare KV 具有「最終一致性」特性，刪除或新增資料後，列表更新可能會有數秒鐘的延遲，這是正常現象。
-*   **中文字型**：PDF 生成使用部署時自動從 GitHub (`justfont/open-huninn-font`) 下載並轉存至 Workers KV (`SYSTEM_FONT_B64`) 的粉圓體字型，首次生成 PDF 時瀏覽器會向 `/api/font` 載入並快取字型檔，請稍候片刻。
 
 ---
 Created with ❤️ by Cloudflare Workers
