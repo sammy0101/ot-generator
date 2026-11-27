@@ -1,147 +1,589 @@
 # Complete Project Codebase
-Generated on: Fri Nov 27 10:26:29 UTC 2026
+Generated on: Fri Nov 27 10:27:08 UTC 2026
+
+## File: .github/workflows/deploy.yml
+````yml
+name: Deploy to Cloudflare Workers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject KV ID
+        run: |
+          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
+
+      - name: Inject User Name
+        run: |
+          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
+
+      # === 1. 下載並轉換為純文字 ===
+      - name: Download and Convert Font
+        run: |
+          echo "正在查詢最新版本的字型..."
+          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
+          
+          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
+            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
+            exit 1
+          fi
+          
+          echo "找到最新字型檔案：$TTF_URL"
+          curl -L -o font.ttf "$TTF_URL"
+          
+          echo "正在轉換為 Base64 純文字以防止資料損壞..."
+          base64 -w 0 font.ttf > font_b64.txt
+
+      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
+      - name: Upload Font to KV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
+
+      # === 3. 部署 Worker ===
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          secrets: |
+            AUTH_PIN
+        env:
+          AUTH_PIN: ${{ secrets.AUTH_PIN }}
+
+````
+
+## File: .github/workflows/combine-code.yml
+````yml
+name: Generate All Codebase to MD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
+  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Combine All Files into MD
+        run: |
+          OUT_FILE="combined_project_code.md"
+          echo "# Complete Project Codebase" > "$OUT_FILE"
+          echo "Generated on: $(date)" >> "$OUT_FILE"
+          echo "" >> "$OUT_FILE"
+
+          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
+          find . -type f \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" \
+            -not -path "*/dist/*" \
+            -not -name "package-lock.json" \
+            -not -name "yarn.lock" \
+            -not -name "pnpm-lock.yaml" \
+            -not -name "$OUT_FILE" \
+            -not -name "*.png" \
+            -not -name "*.jpg" \
+            -not -name "*.jpeg" \
+            -not -name "*.gif" \
+            -not -name "*.ico" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" | while read -r file; do
+              
+              # 取得相對路徑與副檔名
+              rel_path="${file#./}"
+              ext="${file##*.}"
+              
+              # 如果無副檔名，清除變數避免格式混亂
+              if [ "$ext" = "$rel_path" ]; then
+                ext=""
+              fi
+              
+              # 寫入檔案標題
+              echo "## File: $rel_path" >> "$OUT_FILE"
+              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
+              echo "\`\`\`\`$ext" >> "$OUT_FILE"
+              cat "$file" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+              echo "\`\`\`\`" >> "$OUT_FILE"
+              echo "" >> "$OUT_FILE"
+          done
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add combined_project_code.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes in codebase."
+          else
+            git commit -m "docs: auto-generate complete codebase [skip ci]"
+            git push origin main
+          fi
+
+````
+
+## File: wrangler.toml
+````toml
+name = "ot-generator"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+# KV 設定
+[[kv_namespaces]]
+binding = "OT_RECORDS"
+id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
+
+# === 修改重點：加入 vars 區塊 ===
+[vars]
+USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
+
+````
 
 ## File: src/api.js
 ````js
-export async function handleAdd(request, env) {
+import {
+    getAuthSecret,
+    timingSafeVerifyPassword,
+    createSessionToken,
+    buildSessionCookie,
+    buildClearSessionCookie,
+    authenticateRequest,
+    isSameOriginPost,
+} from './auth.js';
+
+const ALLOWED_TYPES = new Set(['hourly', 'oncall', 'percall', 'transport']);
+
+function jsonResponse(data, status = 200, extraHeaders = {}) {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+            ...extraHeaders,
+        },
+    });
+}
+
+function isValidDateStr(str) {
+    if (typeof str !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+    const [y, m, d] = str.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+function isValidMonthStr(str) {
+    if (typeof str !== 'string' || !/^\d{4}-\d{2}$/.test(str)) return false;
+    const m = Number(str.slice(5, 7));
+    return m >= 1 && m <= 12;
+}
+
+function isValidTimeStr(str) {
+    return typeof str === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(str);
+}
+
+function sortRecords(records) {
+    return records.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.start || '').localeCompare(b.start || '');
+    });
+}
+
+function validateAndBuildRecord(data, existingId = null) {
+    const type = data.type || 'hourly';
+    if (!ALLOWED_TYPES.has(type)) {
+        return { error: '無效的記錄類型' };
+    }
+    if (!isValidDateStr(data.date)) {
+        return { error: '無效的日期格式 (應為 YYYY-MM-DD)' };
+    }
+
+    const location = typeof data.location === 'string' ? data.location.trim().slice(0, 100) : '';
+
+    if (type === 'hourly') {
+        if (!isValidTimeStr(data.start) || !isValidTimeStr(data.end)) {
+            return { error: '無效的時間格式 (應為 HH:MM)' };
+        }
+        const multiplier = data.multiplier !== undefined && data.multiplier !== '' ? Number(data.multiplier) : 1;
+        if (!Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 10) {
+            return { error: '無效的工數倍數' };
+        }
+        return {
+            record: {
+                id: existingId || crypto.randomUUID(),
+                type,
+                date: data.date,
+                location,
+                start: data.start,
+                end: data.end,
+                multiplier,
+                amount: 0,
+                timestamp: new Date().toISOString(),
+            },
+        };
+    }
+
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+        return { error: '無效的金額數值' };
+    }
+
+    let endDate = '';
+    if (type === 'oncall') {
+        if (!isValidDateStr(data.endDate)) {
+            return { error: '無效的結束日期格式' };
+        }
+        if (data.endDate < data.date) {
+            return { error: '結束日期不可早於開始日期' };
+        }
+        endDate = data.endDate;
+    }
+
+    return {
+        record: {
+            id: existingId || crypto.randomUUID(),
+            type,
+            date: data.date,
+            endDate: type === 'oncall' ? endDate : undefined,
+            location: type === 'oncall' ? '' : location,
+            multiplier: 1,
+            amount: Math.round(amount),
+            timestamp: new Date().toISOString(),
+        },
+    };
+}
+
+async function requireAuth(request, env) {
+    if (request.method === 'POST' && !isSameOriginPost(request)) {
+        return { ok: false, response: jsonResponse({ error: '跨來源請求已被拒絕' }, 403) };
+    }
+    const auth = await authenticateRequest(request, env);
+    if (!auth.authenticated) {
+        return { ok: false, response: jsonResponse({ error: '請先登入' }, 401) };
+    }
+    return {
+        ok: true,
+        cookieHeaders: auth.refreshCookie ? { 'Set-Cookie': auth.refreshCookie } : {},
+    };
+}
+
+export async function handleLogin(request, env) {
+    if (!isSameOriginPost(request)) {
+        return jsonResponse({ error: '跨來源請求已被拒絕' }, 403);
+    }
+    const secret = getAuthSecret(env);
+    if (!secret) {
+        return jsonResponse({ error: '伺服器尚未設定登入密碼' }, 500);
+    }
+
     try {
         const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        const password = typeof data.password === 'string' ? data.password : '';
+        const remember = Boolean(data.remember);
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) records =[];
+        const isValid = await timingSafeVerifyPassword(password, secret);
+        if (!isValid) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            return jsonResponse({ error: '密碼錯誤' }, 401);
+        }
 
-        records.push({
-            id: Date.now(),
-            type: data.type || 'hourly',
-            date: data.date,
-            endDate: data.endDate,
-            location: data.location,
-            start: data.start,
-            end: data.end,
-            multiplier: data.multiplier ? parseFloat(data.multiplier) : 1,
-            amount: data.amount ? parseInt(data.amount) : 0,
-            timestamp: new Date().toISOString()
-        });
+        const token = await createSessionToken(secret, remember);
+        const cookie = buildSessionCookie(request, token, remember);
+        return jsonResponse(
+            { success: true },
+            200,
+            { 'Set-Cookie': cookie }
+        );
+    } catch {
+        return jsonResponse({ error: '無效的請求格式' }, 400);
+    }
+}
 
-        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+export async function handleLogout(request) {
+    if (!isSameOriginPost(request)) {
+        return jsonResponse({ error: '跨來源請求已被拒絕' }, 403);
+    }
+    return jsonResponse(
+        { success: true },
+        200,
+        { 'Set-Cookie': buildClearSessionCookie(request) }
+    );
+}
+
+export async function handleAdd(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
+    try {
+        const data = await request.json();
+        const validated = validateAndBuildRecord(data);
+        if (validated.error) {
+            return jsonResponse({ error: validated.error }, 400, auth.cookieHeaders);
+        }
+
+        const month = validated.record.date.substring(0, 7);
+        const monthKey = `OT_${month}`;
+        const records = (await env.OT_RECORDS.get(monthKey, { type: 'json' })) || [];
+        records.push(validated.record);
+        sortRecords(records);
+
         await env.OT_RECORDS.put(monthKey, JSON.stringify(records));
-
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+        return jsonResponse({ success: true, month, records }, 200, auth.cookieHeaders);
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        return jsonResponse({ error: e.message }, 500, auth.cookieHeaders);
+    }
+}
+
+export async function handleUpdate(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
+    try {
+        const data = await request.json();
+        if (data.id === undefined || data.id === null || data.id === '') {
+            return jsonResponse({ error: '缺少記錄 ID' }, 400, auth.cookieHeaders);
+        }
+        const originalDate = isValidDateStr(data.originalDate) ? data.originalDate : data.date;
+        if (!isValidDateStr(originalDate)) {
+            return jsonResponse({ error: '無效的原始日期' }, 400, auth.cookieHeaders);
+        }
+
+        const validated = validateAndBuildRecord(data, data.id);
+        if (validated.error) {
+            return jsonResponse({ error: validated.error }, 400, auth.cookieHeaders);
+        }
+
+        const origMonth = originalDate.substring(0, 7);
+        const newMonth = validated.record.date.substring(0, 7);
+        const origKey = `OT_${origMonth}`;
+        const newKey = `OT_${newMonth}`;
+
+        const origRecords = (await env.OT_RECORDS.get(origKey, { type: 'json' })) || [];
+        const targetIdx = origRecords.findIndex((r) => String(r.id) === String(data.id));
+        if (targetIdx === -1) {
+            return jsonResponse({ error: '找不到該筆記錄' }, 404, auth.cookieHeaders);
+        }
+
+        if (origKey === newKey) {
+            origRecords[targetIdx] = validated.record;
+            sortRecords(origRecords);
+            await env.OT_RECORDS.put(origKey, JSON.stringify(origRecords));
+            return jsonResponse(
+                { success: true, month: newMonth, movedFrom: null, records: origRecords },
+                200,
+                auth.cookieHeaders
+            );
+        }
+
+        const updatedOrig = origRecords.filter((r) => String(r.id) !== String(data.id));
+        const destRecords = (await env.OT_RECORDS.get(newKey, { type: 'json' })) || [];
+        destRecords.push(validated.record);
+        sortRecords(destRecords);
+
+        await Promise.all([
+            updatedOrig.length > 0
+                ? env.OT_RECORDS.put(origKey, JSON.stringify(updatedOrig))
+                : env.OT_RECORDS.delete(origKey),
+            env.OT_RECORDS.put(newKey, JSON.stringify(destRecords)),
+        ]);
+
+        return jsonResponse(
+            { success: true, month: newMonth, movedFrom: origMonth, records: destRecords },
+            200,
+            auth.cookieHeaders
+        );
+    } catch (e) {
+        return jsonResponse({ error: e.message }, 500, auth.cookieHeaders);
     }
 }
 
 export async function handleDelete(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
     try {
         const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        if (data.id === undefined || data.id === null || data.id === '' || !isValidDateStr(data.date)) {
+            return jsonResponse({ error: '無效的刪除參數' }, 400, auth.cookieHeaders);
+        }
 
-        const monthKey = `OT_${data.date.substring(0, 7)}`;
-        let records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
-        if (!records) return new Response(JSON.stringify({ success: false }), { status: 404 });
+        const month = data.date.substring(0, 7);
+        const monthKey = `OT_${month}`;
+        const records = await env.OT_RECORDS.get(monthKey, { type: 'json' });
+        if (!records) {
+            return jsonResponse({ success: false, error: '找不到資料' }, 404, auth.cookieHeaders);
+        }
 
-        const newRecords = records.filter(r => r.id !== data.id);
-        await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+        const newRecords = records.filter((r) => String(r.id) !== String(data.id));
+        if (newRecords.length === records.length) {
+            return jsonResponse({ success: false, error: '找不到該筆記錄' }, 404, auth.cookieHeaders);
+        }
 
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+        if (newRecords.length === 0) {
+            await env.OT_RECORDS.delete(monthKey);
+        } else {
+            await env.OT_RECORDS.put(monthKey, JSON.stringify(newRecords));
+        }
+
+        return jsonResponse({ success: true, month, records: newRecords }, 200, auth.cookieHeaders);
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        return jsonResponse({ error: e.message }, 500, auth.cookieHeaders);
     }
 }
 
 export async function handleDeleteMonth(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
     try {
         const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
-        const monthKey = `OT_${data.month}`;
-        await env.OT_RECORDS.delete(monthKey);
-        
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
-            await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
+        if (!isValidMonthStr(data.month)) {
+            return jsonResponse({ error: '無效的月份格式' }, 400, auth.cookieHeaders);
         }
 
-        return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+        const monthKey = `OT_${data.month}`;
+        await env.OT_RECORDS.delete(monthKey);
+
+        let sentList = (await env.OT_RECORDS.get('OT_META_SENT', { type: 'json' })) || [];
+        if (sentList.includes(data.month)) {
+            sentList = sentList.filter((m) => m !== data.month);
+            await env.OT_RECORDS.put('OT_META_SENT', JSON.stringify(sentList));
+        }
+
+        return jsonResponse({ success: true }, 200, auth.cookieHeaders);
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        return jsonResponse({ error: e.message }, 500, auth.cookieHeaders);
     }
 }
 
 export async function handleToggleSent(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
     try {
         const data = await request.json();
-        if (data.pin !== env.AUTH_PIN) return new Response('密碼錯誤', { status: 401 });
+        if (!isValidMonthStr(data.month)) {
+            return jsonResponse({ error: '無效的月份格式' }, 400, auth.cookieHeaders);
+        }
 
-        let sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
-        
+        let sentList = (await env.OT_RECORDS.get('OT_META_SENT', { type: 'json' })) || [];
         if (sentList.includes(data.month)) {
-            sentList = sentList.filter(m => m !== data.month);
+            sentList = sentList.filter((m) => m !== data.month);
         } else {
             sentList.push(data.month);
         }
-        
-        await env.OT_RECORDS.put("OT_META_SENT", JSON.stringify(sentList));
 
-        return new Response(JSON.stringify({ success: true, list: sentList }), { headers: { 'Content-Type': 'application/json' } });
+        await env.OT_RECORDS.put('OT_META_SENT', JSON.stringify(sentList));
+        return jsonResponse({ success: true, list: sentList }, 200, auth.cookieHeaders);
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        return jsonResponse({ error: e.message }, 500, auth.cookieHeaders);
     }
 }
 
 export async function handleGet(request, env) {
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
+
     const url = new URL(request.url);
     const month = url.searchParams.get('month');
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
+    if (!isValidMonthStr(month)) {
+        return jsonResponse({ error: '無效的月份格式' }, 400, auth.cookieHeaders);
+    }
+
     const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+    const records = (await env.OT_RECORDS.get(key, { type: 'json' })) || [];
+    return jsonResponse(records, 200, auth.cookieHeaders);
 }
 
 export async function handlePublicGet(request, env) {
     const url = new URL(request.url);
     const month = url.searchParams.get('month');
+    if (!isValidMonthStr(month)) {
+        return jsonResponse({ error: '無效的月份格式' }, 400);
+    }
     const key = `OT_${month}`;
-    const records = await env.OT_RECORDS.get(key, { type: 'json' }) ||[];
-    return new Response(JSON.stringify(records), { headers: { 'Content-Type': 'application/json' } });
+    const records = (await env.OT_RECORDS.get(key, { type: 'json' })) || [];
+    return jsonResponse(records, 200);
 }
 
 export async function handleListMonths(request, env) {
-    const url = new URL(request.url);
-    const pin = url.searchParams.get('pin');
-    if (pin !== env.AUTH_PIN) return new Response(JSON.stringify({ error: '密碼錯誤' }), { status: 401 });
-    
-    const list = await env.OT_RECORDS.list({ prefix: "OT_" });
-    const months = list.keys
-        .map(k => k.name.replace('OT_', ''))
-        .filter(m => m.match(/^\d{4}-\d{2}$/)); 
-    
-    months.sort().reverse();
-    const sentList = await env.OT_RECORDS.get("OT_META_SENT", { type: 'json' }) ||[];
+    const auth = await requireAuth(request, env);
+    if (!auth.ok) return auth.response;
 
-    return new Response(JSON.stringify({ months, sentList }), { headers: { 'Content-Type': 'application/json' } });
+    const list = await env.OT_RECORDS.list({ prefix: 'OT_' });
+    const months = list.keys
+        .map((k) => k.name.replace('OT_', ''))
+        .filter((m) => /^\d{4}-\d{2}$/.test(m));
+
+    months.sort().reverse();
+    const sentList = (await env.OT_RECORDS.get('OT_META_SENT', { type: 'json' })) || [];
+
+    return jsonResponse({ months, sentList }, 200, auth.cookieHeaders);
 }
 
-// === 從 KV 讀取 Base64 純文字字型 ===
+// === 從 KV 讀取 Base64 純文字字型 (供已登入與唯讀分享 PDF 下載共用) ===
 export async function handleGetFont(request, env) {
     try {
         const b64 = await env.OT_RECORDS.get('SYSTEM_FONT_B64');
-        if (!b64) return new Response("Font not found in KV", { status: 404 });
-        
+        if (!b64) return new Response('Font not found in KV', { status: 404 });
+
         return new Response(b64, {
             headers: {
-                "Content-Type": "text/plain",
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Access-Control-Allow-Origin": "*"
-            }
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'public, max-age=31536000, immutable',
+                'Access-Control-Allow-Origin': '*',
+            },
         });
     } catch (e) {
         return new Response(e.message, { status: 500 });
     }
+}
+
+````
+
+## File: src/ui/index.js
+````js
+import { htmlContent } from './html.js';
+import { logicScript } from './logic.js';
+import { pdfScript } from './pdf.js';
+
+// 接收 userName 參數
+export function getHtml(userName = '') {
+    // 防止 undefined 或 null 變成字串 "undefined"
+    const safeName = userName || '';
+    
+    return `
+        ${htmlContent}
+        <script>
+            // === 關鍵：將後端的名字注入到前端變數 ===
+            window.USER_NAME = "${safeName}";
+            // ===================================
+            
+            ${logicScript}
+            ${pdfScript}
+        </script>
+        </body>
+        </html>
+    `;
 }
 
 ````
@@ -1932,34 +2374,6 @@ export const logicScript = `
 `;
 ````
 
-## File: src/ui/index.js
-````js
-import { htmlContent } from './html.js';
-import { logicScript } from './logic.js';
-import { pdfScript } from './pdf.js';
-
-// 接收 userName 參數
-export function getHtml(userName = '') {
-    // 防止 undefined 或 null 變成字串 "undefined"
-    const safeName = userName || '';
-    
-    return `
-        ${htmlContent}
-        <script>
-            // === 關鍵：將後端的名字注入到前端變數 ===
-            window.USER_NAME = "${safeName}";
-            // ===================================
-            
-            ${logicScript}
-            ${pdfScript}
-        </script>
-        </body>
-        </html>
-    `;
-}
-
-````
-
 ## File: src/index.js
 ````js
 import { handleAdd, handleGet, handleListMonths, handleDelete, handleDeleteMonth, handlePublicGet, handleToggleSent, handleGetFont } from './api.js';
@@ -2274,165 +2688,6 @@ ot-generator/
 
 ---
 Created with ❤️ by Cloudflare Workers
-
-````
-
-## File: .github/workflows/combine-code.yml
-````yml
-name: Generate All Codebase to MD
-
-on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'combined_project_code.md' # 避免此檔案自身更新引發無限循環
-  workflow_dispatch: # 支援在 GitHub 網頁上手動觸發執行
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Combine All Files into MD
-        run: |
-          OUT_FILE="combined_project_code.md"
-          echo "# Complete Project Codebase" > "$OUT_FILE"
-          echo "Generated on: $(date)" >> "$OUT_FILE"
-          echo "" >> "$OUT_FILE"
-
-          # 遍歷專案內的所有檔案，排除依賴、Git 歷史、打包產物及二進位檔案
-          find . -type f \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.git/*" \
-            -not -path "*/dist/*" \
-            -not -name "package-lock.json" \
-            -not -name "yarn.lock" \
-            -not -name "pnpm-lock.yaml" \
-            -not -name "$OUT_FILE" \
-            -not -name "*.png" \
-            -not -name "*.jpg" \
-            -not -name "*.jpeg" \
-            -not -name "*.gif" \
-            -not -name "*.ico" \
-            -not -name "*.woff*" \
-            -not -name "*.ttf" | while read -r file; do
-              
-              # 取得相對路徑與副檔名
-              rel_path="${file#./}"
-              ext="${file##*.}"
-              
-              # 如果無副檔名，清除變數避免格式混亂
-              if [ "$ext" = "$rel_path" ]; then
-                ext=""
-              fi
-              
-              # 寫入檔案標題
-              echo "## File: $rel_path" >> "$OUT_FILE"
-              # 使用四個反單引號（````）包裹，防止內部程式碼的三個反單引號造成排版衝突
-              echo "\`\`\`\`$ext" >> "$OUT_FILE"
-              cat "$file" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-              echo "\`\`\`\`" >> "$OUT_FILE"
-              echo "" >> "$OUT_FILE"
-          done
-
-      - name: Commit and Push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add combined_project_code.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes in codebase."
-          else
-            git commit -m "docs: auto-generate complete codebase [skip ci]"
-            git push origin main
-          fi
-
-````
-
-## File: .github/workflows/deploy.yml
-````yml
-name: Deploy to Cloudflare Workers
-
-on:
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Inject KV ID
-        run: |
-          sed -i 's/REPLACE_ME_KV_ID/${{ secrets.OT_KV_ID }}/g' wrangler.toml
-
-      - name: Inject User Name
-        run: |
-          sed -i "s/REPLACE_ME_NAME/${{ secrets.USER_NAME }}/g" wrangler.toml
-
-      # === 1. 下載並轉換為純文字 ===
-      - name: Download and Convert Font
-        run: |
-          echo "正在查詢最新版本的字型..."
-          TTF_URL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/justfont/open-huninn-font/releases/latest | jq -r '.assets[] | select(.name | endswith(".ttf")) | .browser_download_url' | head -n 1)
-          
-          if [ -z "$TTF_URL" ] || [ "$TTF_URL" == "null" ]; then
-            echo "錯誤：在最新版本中找不到 .ttf 檔案！"
-            exit 1
-          fi
-          
-          echo "找到最新字型檔案：$TTF_URL"
-          curl -L -o font.ttf "$TTF_URL"
-          
-          echo "正在轉換為 Base64 純文字以防止資料損壞..."
-          base64 -w 0 font.ttf > font_b64.txt
-
-      # === 2. 上傳至 KV (修正為 v4 語法：kv key put) ===
-      - name: Upload Font to KV
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: kv key put --namespace-id=${{ secrets.OT_KV_ID }} "SYSTEM_FONT_B64" --path font_b64.txt
-
-      # === 3. 部署 Worker ===
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          secrets: |
-            AUTH_PIN
-        env:
-          AUTH_PIN: ${{ secrets.AUTH_PIN }}
-
-````
-
-## File: wrangler.toml
-````toml
-name = "ot-generator"
-main = "src/index.js"
-compatibility_date = "2023-12-01"
-
-# KV 設定
-[[kv_namespaces]]
-binding = "OT_RECORDS"
-id = "REPLACE_ME_KV_ID"  # <--- 這裡維持佔位符
-
-# === 修改重點：加入 vars 區塊 ===
-[vars]
-USER_NAME = "REPLACE_ME_NAME"  # <--- 這裡放名字佔位符
 
 ````
 
