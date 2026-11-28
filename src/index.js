@@ -32,6 +32,8 @@ export default {
 
         const userName = env.USER_NAME && env.USER_NAME !== 'REPLACE_ME_NAME' ? env.USER_NAME : '';
         const isShareMode = url.searchParams.get('view') === 'share';
+        const rawMonth = url.searchParams.get('month') || '';
+        const shareMonth = isShareMode && /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : '';
 
         let initialAuth = false;
         const headers = { 'content-type': 'text/html;charset=UTF-8' };
@@ -44,6 +46,14 @@ export default {
             }
         }
 
-        return new Response(getHtml(userName, initialAuth), { headers });
+        return new Response(
+            getHtml({
+                userName,
+                isAuthenticated: initialAuth,
+                shareMonth,
+                origin: url.origin,
+            }),
+            { headers }
+        );
     },
 };
